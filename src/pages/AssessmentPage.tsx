@@ -66,8 +66,8 @@ export default function AssessmentPage() {
     const val = answers[question.id];
     if (!val) return false;
     
-    // Basic validation based on type
-    if (question.type === 'open' || question.type === 'narrative') return val.length > 0;
+    if (question.type === 'open') return typeof val === 'string' ? val.length > 0 : val?.text?.length > 0;
+    if (question.type === 'narrative') return typeof val === 'string' ? val.length > 0 : val?.text?.length > 0;
     if (question.type === 'mixed_scale') return val.value !== undefined;
     if (question.type === 'mixed_multi') return val.selected?.length > 0;
     if (question.type === 'mixed_conditional') return val.choice !== undefined;

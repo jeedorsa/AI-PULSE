@@ -7,7 +7,7 @@ import { useAssessmentStore } from '../store/useAssessmentStore';
 export default function CheckpointPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { nextSection, userRole } = useAssessmentStore();
+  const { userRole } = useAssessmentStore();
   
   const sectionId = id || 'A';
 
@@ -43,7 +43,8 @@ export default function CheckpointPage() {
   const currentContent = contentMap[sectionId] || contentMap['A'];
 
   const handleContinue = () => {
-    nextSection();
+    // nextQuestion() ya fue llamado en AssessmentPage antes de navegar aquí
+    // Solo navegamos de vuelta al assessment
     navigate('/assessment');
   };
 
