@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { questions } from '../data/questions';
+import { gradeAnswer } from '../lib/geminiClient';
 
 interface SectionScore {
   avg: number;
@@ -28,11 +29,14 @@ interface AssessmentState {
   aiqResult: AIQResult | null;
   startTime: number | null;
   isEnterprise: boolean;
-  
+  aiScores: Record<string, number>;   // scores de Gemini por questionId
+  gradingStatus: 'idle' | 'loading' | 'done' | 'error';
+
   setRole: (role: 'csuite' | 'manager' | 'colaborador' | 'independiente') => void;
   setEnterprise: (isEnterprise: boolean) => void;
   answerQuestion: (questionId: string, value: any) => void;
   nextQuestion: () => void;
+  gradeWithAI: () => Promise<void>;   // llama a Gemini para preguntas abiertas
   calculateAIQ: () => AIQResult;
   reset: () => void;
 }
@@ -55,6 +59,8 @@ export const useAssessmentStore = create<AssessmentState>()(
       aiqResult: null,
       startTime: null,
       isEnterprise: false,
+      aiScores: {},
+      gradingStatus: 'idle',
 
       setRole: (role) => set({ userRole: role, startTime: Date.now() }),
       setEnterprise: (isEnterprise) => set({ isEnterprise }),
@@ -78,10 +84,61 @@ export const useAssessmentStore = create<AssessmentState>()(
         });
       },
 
-      calculateAIQ: () => {
+      // ── Califica todas las preguntas abiertas con Gemini en paralelo ──
+      gradeWithAI: async () => {
+        set({ gradingStatus: 'loading' });
         const { answers } = get();
+
+        // Solo preguntas tipo 'open' o 'narrative' que tengan scoringSignals
+        const openQuestions = questions.filter(
+          q => (q.type === 'open' || q.type === 'narrative') && (q as any).scoringSignals
+        );
+
+        try {
+          const results = await Promise.allSettled(
+            openQuestions.map(async (q) => {
+              const answer = answers[q.id];
+              if (!answer) return { id: q.id, score: 1 };
+
+              const answerText = typeof answer === 'string' ? answer : answer.text || '';
+              if (answerText.trim().length < 15) return { id: q.id, score: 1 };
+
+              const graded = await gradeAnswer({
+                questionId: q.id,
+                questionText: q.text || q.scaleText || '',
+                scoringSignals: (q as any).scoringSignals,
+                answer: answerText,
+                concept: (q as any).concept,
+              });
+
+              return { id: q.id, score: graded.score };
+            })
+          );
+
+          const newAiScores: Record<string, number> = {};
+          results.forEach((r, i) => {
+            if (r.status === 'fulfilled') {
+              newAiScores[r.value.id] = r.value.score;
+            } else {
+              // Si falla una, poner score neutral
+              newAiScores[openQuestions[i].id] = 2;
+            }
+          });
+
+          set({ aiScores: newAiScores, gradingStatus: 'done' });
+        } catch (err) {
+          console.error('gradeWithAI error:', err);
+          set({ gradingStatus: 'error' });
+        }
+      },
+
+      calculateAIQ: () => {
+        const { answers, aiScores } = get();
         
         const getScore = (id: string) => {
+          // 1. Prioridad: score de Gemini si existe
+          if (aiScores[id] !== undefined) return aiScores[id];
+
           const ans = answers[id];
           if (!ans) return 0;
           
@@ -209,7 +266,9 @@ export const useAssessmentStore = create<AssessmentState>()(
         currentSection: 'A',
         aiqResult: null,
         startTime: null,
-        isEnterprise: false
+        isEnterprise: false,
+        aiScores: {},
+        gradingStatus: 'idle',
       })
     }),
     {
@@ -221,7 +280,9 @@ export const useAssessmentStore = create<AssessmentState>()(
         currentQuestion: state.currentQuestion,
         currentSection: state.currentSection,
         aiqResult: state.aiqResult,
-        isEnterprise: state.isEnterprise
+        isEnterprise: state.isEnterprise,
+        aiScores: state.aiScores,
+        gradingStatus: state.gradingStatus,
       }),
     }
   )
