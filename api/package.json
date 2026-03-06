@@ -1,9 +1,7 @@
 {
   "name": "ai-pulse-api",
   "version": "1.0.0",
-  "description": "Azure Functions API for AI-Pulse — Gemini proxy",
+  "description": "Azure Functions API for AI-Pulse",
   "main": "index.js",
-  "dependencies": {
-    "@google/genai": "^1.29.0"
-  }
+  "dependencies": {}
 }
