@@ -93,7 +93,7 @@ export default function CheckpointPage() {
 
         {/* Progress Segments */}
         <div 
-          className="flex gap-[3px] mb-10 animate-[fadeIn_600ms_ease-out_400ms_forwards] opacity-0"
+          className="flex gap-[3px] mb-10"
         >
           {['A', 'B', 'C', 'D'].map((seg) => {
             const isCompleted = seg <= sectionId;
@@ -124,7 +124,7 @@ export default function CheckpointPage() {
 
         {/* CTA */}
         <div 
-          className="mt-6 animate-[fadeIn_600ms_ease-out_800ms_forwards] opacity-0 w-full md:w-auto"
+          className="mt-6 w-full md:w-auto"
         >
           <Button variant="primary" onClick={handleContinue} className="w-full md:w-auto min-h-[48px]">
             Continuar →
