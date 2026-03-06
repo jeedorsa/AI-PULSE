@@ -5,13 +5,13 @@ import { useAssessmentStore } from '../store/useAssessmentStore';
 
 const STEPS = [
   'Analizando respuestas...',
-  'Calibrando niveles con IA...',
   'Calculando AIQ Score...',
+  'Preparando resultados...',
 ];
 
 export default function ProcessingPage() {
   const navigate = useNavigate();
-  const { gradeWithAI, calculateAIQ, aiqResult, gradingStatus } = useAssessmentStore();
+  const { calculateAIQ, aiqResult } = useAssessmentStore();
   const [stepIndex, setStepIndex] = useState(0);
 
   useEffect(() => {
@@ -21,24 +21,31 @@ export default function ProcessingPage() {
     }
 
     const run = async () => {
-      setStepIndex(0);
-      await gradeWithAI();       // Gemini califica preguntas abiertas
+      try {
+        setStepIndex(0);
+        await new Promise(r => setTimeout(r, 1000));
 
-      setStepIndex(1);
-      await new Promise(r => setTimeout(r, 800));
+        setStepIndex(1);
+        calculateAIQ(); // scoring local — siempre funciona
+        await new Promise(r => setTimeout(r, 1000));
 
-      setStepIndex(2);
-      calculateAIQ();            // Calcula el score final con los scores de Gemini
-      await new Promise(r => setTimeout(r, 600));
+        setStepIndex(2);
+        await new Promise(r => setTimeout(r, 600));
 
-      navigate('/result', { replace: true });
+        navigate('/result', { replace: true });
+      } catch (err) {
+        console.error('ProcessingPage error:', err);
+        // Aun si algo falla, intentar calcular y navegar
+        try { calculateAIQ(); } catch (_) {}
+        navigate('/result', { replace: true });
+      }
     };
 
     run();
   }, []);
 
   return (
-    <div className="min-h-screen bg-bk flex flex-col items-center justify-center p-8 relative overflow-hidden">
+    <div className="min-h-screen bg-[#080808] flex flex-col items-center justify-center p-8 relative overflow-hidden">
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/5 blur-[100px] rounded-full pointer-events-none" />
 
       <div className="flex flex-col items-center z-10">
@@ -63,12 +70,6 @@ export default function ProcessingPage() {
         >
           {STEPS[stepIndex]}
         </motion.p>
-
-        {gradingStatus === 'error' && (
-          <p className="text-xs text-orange-400 mt-4 font-mono">
-            Usando calificación local como respaldo
-          </p>
-        )}
       </div>
     </div>
   );
