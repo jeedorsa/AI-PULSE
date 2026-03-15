@@ -143,10 +143,11 @@ export default function AdminPage() {
       setParticipants(data.participants || []);
       setUploadStatus('success');
       setUploadMessage(`${data.participants?.length || 0} participantes cargados correctamente`);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Upload error:', err);
       setUploadStatus('error');
-      setUploadMessage('Error al subir el archivo. Intenta de nuevo.');
+      const msg = err instanceof Error ? err.message : 'Error desconocido';
+      setUploadMessage(`Error al subir el archivo: ${msg}`);
     }
 
     // Reset file input
