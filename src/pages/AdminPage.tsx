@@ -105,6 +105,10 @@ export default function AdminPage() {
     clearAdminToken();
     setIsAuthenticated(false);
     setLoginError('Sesion expirada. Inicia sesion de nuevo.');
+    setUploadStatus('idle');
+    setUploadMessage('');
+    setSendingStatus('idle');
+    setSendingMessage('');
   }, []);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
