@@ -16,7 +16,7 @@ export default function VerifyPage() {
 
   const [status, setStatus] = useState<VerifyStatus>('loading');
   const [participantData, setParticipantData] = useState<{
-    email: string;
+    maskedEmail: string;
     nombre: string;
     posicion: string;
     empresa: string;
@@ -63,28 +63,43 @@ export default function VerifyPage() {
     verifyToken();
   }, [token]);
 
-  const handleConfirm = () => {
-    if (!participantData || !token) return;
+  const [confirming, setConfirming] = useState(false);
 
-    const normalizedInput = emailInput.trim().toLowerCase();
-    const normalizedExpected = participantData.email.trim().toLowerCase();
+  const handleConfirm = async () => {
+    if (!participantData || !token || !emailInput.trim()) return;
 
-    if (normalizedInput !== normalizedExpected) {
-      setStatus('invalid_email');
-      return;
+    setConfirming(true);
+    try {
+      const response = await fetch(`/api/auth/verify?token=${encodeURIComponent(token)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailInput.trim() }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.verified) {
+        setStatus('invalid_email');
+        setConfirming(false);
+        return;
+      }
+
+      // Server confirmed email matches - set participant and go to assessment
+      setParticipant({
+        email: data.email,
+        nombre: data.nombre,
+        posicion: data.posicion,
+        empresa: data.empresa,
+        departamento: data.departamento,
+        token,
+      });
+
+      navigate('/assessment', { replace: true });
+    } catch (err) {
+      console.error('Email confirmation error:', err);
+      setStatus('error');
+      setErrorMessage('Error al confirmar el correo. Intenta de nuevo más tarde.');
+      setConfirming(false);
     }
-
-    // Email matches - set participant and go to assessment
-    setParticipant({
-      email: participantData.email,
-      nombre: participantData.nombre,
-      posicion: participantData.posicion,
-      empresa: participantData.empresa,
-      departamento: participantData.departamento,
-      token,
-    });
-
-    navigate('/assessment', { replace: true });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -211,10 +226,10 @@ export default function VerifyPage() {
               <Button
                 variant="primary"
                 onClick={handleConfirm}
-                disabled={!emailInput.trim()}
+                disabled={!emailInput.trim() || confirming}
                 className="w-full min-h-[48px]"
               >
-                Confirmar y comenzar diagnostico
+                {confirming ? 'Verificando...' : 'Confirmar y comenzar diagnostico'}
               </Button>
 
               <p className="font-mono text-[9px] text-[#4D4D4D] text-center mt-3 uppercase tracking-wider">

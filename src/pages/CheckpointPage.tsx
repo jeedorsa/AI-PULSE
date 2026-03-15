@@ -19,7 +19,7 @@ export default function CheckpointPage() {
     if (!['A', 'B', 'C', 'D'].includes(sectionId)) {
       navigate('/assessment', { replace: true });
     }
-  }, [userRole, sectionId, navigate]);
+  }, [userRole, participant, sectionId, navigate]);
 
   const contentMap: Record<string, { subtitle: string; next: { title: string; sub: string } }> = {
     'A': {

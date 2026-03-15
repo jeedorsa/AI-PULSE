@@ -3,7 +3,7 @@ const { TableClient, odata } = require("@azure/data-tables");
 module.exports = async function (context, req) {
   const headers = {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Content-Type": "application/json"
   };
 
@@ -65,12 +65,46 @@ module.exports = async function (context, req) {
       return;
     }
 
-    // Return participant data (without sensitive fields)
+    // GET = token validation (masked email), POST = email confirmation
+    if (req.method === "POST") {
+      // Server-side email confirmation
+      const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+      const submittedEmail = (body.email || "").trim().toLowerCase();
+      const storedEmail = (participant.email || "").trim().toLowerCase();
+
+      if (!submittedEmail || submittedEmail !== storedEmail) {
+        context.res = { status: 403, headers, body: JSON.stringify({ error: "El correo ingresado no coincide con el registrado para esta invitación." }) };
+        return;
+      }
+
+      // Email matches - return full participant data
+      context.res = {
+        status: 200,
+        headers,
+        body: JSON.stringify({
+          verified: true,
+          email: participant.email,
+          nombre: participant.nombre,
+          posicion: participant.posicion,
+          empresa: participant.empresa || participant.partitionKey,
+          departamento: participant.departamento
+        })
+      };
+      return;
+    }
+
+    // GET = return participant data with masked email
+    const email = participant.email || "";
+    const atIdx = email.indexOf("@");
+    const maskedEmail = atIdx > 1
+      ? email[0] + "***" + email.substring(atIdx)
+      : "***";
+
     context.res = {
       status: 200,
       headers,
       body: JSON.stringify({
-        email: participant.email,
+        maskedEmail,
         nombre: participant.nombre,
         posicion: participant.posicion,
         empresa: participant.empresa || participant.partitionKey,
