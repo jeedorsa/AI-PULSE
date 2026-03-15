@@ -2,6 +2,9 @@
   "name": "ai-pulse-api",
   "version": "1.0.0",
   "description": "Azure Functions API for AI-Pulse",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
     "@azure/data-tables": "^13.2.2",
     "@azure/communication-email": "^1.0.0",
