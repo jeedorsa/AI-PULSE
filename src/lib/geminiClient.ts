@@ -1,8 +1,8 @@
 /**
- * geminiClient.ts
- * 
+ * gradeClient.ts
+ *
  * Llama al endpoint /api/grade (Azure Function).
- * La GEMINI_API_KEY vive en Azure — nunca llega al browser.
+ * La AZURE_OPENAI_API_KEY vive en Azure — nunca llega al browser.
  */
 
 export interface GradeRequest {
@@ -20,7 +20,7 @@ export interface GradeResult {
 }
 
 /**
- * Califica una respuesta abierta con Gemini vía Azure Function.
+ * Califica una respuesta abierta con Azure OpenAI vía Azure Function.
  * Tiene fallback local si el endpoint no responde.
  */
 export async function gradeAnswer(req: GradeRequest): Promise<GradeResult> {

@@ -29,14 +29,14 @@ interface AssessmentState {
   aiqResult: AIQResult | null;
   startTime: number | null;
   isEnterprise: boolean;
-  aiScores: Record<string, number>;   // scores de Gemini por questionId
+  aiScores: Record<string, number>;   // scores de Azure OpenAI por questionId
   gradingStatus: 'idle' | 'loading' | 'done' | 'error';
 
   setRole: (role: 'csuite' | 'manager' | 'colaborador' | 'independiente') => void;
   setEnterprise: (isEnterprise: boolean) => void;
   answerQuestion: (questionId: string, value: any) => void;
   nextQuestion: () => void;
-  gradeWithAI: () => Promise<void>;   // llama a Gemini para preguntas abiertas
+  gradeWithAI: () => Promise<void>;   // llama a Azure OpenAI para preguntas abiertas
   calculateAIQ: () => AIQResult;
   reset: () => void;
 }
@@ -75,7 +75,7 @@ export const useAssessmentStore = create<AssessmentState>()(
         set((state) => {
           const nextIndex = state.currentQuestion + 1;
           if (nextIndex < questions.length) {
-            return { 
+            return {
               currentQuestion: nextIndex,
               currentSection: questions[nextIndex].section as any
             };
@@ -84,7 +84,7 @@ export const useAssessmentStore = create<AssessmentState>()(
         });
       },
 
-      // ── Califica todas las preguntas abiertas con Gemini en paralelo ──
+      // ── Califica todas las preguntas abiertas con Azure OpenAI en paralelo ──
       gradeWithAI: async () => {
         set({ gradingStatus: 'loading' });
         const { answers } = get();
@@ -134,20 +134,20 @@ export const useAssessmentStore = create<AssessmentState>()(
 
       calculateAIQ: () => {
         const { answers, aiScores } = get();
-        
+
         const getScore = (id: string) => {
-          // 1. Prioridad: score de Gemini si existe
+          // 1. Prioridad: score de Azure OpenAI si existe
           if (aiScores[id] !== undefined) return aiScores[id];
 
           const ans = answers[id];
           if (!ans) return 0;
-          
+
           // Explicit numeric value (MixedScale)
           if (typeof ans === 'object' && typeof ans.value === 'number') return ans.value;
-          
+
           // Explicit score (PromptInput)
           if (typeof ans === 'object' && typeof ans.score === 'number') return ans.score;
-          
+
           // Heuristic for Open/Narrative text questions (Mock grading)
           // In a real app, this would be graded by AI or human
           if (typeof ans === 'string' || (typeof ans === 'object' && typeof ans.text === 'string')) {
@@ -157,18 +157,18 @@ export const useAssessmentStore = create<AssessmentState>()(
             if (text.length < 150) return 3;
             return 4; // Reward detailed answers with L4
           }
-          
-          return 0; 
+
+          return 0;
         };
 
         // Calculate section averages
         const calculateSectionAvg = (section: string) => {
           const sectionQuestions = questions.filter(q => q.section === section);
           if (sectionQuestions.length === 0) return 0;
-          
+
           let sum = 0;
           let count = 0;
-          
+
           sectionQuestions.forEach(q => {
             const score = getScore(q.id);
             // Only count if we have a "valid" score (even 1 is valid if answered)
@@ -178,7 +178,7 @@ export const useAssessmentStore = create<AssessmentState>()(
               count++;
             }
           });
-          
+
           return count === 0 ? 0 : sum / count;
         };
 
@@ -188,7 +188,7 @@ export const useAssessmentStore = create<AssessmentState>()(
 
         // Formula: Score = (promedio_seccionA × 0.40) + (promedio_seccionC × 0.35) + (promedio_seccionB × 0.25)
         let rawScore = (avgA * 0.40) + (avgC * 0.35) + (avgB * 0.25);
-        
+
         // Apply Rules
         let finalLevel = getLevelFromScore(rawScore);
         const alerts: string[] = [];
@@ -228,7 +228,7 @@ export const useAssessmentStore = create<AssessmentState>()(
           Object.keys(answers).forEach(key => {
             if (getScore(key) === 5) impactCount++;
           });
-          
+
           if (impactCount < 3) {
             rawScore = 4.4; // Cap at L4T upper bound
             finalLevel = { level: 'L4T', name: 'Amplificador Técnico' };
