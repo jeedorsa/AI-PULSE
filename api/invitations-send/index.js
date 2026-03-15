@@ -86,7 +86,7 @@ module.exports = async function (context, req) {
           },
           "Merge"
         );
-
+        await new Promise(resolve => setTimeout(resolve, 700));
         sent++;
       } catch (emailErr) {
         context.log.error(`Error sending email to ${participant.email}:`, emailErr);
