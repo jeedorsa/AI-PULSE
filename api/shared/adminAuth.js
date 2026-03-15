@@ -69,7 +69,8 @@ function requireAdmin(context, req) {
   }
 
   const authHeader = req.headers["authorization"] || req.headers["Authorization"] || "";
-  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+  const tokenFromAuth = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+  const token = req.headers["x-admin-token"] || tokenFromAuth;
 
   if (!validateAdminToken(token, adminPassword)) {
     context.res = {

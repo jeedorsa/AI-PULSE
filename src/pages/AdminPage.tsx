@@ -33,7 +33,7 @@ function adminHeaders(): Record<string, string> {
   const token = getAdminToken();
   return {
     'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(token ? { 'X-Admin-Token': token } : {}),
   };
 }
 
