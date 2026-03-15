@@ -40,20 +40,20 @@ export default function ProcessingPage() {
         setStepIndex(2);
         await new Promise(r => setTimeout(r, 600));
 
-        // Admin sees results, participants see thank-you
-        if (isAdmin) {
-          navigate('/result', { replace: true });
-        } else {
+        // Token-based participants go to thank-you, everyone else sees results
+        if (participant && !isAdmin) {
           navigate('/thank-you', { replace: true });
+        } else {
+          navigate('/result', { replace: true });
         }
       } catch (err) {
         console.error('ProcessingPage error:', err);
         // Aun si algo falla, intentar calcular y navegar
         try { calculateAIQ(); } catch (_) {}
-        if (isAdmin) {
-          navigate('/result', { replace: true });
-        } else {
+        if (participant && !isAdmin) {
           navigate('/thank-you', { replace: true });
+        } else {
+          navigate('/result', { replace: true });
         }
       }
     };

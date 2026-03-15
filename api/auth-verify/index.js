@@ -1,4 +1,4 @@
-const { TableClient, AzureNamedKeyCredential } = require("@azure/data-tables");
+const { TableClient, odata } = require("@azure/data-tables");
 
 module.exports = async function (context, req) {
   const headers = {
@@ -27,9 +27,16 @@ module.exports = async function (context, req) {
   try {
     const tableClient = TableClient.fromConnectionString(connectionString, "participants");
 
-    // Query by token (using filter)
+    // Validate token format (UUID v4 only) to prevent injection
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(token)) {
+      context.res = { status: 400, headers, body: JSON.stringify({ error: "Formato de token inválido" }) };
+      return;
+    }
+
+    // Query by token (using parameterized filter to prevent OData injection)
     const entities = tableClient.listEntities({
-      queryOptions: { filter: `token eq '${token}'` }
+      queryOptions: { filter: odata`token eq ${token}` }
     });
 
     let participant = null;
