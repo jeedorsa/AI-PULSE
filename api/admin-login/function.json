@@ -5,8 +5,8 @@
       "type": "httpTrigger",
       "direction": "in",
       "name": "req",
-      "methods": ["get", "options"],
-      "route": "participants/list"
+      "methods": ["post", "options"],
+      "route": "admin/login"
     },
     {
       "type": "http",

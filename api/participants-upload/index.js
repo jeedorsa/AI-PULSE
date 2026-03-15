@@ -1,12 +1,13 @@
 const { TableClient } = require("@azure/data-tables");
 const XLSX = require("xlsx");
 const { v4: uuidv4 } = require("uuid");
+const { requireAdmin } = require("../shared/adminAuth");
 
 module.exports = async function (context, req) {
   const headers = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Content-Type": "application/json"
   };
 
@@ -14,6 +15,8 @@ module.exports = async function (context, req) {
     context.res = { status: 200, headers, body: "" };
     return;
   }
+
+  if (!requireAdmin(context, req)) return;
 
   const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
   if (!connectionString) {

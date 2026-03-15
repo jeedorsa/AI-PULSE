@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { Navbar } from '../components/ui/Navbar';
 import { Button } from '../components/ui/Button';
@@ -15,7 +15,34 @@ interface ParticipantRow {
 
 type AdminTab = 'upload' | 'participants' | 'invitations';
 
+const ADMIN_TOKEN_KEY = 'aipulse_admin_token';
+
+function getAdminToken(): string | null {
+  return sessionStorage.getItem(ADMIN_TOKEN_KEY);
+}
+
+function setAdminToken(token: string) {
+  sessionStorage.setItem(ADMIN_TOKEN_KEY, token);
+}
+
+function clearAdminToken() {
+  sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+}
+
+function adminHeaders(): Record<string, string> {
+  const token = getAdminToken();
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
 export default function AdminPage() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
+
   const [activeTab, setActiveTab] = useState<AdminTab>('upload');
   const [participants, setParticipants] = useState<ParticipantRow[]>([]);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
@@ -23,6 +50,66 @@ export default function AdminPage() {
   const [sendingStatus, setSendingStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
   const [sendingMessage, setSendingMessage] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Check if we have a stored token on mount
+  useEffect(() => {
+    const token = getAdminToken();
+    if (token) {
+      setIsAuthenticated(true);
+    }
+  }, []);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loginPassword.trim()) return;
+
+    setLoginLoading(true);
+    setLoginError('');
+
+    try {
+      const response = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: loginPassword }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.authenticated) {
+        setLoginError(data.error || 'Contrasena incorrecta');
+        setLoginLoading(false);
+        return;
+      }
+
+      setAdminToken(data.token);
+      setIsAuthenticated(true);
+      setLoginPassword('');
+    } catch (err) {
+      console.error('Login error:', err);
+      setLoginError('Error de conexion. Intenta de nuevo.');
+    }
+    setLoginLoading(false);
+  };
+
+  const handleLogout = () => {
+    clearAdminToken();
+    setIsAuthenticated(false);
+    setParticipants([]);
+    setUploadStatus('idle');
+    setUploadMessage('');
+    setSendingStatus('idle');
+    setSendingMessage('');
+  };
+
+  const handleUnauthorized = useCallback(() => {
+    clearAdminToken();
+    setIsAuthenticated(false);
+    setLoginError('Sesion expirada. Inicia sesion de nuevo.');
+    setUploadStatus('idle');
+    setUploadMessage('');
+    setSendingStatus('idle');
+    setSendingMessage('');
+  }, []);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -40,9 +127,14 @@ export default function AdminPage() {
 
       const response = await fetch('/api/participants/upload', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: adminHeaders(),
         body: JSON.stringify({ fileData: base64, fileName: file.name }),
       });
+
+      if (response.status === 401) {
+        handleUnauthorized();
+        return;
+      }
 
       const data = await response.json();
 
@@ -55,10 +147,11 @@ export default function AdminPage() {
       setParticipants(data.participants || []);
       setUploadStatus('success');
       setUploadMessage(`${data.participants?.length || 0} participantes cargados correctamente`);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Upload error:', err);
       setUploadStatus('error');
-      setUploadMessage('Error al subir el archivo. Intenta de nuevo.');
+      const msg = err instanceof Error ? err.message : 'Error desconocido';
+      setUploadMessage(`Error al subir el archivo: ${msg}`);
     }
 
     // Reset file input
@@ -74,9 +167,14 @@ export default function AdminPage() {
     try {
       const response = await fetch('/api/invitations/send', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: adminHeaders(),
         body: JSON.stringify({ sendAll: true }),
       });
+
+      if (response.status === 401) {
+        handleUnauthorized();
+        return;
+      }
 
       const data = await response.json();
 
@@ -99,7 +197,15 @@ export default function AdminPage() {
 
   const fetchParticipants = async () => {
     try {
-      const response = await fetch('/api/participants/list');
+      const response = await fetch('/api/participants/list', {
+        headers: adminHeaders(),
+      });
+
+      if (response.status === 401) {
+        handleUnauthorized();
+        return;
+      }
+
       const data = await response.json();
       if (data.participants) {
         setParticipants(data.participants);
@@ -115,6 +221,67 @@ export default function AdminPage() {
     { id: 'invitations', label: 'Invitaciones' },
   ];
 
+  // ── Login Screen ──
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-[#080808] flex flex-col">
+        <Navbar />
+        <div className="flex-1 pt-[56px] flex items-center justify-center">
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="w-full max-w-[380px] px-5"
+          >
+            <div className="text-center mb-8">
+              <span className="font-mono text-[9px] tracking-[0.4em] text-primary uppercase block mb-3">
+                ACCESO RESTRINGIDO
+              </span>
+              <h1 className="font-display text-[28px] md:text-[36px] leading-[0.95] text-white mb-2">
+                AI <span className="text-primary">PULSE</span> Admin
+              </h1>
+              <p className="font-body text-[13px] font-light text-[#808080]">
+                Ingresa la contrasena de administrador
+              </p>
+            </div>
+
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div>
+                <input
+                  type="password"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  placeholder="Contrasena"
+                  autoFocus
+                  className="w-full bg-[#0f0f0f] border border-[#2a2a2a] rounded-[2px] px-4 py-3
+                    font-body text-[14px] text-white placeholder-[#4D4D4D]
+                    focus:outline-none focus:border-primary/60 transition-colors"
+                />
+              </div>
+
+              <Button
+                variant="primary"
+                type="submit"
+                disabled={loginLoading || !loginPassword.trim()}
+                className="w-full min-h-[48px]"
+              >
+                {loginLoading ? 'Verificando...' : 'Iniciar sesion'}
+              </Button>
+
+              {loginError && (
+                <div className="p-3 rounded-[2px] border bg-[rgba(255,60,60,0.05)] border-[rgba(255,60,60,0.2)]">
+                  <p className="font-body text-[12px] text-[#FF3C3C] text-center">
+                    {loginError}
+                  </p>
+                </div>
+              )}
+            </form>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Admin Dashboard ──
   return (
     <div className="min-h-screen bg-[#080808] flex flex-col">
       <Navbar />
@@ -123,16 +290,24 @@ export default function AdminPage() {
         <div className="max-w-[900px] mx-auto px-5 py-8 md:px-14 md:py-12">
 
           {/* Header */}
-          <div className="mb-8">
-            <span className="font-mono text-[9px] tracking-[0.4em] text-primary uppercase block mb-3">
-              PANEL DE ADMINISTRACION
-            </span>
-            <h1 className="font-display text-[32px] md:text-[42px] leading-[0.95] text-white mb-2">
-              AI <span className="text-primary">PULSE</span> Admin
-            </h1>
-            <p className="font-body text-[14px] font-light text-[#808080]">
-              Gestiona participantes, envia invitaciones y administra el diagnostico.
-            </p>
+          <div className="mb-8 flex justify-between items-start">
+            <div>
+              <span className="font-mono text-[9px] tracking-[0.4em] text-primary uppercase block mb-3">
+                PANEL DE ADMINISTRACION
+              </span>
+              <h1 className="font-display text-[32px] md:text-[42px] leading-[0.95] text-white mb-2">
+                AI <span className="text-primary">PULSE</span> Admin
+              </h1>
+              <p className="font-body text-[14px] font-light text-[#808080]">
+                Gestiona participantes, envia invitaciones y administra el diagnostico.
+              </p>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="font-mono text-[9px] uppercase tracking-wider text-[#4D4D4D] hover:text-[#FF3C3C] transition-colors mt-2 px-3 py-2 border border-[#1a1a1a] hover:border-[rgba(255,60,60,0.3)] rounded-[2px]"
+            >
+              Cerrar sesion
+            </button>
           </div>
 
           {/* Tabs */}
