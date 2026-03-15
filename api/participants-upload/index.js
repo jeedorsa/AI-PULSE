@@ -22,8 +22,19 @@ module.exports = async function (context, req) {
   }
 
   try {
-    // Parse the uploaded file from the request body
-    const bodyBuffer = Buffer.from(req.body);
+    // Parse the uploaded file - accept base64 JSON or raw binary
+    let bodyBuffer;
+    if (req.headers["content-type"] && req.headers["content-type"].includes("application/json")) {
+      const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+      if (!body || !body.fileData) {
+        context.res = { status: 400, headers, body: JSON.stringify({ error: "No se recibió el archivo. Envía fileData en base64." }) };
+        return;
+      }
+      bodyBuffer = Buffer.from(body.fileData, "base64");
+    } else {
+      bodyBuffer = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body);
+    }
+
     const workbook = XLSX.read(bodyBuffer, { type: "buffer" });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];

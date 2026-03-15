@@ -32,12 +32,16 @@ export default function AdminPage() {
     setUploadMessage('');
 
     try {
+      // Convert file to base64 to avoid binary body issues with Azure Static Web Apps
       const arrayBuffer = await file.arrayBuffer();
+      const base64 = btoa(
+        new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+      );
 
       const response = await fetch('/api/participants/upload', {
         method: 'POST',
-        body: arrayBuffer,
-        headers: { 'Content-Type': 'application/octet-stream' },
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileData: base64, fileName: file.name }),
       });
 
       const data = await response.json();
