@@ -99,7 +99,6 @@ module.exports = async function (context, req) {
         posicion: entity.posicion,
         empresa: entity.empresa,
         departamento: entity.departamento,
-        token: entity.token,
         status: entity.status
       });
     }
