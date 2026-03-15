@@ -32,12 +32,12 @@ export default function AdminPage() {
     setUploadMessage('');
 
     try {
-      const formData = new FormData();
-      formData.append('file', file);
+      const arrayBuffer = await file.arrayBuffer();
 
       const response = await fetch('/api/participants/upload', {
         method: 'POST',
-        body: formData,
+        body: arrayBuffer,
+        headers: { 'Content-Type': 'application/octet-stream' },
       });
 
       const data = await response.json();

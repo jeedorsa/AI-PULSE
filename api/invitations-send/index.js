@@ -108,8 +108,19 @@ module.exports = async function (context, req) {
   }
 };
 
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 function buildEmailHtml(nombre, empresa, verifyUrl) {
-  const firstName = nombre.split(" ")[0];
+  const firstName = escapeHtml(nombre.split(" ")[0]);
+  const safeEmpresa = escapeHtml(empresa);
   return `
 <!DOCTYPE html>
 <html>
@@ -145,7 +156,7 @@ function buildEmailHtml(nombre, empresa, verifyUrl) {
             <td style="padding-bottom:24px;">
               <p style="margin:0; font-size:15px; color:#B3B3B3; line-height:1.6;">
                 Has sido invitado a participar en el <strong style="color:#ffffff;">Diagnóstico de Madurez en IA</strong>
-                ${empresa ? ` de <strong style="color:#ffffff;">${empresa}</strong>` : ""}.
+                ${safeEmpresa ? ` de <strong style="color:#ffffff;">${safeEmpresa}</strong>` : ""}.
                 Este diagnóstico mide tu AIQ — tu nivel de integración con inteligencia artificial.
               </p>
             </td>
