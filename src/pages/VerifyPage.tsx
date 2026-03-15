@@ -42,7 +42,7 @@ export default function VerifyPage() {
 
     const verifyToken = async () => {
       try {
-        const response = await fetch(`/api/auth/verify?token=${encodeURIComponent(token)}`);
+        const response = await fetch(`/api/auth-verify?token=${encodeURIComponent(token)}`);
         const data = await response.json();
 
         if (!response.ok || data.error) {
@@ -70,7 +70,7 @@ export default function VerifyPage() {
 
     setConfirming(true);
     try {
-      const response = await fetch(`/api/auth/verify?token=${encodeURIComponent(token)}`, {
+      const response = await fetch(`/api/auth-verify?token=${encodeURIComponent(token)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: emailInput.trim() }),

@@ -67,7 +67,7 @@ export default function AdminPage() {
     setLoginError('');
 
     try {
-      const response = await fetch('/api/admin/login', {
+      const response = await fetch('/api/admin-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: loginPassword }),
@@ -125,7 +125,7 @@ export default function AdminPage() {
         new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
       );
 
-      const response = await fetch('/api/participants/upload', {
+      const response = await fetch('/api/participants-upload', {
         method: 'POST',
         headers: adminHeaders(),
         body: JSON.stringify({ fileData: base64, fileName: file.name }),
@@ -165,7 +165,7 @@ export default function AdminPage() {
     setSendingMessage('');
 
     try {
-      const response = await fetch('/api/invitations/send', {
+      const response = await fetch('/api/invitations-send', {
         method: 'POST',
         headers: adminHeaders(),
         body: JSON.stringify({ sendAll: true }),
@@ -197,7 +197,7 @@ export default function AdminPage() {
 
   const fetchParticipants = async () => {
     try {
-      const response = await fetch('/api/participants/list', {
+      const response = await fetch('/api/participants-list', {
         headers: adminHeaders(),
       });
 
