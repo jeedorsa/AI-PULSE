@@ -39,10 +39,14 @@ function validateAdminToken(token, secret) {
     .update(timestamp)
     .digest("hex");
 
-  return crypto.timingSafeEqual(
-    Buffer.from(signature, "hex"),
-    Buffer.from(expected, "hex")
-  );
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(signature, "hex"),
+      Buffer.from(expected, "hex")
+    );
+  } catch {
+    return false;
+  }
 }
 
 /**
