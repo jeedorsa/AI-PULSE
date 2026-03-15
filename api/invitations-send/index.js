@@ -50,26 +50,26 @@ module.exports = async function (context, req) {
     const errors = [];
 
     for (const participant of pendingParticipants) {
-      const verifyUrl = `${appBaseUrl}/verify?token=${participant.token}`;
-
-      const emailMessage = {
-        senderAddress,
-        content: {
-          subject: "AI Pulse — Tu diagnóstico de madurez en IA te espera",
-          html: buildEmailHtml(participant.nombre, participant.empresa, verifyUrl),
-          plainText: buildEmailPlainText(participant.nombre, verifyUrl)
-        },
-        recipients: {
-          to: [
-            {
-              address: participant.email,
-              displayName: participant.nombre
-            }
-          ]
-        }
-      };
-
       try {
+        const verifyUrl = `${appBaseUrl}/verify?token=${participant.token}`;
+
+        const emailMessage = {
+          senderAddress,
+          content: {
+            subject: "AI Pulse — Tu diagnóstico de madurez en IA te espera",
+            html: buildEmailHtml(participant.nombre || "Participante", participant.empresa, verifyUrl),
+            plainText: buildEmailPlainText(participant.nombre || "Participante", verifyUrl)
+          },
+          recipients: {
+            to: [
+              {
+                address: participant.email,
+                displayName: participant.nombre || "Participante"
+              }
+            ]
+          }
+        };
+
         const poller = await emailClient.beginSend(emailMessage);
         await poller.pollUntilDone();
 
