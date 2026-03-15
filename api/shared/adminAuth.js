@@ -59,7 +59,10 @@ function requireAdmin(context, req) {
   if (!adminPassword) {
     context.res = {
       status: 500,
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*"
+      },
       body: JSON.stringify({ error: "ADMIN_PASSWORD no configurada en el servidor" }),
     };
     return false;

@@ -23,7 +23,17 @@ module.exports = async function (context, req) {
     return;
   }
 
-  const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+  let body;
+  try {
+    body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+  } catch {
+    context.res = {
+      status: 400,
+      headers,
+      body: JSON.stringify({ error: "Invalid JSON in request body" })
+    };
+    return;
+  }
   const password = (body && body.password) || "";
 
   if (!password || password !== adminPassword) {
