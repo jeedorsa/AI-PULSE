@@ -11,6 +11,9 @@ import AssessmentPage from './pages/AssessmentPage';
 import CheckpointPage from './pages/CheckpointPage';
 import ProcessingPage from './pages/ProcessingPage';
 import ResultPage from './pages/ResultPage';
+import VerifyPage from './pages/VerifyPage';
+import ThankYouPage from './pages/ThankYouPage';
+import AdminPage from './pages/AdminPage';
 
 const PageWrapper = ({ children }: { children: React.ReactNode }) => {
   return (
@@ -42,6 +45,9 @@ const AnimatedRoutes = () => {
         <Route path="/checkpoint/:id" element={<PageWrapper><CheckpointPage /></PageWrapper>} />
         <Route path="/processing" element={<PageWrapper><ProcessingPage /></PageWrapper>} />
         <Route path="/result" element={<PageWrapper><ResultPage /></PageWrapper>} />
+        <Route path="/verify" element={<PageWrapper><VerifyPage /></PageWrapper>} />
+        <Route path="/thank-you" element={<PageWrapper><ThankYouPage /></PageWrapper>} />
+        <Route path="/admin" element={<PageWrapper><AdminPage /></PageWrapper>} />
       </Routes>
     </AnimatePresence>
   );

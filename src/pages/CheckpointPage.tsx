@@ -7,19 +7,19 @@ import { useAssessmentStore } from '../store/useAssessmentStore';
 export default function CheckpointPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { userRole } = useAssessmentStore();
+  const { userRole, participant } = useAssessmentStore();
   
   const sectionId = id || 'A';
 
   useEffect(() => {
-    if (!userRole) {
+    if (!userRole && !participant) {
       navigate('/', { replace: true });
       return;
     }
     if (!['A', 'B', 'C', 'D'].includes(sectionId)) {
       navigate('/assessment', { replace: true });
     }
-  }, [userRole, sectionId, navigate]);
+  }, [userRole, participant, sectionId, navigate]);
 
   const contentMap: Record<string, { subtitle: string; next: { title: string; sub: string } }> = {
     'A': {
