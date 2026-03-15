@@ -21,24 +21,24 @@ import { useState } from 'react';
 
 export default function AssessmentPage() {
   const navigate = useNavigate();
-  const { currentQuestion, answers, answerQuestion, nextQuestion, userRole } = useAssessmentStore();
+  const { currentQuestion, answers, answerQuestion, nextQuestion, userRole, participant } = useAssessmentStore();
   const [isIdeFocused, setIsIdeFocused] = useState(false);
   
   const question = questions[currentQuestion];
   const currentAnswer = answers[question?.id];
 
-  // Safety check
+  // Safety check: allow access if user has role (legacy) OR has a verified participant token
   useEffect(() => {
-    if (!userRole) {
+    if (!userRole && !participant) {
       navigate('/', { replace: true });
       return;
     }
     if (!question) {
       navigate('/');
     }
-  }, [question, userRole, navigate]);
+  }, [question, userRole, participant, navigate]);
 
-  if (!question || !userRole) return null;
+  if (!question || (!userRole && !participant)) return null;
 
   const handleNext = () => {
     const nextIdx = currentQuestion + 1;

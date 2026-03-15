@@ -21,6 +21,15 @@ interface AIQResult {
   challengeProfile: string;
 }
 
+export interface Participant {
+  email: string;
+  nombre: string;
+  posicion: string;
+  empresa: string;
+  departamento: string;
+  token: string;
+}
+
 interface AssessmentState {
   userRole: 'csuite' | 'manager' | 'colaborador' | 'independiente' | null;
   currentQuestion: number;
@@ -32,8 +41,16 @@ interface AssessmentState {
   aiScores: Record<string, number>;   // scores de Azure OpenAI por questionId
   gradingStatus: 'idle' | 'loading' | 'done' | 'error';
 
+  // ── Token-based auth ──
+  participant: Participant | null;
+  participantToken: string | null;
+  isAdmin: boolean;
+
   setRole: (role: 'csuite' | 'manager' | 'colaborador' | 'independiente') => void;
   setEnterprise: (isEnterprise: boolean) => void;
+  setParticipant: (participant: Participant) => void;
+  setParticipantToken: (token: string) => void;
+  setAdmin: (isAdmin: boolean) => void;
   answerQuestion: (questionId: string, value: any) => void;
   nextQuestion: () => void;
   gradeWithAI: () => Promise<void>;   // llama a Azure OpenAI para preguntas abiertas
@@ -61,9 +78,31 @@ export const useAssessmentStore = create<AssessmentState>()(
       isEnterprise: false,
       aiScores: {},
       gradingStatus: 'idle',
+      participant: null,
+      participantToken: null,
+      isAdmin: false,
 
       setRole: (role) => set({ userRole: role, startTime: Date.now() }),
       setEnterprise: (isEnterprise) => set({ isEnterprise }),
+      setParticipant: (participant) => {
+        // Auto-map position to role
+        const positionToRole = (pos: string): AssessmentState['userRole'] => {
+          const lower = pos.toLowerCase();
+          if (lower.includes('c-suite') || lower.includes('vp') || lower.includes('director')) return 'csuite';
+          if (lower.includes('manager') || lower.includes('lead') || lower.includes('líder') || lower.includes('jefe')) return 'manager';
+          if (lower.includes('independiente') || lower.includes('freelance') || lower.includes('consultor')) return 'independiente';
+          return 'colaborador';
+        };
+        set({
+          participant,
+          participantToken: participant.token,
+          userRole: positionToRole(participant.posicion),
+          startTime: Date.now(),
+          isEnterprise: true,
+        });
+      },
+      setParticipantToken: (token) => set({ participantToken: token }),
+      setAdmin: (isAdmin) => set({ isAdmin }),
 
       answerQuestion: (questionId, value) => {
         set((state) => ({
@@ -269,6 +308,9 @@ export const useAssessmentStore = create<AssessmentState>()(
         isEnterprise: false,
         aiScores: {},
         gradingStatus: 'idle',
+        participant: null,
+        participantToken: null,
+        isAdmin: false,
       })
     }),
     {
@@ -283,6 +325,9 @@ export const useAssessmentStore = create<AssessmentState>()(
         isEnterprise: state.isEnterprise,
         aiScores: state.aiScores,
         gradingStatus: state.gradingStatus,
+        participant: state.participant,
+        participantToken: state.participantToken,
+        isAdmin: state.isAdmin,
       }),
     }
   )

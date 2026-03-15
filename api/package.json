@@ -3,5 +3,10 @@
   "version": "1.0.0",
   "description": "Azure Functions API for AI-Pulse",
   "main": "index.js",
-  "dependencies": {}
+  "dependencies": {
+    "@azure/data-tables": "^13.2.2",
+    "@azure/communication-email": "^1.0.0",
+    "xlsx": "^0.18.5",
+    "uuid": "^9.0.0"
+  }
 }

@@ -11,10 +11,18 @@ const STEPS = [
 
 export default function ProcessingPage() {
   const navigate = useNavigate();
-  const { calculateAIQ, aiqResult } = useAssessmentStore();
+  const { calculateAIQ, aiqResult, isAdmin, participant } = useAssessmentStore();
   const [stepIndex, setStepIndex] = useState(0);
 
   useEffect(() => {
+    // Regular participants (token-based) never see results
+    if (participant && !isAdmin) {
+      // Just calculate silently and redirect to thank-you
+      try { calculateAIQ(); } catch (_) {}
+      navigate('/thank-you', { replace: true });
+      return;
+    }
+
     if (aiqResult) {
       navigate('/result', { replace: true });
       return;
@@ -32,12 +40,21 @@ export default function ProcessingPage() {
         setStepIndex(2);
         await new Promise(r => setTimeout(r, 600));
 
-        navigate('/result', { replace: true });
+        // Admin sees results, participants see thank-you
+        if (isAdmin) {
+          navigate('/result', { replace: true });
+        } else {
+          navigate('/thank-you', { replace: true });
+        }
       } catch (err) {
         console.error('ProcessingPage error:', err);
         // Aun si algo falla, intentar calcular y navegar
         try { calculateAIQ(); } catch (_) {}
-        navigate('/result', { replace: true });
+        if (isAdmin) {
+          navigate('/result', { replace: true });
+        } else {
+          navigate('/thank-you', { replace: true });
+        }
       }
     };
 
