@@ -11,14 +11,41 @@ import { Toast } from '../components/ui/Toast';
 
 export default function ResultPage() {
   const navigate = useNavigate();
-  const { aiqResult } = useAssessmentStore();
+  const { aiqResult, participant, answers, aiScores, startTime } = useAssessmentStore();
   const [showToast, setShowToast] = useState(false);
 
-  useEffect(() => {
-    if (!aiqResult) {
-      navigate('/');
+// NUEVO — agregar llamada a /api/results-save:
+useEffect(() => {
+  if (!aiqResult) { navigate('/'); return; }
+
+  const saveResults = async () => {
+    try {
+      await fetch('/api/results-save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: participant?.token,
+          participant,
+          answers,
+          aiScores,
+          aiqResult,
+          metadata: {
+            startTime,
+            completedAt: new Date().toISOString(),
+            durationMinutes: startTime
+              ? (Date.now() - startTime) / 60000
+              : null
+          }
+        })
+      });
+    } catch (err) {
+      console.error('Error saving results:', err);
+      // No bloquear al usuario si falla — silencioso
     }
-  }, [aiqResult, navigate]);
+  };
+
+  if (participant?.token) saveResults();
+}, [aiqResult]);
 
   if (!aiqResult) return null;
 
