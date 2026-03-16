@@ -14,9 +14,11 @@ export default function ResultPage() {
   const { aiqResult, participant, answers, aiScores, startTime } = useAssessmentStore();
   const [showToast, setShowToast] = useState(false);
 
-// NUEVO — agregar llamada a /api/results-save:
 useEffect(() => {
-  if (!aiqResult) { navigate('/'); return; }
+  if (!aiqResult) { 
+    navigate('/'); 
+    return; 
+  }
 
   const saveResults = async () => {
     try {
@@ -32,20 +34,22 @@ useEffect(() => {
           metadata: {
             startTime,
             completedAt: new Date().toISOString(),
-            durationMinutes: startTime
-              ? (Date.now() - startTime) / 60000
+            durationMinutes: startTime 
+              ? (Date.now() - startTime) / 60000 
               : null
           }
         })
       });
     } catch (err) {
       console.error('Error saving results:', err);
-      // No bloquear al usuario si falla — silencioso
     }
   };
 
-  if (participant?.token) saveResults();
-}, [aiqResult]);
+  // Solo disparamos el guardado si tenemos un token válido
+  if (participant?.token) {
+    saveResults();
+  }
+}, [aiqResult, participant, answers, aiScores, startTime, navigate]);
 
   if (!aiqResult) return null;
 
@@ -68,7 +72,6 @@ useEffect(() => {
     }
   };
 
-  // Generate Action Items
   const getActionItems = () => {
     const items = [];
     const profile = aiqResult.challengeProfile;
