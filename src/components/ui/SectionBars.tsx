@@ -9,7 +9,6 @@ interface SectionBarsProps {
 export const SectionBars: React.FC<SectionBarsProps> = ({ sectionScores, alerts }) => {
   const sections = ['A', 'B', 'C'];
   
-  // Find lowest score to check for alert coloring
   const scores = sections.map(id => sectionScores[id]?.score || 0);
   const minScore = Math.min(...scores);
 
@@ -21,7 +20,7 @@ export const SectionBars: React.FC<SectionBarsProps> = ({ sectionScores, alerts 
 
         const percent = Math.max(0, ((data.score - 1) / 4) * 100);
         const isLowest = data.score === minScore;
-        const hasAlert = alerts.length > 0; // Simplified check, prompt says "Si hay alerta"
+        const hasAlert = alerts.length > 0;
         const isCritical = isLowest && hasAlert;
 
         return (
