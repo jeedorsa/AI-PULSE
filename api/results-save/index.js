@@ -1,4 +1,4 @@
-const { TableClient } = require("@azure/data-tables");
+const { TableClient, odata } = require("@azure/data-tables");
 const { AzureOpenAI } = require("@azure/openai");
 const { SearchClient, AzureKeyCredential } = require("@azure/search-documents");
 
@@ -21,10 +21,11 @@ module.exports = async function (context, req) {
     const answers = body.answers || {};
     const conn = process.env.AZURE_STORAGE_CONNECTION_STRING;
 
-    // 1. Validar Token
+    // Usamos odata helper para prevenir inyección
     const participantsClient = TableClient.fromConnectionString(conn, "participants");
     let pEntity = null;
-    for await (const e of participantsClient.listEntities({ filter: `RowKey eq '${token}'` })) {
+    
+    for await (const e of participantsClient.listEntities({ filter: odata`RowKey eq ${token}` })) {
       pEntity = e;
       break;
     }
@@ -93,9 +94,8 @@ module.exports = async function (context, req) {
       SECCIÓN G - GAPS:
       [G1] ${answers.G1?.text || ""}
       [G2] ${answers.G2?.text || ""}
-    `.trim(); // Compactamos espacios para ahorrar tokens
+    `.trim();
 
-    // 4. OpenAI Embedding
     const openai = new AzureOpenAI({
       endpoint: process.env.AZURE_OPENAI_ENDPOINT,
       apiKey: process.env.AZURE_OPENAI_API_KEY,
@@ -107,7 +107,6 @@ module.exports = async function (context, req) {
     );
     const vector = emb.data[0].embedding;
 
-    // 5. Azure AI Search
     const searchClient = new SearchClient(
       process.env.VECTOR_DB_ENDPOINT,
       process.env.VECTOR_COLLECTION_NAME,
@@ -126,7 +125,6 @@ module.exports = async function (context, req) {
       contentVector: vector
     }]);
 
-    // 6. Finalizar
     pEntity.status = "completed";
     pEntity.completedAt = resultEntity.completedAt;
     await participantsClient.upsertEntity(pEntity, "Replace");
