@@ -73,12 +73,20 @@ module.exports = async function (context, req) {
       apiVersion: "2024-12-01-preview"
     });
 
-    const response = await client.embeddings.create({
-      model: process.env.AZURE_OPENAI_EMBEDDING_DEPLOYMENT,
-      input: textToEmbed
-    });
-    
-    const vector = response.data[0].embedding;
+    let vector;
+    try {
+      const response = await client.embeddings.create({
+        model: process.env.AZURE_OPENAI_EMBEDDING_DEPLOYMENT,
+        input: textToEmbed
+      });
+      vector = response.data[0].embedding;
+    } catch (err) {
+      if (err?.statusCode === 404 || (err?.message && err.message.includes("404"))) {
+        err.message = `Deployment de embeddings no encontrado: "${process.env.AZURE_OPENAI_EMBEDDING_DEPLOYMENT}". Verifica en Azure OpenAI Studio que exista un deployment con ese nombre y que tu Function App tenga la variable AZURE_OPENAI_EMBEDDING_DEPLOYMENT configurada con ese valor.`;
+      }
+      throw err;
+    }
+
  
     //INDEXACIÓN EN VECTOR DB
     if (process.env.VECTOR_DB_ENDPOINT) {
