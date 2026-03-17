@@ -1,11 +1,17 @@
 const { TableClient, odata } = require("@azure/data-tables");
-const { AzureOpenAI } = require("@azure/openai"); // Clase moderna v2.x
+const { AzureOpenAI } = require("openai");
 const { SearchClient, AzureKeyCredential } = require("@azure/search-documents");
 
 module.exports = async function (context, req) {
   // Manejo de CORS
   if (req.method === "OPTIONS") {
-    context.res = { status: 204, headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS" } };
+    context.res = { 
+      status: 204, 
+      headers: { 
+        "Access-Control-Allow-Origin": "*", 
+        "Access-Control-Allow-Methods": "POST, OPTIONS" 
+      } 
+    };
     return;
   }
 
@@ -17,7 +23,7 @@ module.exports = async function (context, req) {
     const participantsClient = TableClient.fromConnectionString(conn, "participants");
     const resultsClient = TableClient.fromConnectionString(conn, "assessmentResults");
 
-    // 1. Validar Participante
+    //Validar Participante
     let pEntity = null;
     const entities = participantsClient.listEntities({ filter: odata`RowKey eq ${token}` });
     for await (const e of entities) { pEntity = e; break; }
@@ -77,7 +83,7 @@ module.exports = async function (context, req) {
     
     const vector = response.data[0].embedding;
 
-    //NDEXACIÓN EN VECTOR DB (Azure AI Search)
+    //INDEXACIÓN EN VECTOR DB (Azure AI Search)
     if (process.env.VECTOR_DB_ENDPOINT) {
       const searchClient = new SearchClient(
         process.env.VECTOR_DB_ENDPOINT,
