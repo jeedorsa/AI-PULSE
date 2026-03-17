@@ -45,7 +45,7 @@ export const SectionBars: React.FC<SectionBarsProps> = ({ sectionScores, alerts 
             </div>
 
             <span className={`font-mono text-[10px] text-right ${isCritical ? 'text-[#F30302]' : 'text-[#808080]'}`}>
-              {data.level} · {data.score.toFixed(1)}
+              {data.level} · {data.score?.toFixed(1)}
             </span>
           </motion.div>
         );
