@@ -77,7 +77,8 @@ module.exports = async function (context, req) {
     try {
       const response = await client.embeddings.create({
         model: process.env.AZURE_OPENAI_EMBEDDING_DEPLOYMENT,
-        input: textToEmbed
+        input: textToEmbed,
+        dimensions: 1536
       });
       vector = response.data[0].embedding;
     } catch (err) {
