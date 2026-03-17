@@ -1,6 +1,7 @@
 const { TableClient, odata } = require("@azure/data-tables");
 const { AzureOpenAI } = require("openai");
 const { SearchClient, AzureKeyCredential } = require("@azure/search-documents");
+const { v4: uuidv4 } = require("uuid");
 
 module.exports = async function (context, req) {
   // Manejo de CORS
@@ -30,22 +31,18 @@ module.exports = async function (context, req) {
     if (!pEntity) return context.res = { status: 401, body: { error: "Token inválido" } };
 
     const completedAt = metadata.completedAt || new Date().toISOString();
+    const vectorId = metadata.vectorId || token?.replace(/[^a-zA-Z0-9_-]/g, '_') || uuidv4();
 
-    //Persistencia en Table Storage
-    await resultsClient.upsertEntity({
-      partitionKey: (participant.empresa || "General").trim(),
-      rowKey: token,
-      email: participant.email || "",
-      nombre: participant.nombre || "",
-      posicion: participant.posicion || "",
-      departamento: participant.departamento || "",
-      aiqScore: Number(aiqResult.score),
-      aiqLevel: aiqResult.level || "N/A",
-      challengeProfile: aiqResult.challengeProfile || "unknown",
-      answers: JSON.stringify(answers),
-      aiScores: JSON.stringify(aiScores),
-      completedAt: completedAt
-    }, "Replace");
+    const safeNumber = (value, fallback = 0) => {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : fallback;
+    };
+
+    const aiqScore = safeNumber(aiqResult.score, 0);
+    const sectionA = safeNumber(aiqResult.sectionScores?.A?.avg, 0);
+    const sectionB = safeNumber(aiqResult.sectionScores?.B?.avg, 0);
+    const sectionC = safeNumber(aiqResult.sectionScores?.C?.avg, 0);
+    const durationMinutes = metadata.durationMinutes != null ? safeNumber(metadata.durationMinutes, null) : null;
 
     //ESTRUCTURA DEL TEXTO PARA EMBEDDING
     const textToEmbed = `
@@ -83,7 +80,7 @@ module.exports = async function (context, req) {
     
     const vector = response.data[0].embedding;
  
-    //INDEXACIÓN EN VECTOR DB (Azure AI Search)
+    //INDEXACIÓN EN VECTOR DB
     if (process.env.VECTOR_DB_ENDPOINT) {
       const searchClient = new SearchClient(
         process.env.VECTOR_DB_ENDPOINT,
@@ -92,7 +89,7 @@ module.exports = async function (context, req) {
       );
 
       await searchClient.mergeOrUploadDocuments([{
-        id: token.replace(/[^a-zA-Z0-9_-]/g, '_'),
+        id: vectorId,
         assessmentId: token,
         empresa: participant.empresa,
         departamento: participant.departamento,
@@ -103,6 +100,32 @@ module.exports = async function (context, req) {
         contentVector: vector
       }]);
     }
+
+    //Persistencia en Table Storage (según requerimientos)
+    await resultsClient.upsertEntity({
+      partitionKey: (participant.empresa || "General").trim(),
+      rowKey: token,
+      email: participant.email || "",
+      nombre: participant.nombre || "",
+      posicion: participant.posicion || "",
+      departamento: participant.departamento || "",
+      // Resultados IAQ
+      aiqScore: aiqScore,
+      aiqLevel: aiqResult.level || "N/A",
+      sectionA: sectionA,
+      sectionB: sectionB,
+      sectionC: sectionC,
+      challengeProfile: aiqResult.challengeProfile || "unknown",
+      alerts: JSON.stringify(aiqResult.alerts || []),
+      // Datos completos
+      answers: JSON.stringify(answers),
+      aiScores: JSON.stringify(aiScores),
+      vectorId,
+
+      // Metadatos de ejecución
+      completedAt: completedAt,
+      durationMinutes: durationMinutes
+    }, "Replace");
 
     //Actualizar status del participante
     pEntity.status = "completed";
