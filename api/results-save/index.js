@@ -82,7 +82,7 @@ module.exports = async function (context, req) {
     });
     
     const vector = response.data[0].embedding;
-
+ 
     //INDEXACIÓN EN VECTOR DB (Azure AI Search)
     if (process.env.VECTOR_DB_ENDPOINT) {
       const searchClient = new SearchClient(
