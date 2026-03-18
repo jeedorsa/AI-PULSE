@@ -14,7 +14,7 @@ module.exports = async function (context, req) {
       } 
     };
     return;
-  }
+  } 
 
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
