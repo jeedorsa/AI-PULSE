@@ -24,15 +24,31 @@ module.exports = async function (context, req) {
     const participantsClient = TableClient.fromConnectionString(conn, "participants");
     const resultsClient = TableClient.fromConnectionString(conn, "assessmentResults");
 
-    //Validar Participante
-    let pEntity = null;
-    const entities = participantsClient.listEntities({ filter: odata`token eq ${token}` });
-    for await (const e of entities) { pEntity = e; break; }
-    if (!pEntity) return context.res = { status: 401, body: { error: "Token inválido" } };
+    // ──────────────────────────────────────────────────────────────
+    // Validar y obtener el participante EXACTO usando PartitionKey + RowKey
+    // PartitionKey = empresa, RowKey = email
+    // ──────────────────────────────────────────────────────────────
+    const partitionKey = (participant.empresa || "General").trim();
+    const rowKey = participant.email?.trim();
+
+    if (!rowKey) {
+      return context.res = { status: 400, body: { error: "Falta el email del participante en el request" } };
+    }
+
+    let pEntity;
+    try {
+      pEntity = await participantsClient.getEntity(partitionKey, rowKey);
+    } catch (err) {
+      if (err.statusCode === 404) {
+        return context.res = { status: 401, body: { error: "Participante no encontrado o token inválido" } };
+      }
+      context.log.error("Error al obtener participante:", err.message);
+      throw err;
+    }
+
 
     const completedAt = metadata.completedAt || new Date().toISOString();
     const vectorId = metadata.vectorId || token?.replace(/[^a-zA-Z0-9_-]/g, '_') || uuidv4();
-
     const safeNumber = (value, fallback = 0) => {
       const n = Number(value);
       return Number.isFinite(n) ? n : fallback;
@@ -44,7 +60,7 @@ module.exports = async function (context, req) {
     const sectionC = safeNumber(aiqResult.sectionScores?.C?.avg, 0);
     const durationMinutes = metadata.durationMinutes != null ? safeNumber(metadata.durationMinutes, null) : null;
 
-    //ESTRUCTURA DEL TEXTO PARA EMBEDDING
+    // ESTRUCTURA DEL TEXTO PARA EMBEDDING
     const textToEmbed = `
       Posición: ${participant.posicion}
       Empresa: ${participant.empresa}
@@ -66,7 +82,7 @@ module.exports = async function (context, req) {
       [G1 texto] ${answers.G1?.text || ""}
     `.replace(/\s+/g, ' ').trim();
 
-    //GENERACIÓN DEL EMBEDDING 
+    // GENERACIÓN DEL EMBEDDING 
     const client = new AzureOpenAI({
       endpoint: process.env.AZURE_OPENAI_ENDPOINT,
       apiKey: process.env.AZURE_OPENAI_API_KEY,
@@ -88,8 +104,7 @@ module.exports = async function (context, req) {
       throw err;
     }
 
- 
-    //INDEXACIÓN EN VECTOR DB
+    // INDEXACIÓN EN VECTOR DB
     if (process.env.VECTOR_DB_ENDPOINT) {
       const searchClient = new SearchClient(
         process.env.VECTOR_DB_ENDPOINT,
@@ -110,7 +125,7 @@ module.exports = async function (context, req) {
       }]);
     }
 
-    //Persistencia en Table Storage (según requerimientos)
+    // Persistencia en Table Storage
     await resultsClient.upsertEntity({
       partitionKey: (participant.empresa || "General").trim(),
       rowKey: token,
@@ -118,7 +133,6 @@ module.exports = async function (context, req) {
       nombre: participant.nombre || "",
       posicion: participant.posicion || "",
       departamento: participant.departamento || "",
-      // Resultados IAQ
       aiqScore: aiqScore,
       aiqLevel: aiqResult.level || "N/A",
       sectionA: sectionA,
@@ -126,21 +140,18 @@ module.exports = async function (context, req) {
       sectionC: sectionC,
       challengeProfile: aiqResult.challengeProfile || "unknown",
       alerts: JSON.stringify(aiqResult.alerts || []),
-      // Datos completos
       answers: JSON.stringify(answers),
       aiScores: JSON.stringify(aiScores),
       vectorId,
-
-      // Metadatos de ejecución
       completedAt: completedAt,
       durationMinutes: durationMinutes
     }, "Replace");
 
-    //Actualizar status del participante
+    // ACTUALIZAR STATUS DEL PARTICIPANTE
     pEntity.status = "completed";
     pEntity.completedAt = completedAt;
-    await participantsClient.upsertEntity(pEntity, "Merge");
 
+    await participantsClient.updateEntity(pEntity, "Merge");
     context.res = { status: 200, body: { success: true, assessmentId: token } };
 
   } catch (err) {
