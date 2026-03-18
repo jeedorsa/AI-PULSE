@@ -26,7 +26,7 @@ module.exports = async function (context, req) {
 
     //Validar Participante
     let pEntity = null;
-    const entities = participantsClient.listEntities({ filter: odata`RowKey eq ${token}` });
+    const entities = participantsClient.listEntities({ filter: odata`token eq ${token}` });
     for await (const e of entities) { pEntity = e; break; }
     if (!pEntity) return context.res = { status: 401, body: { error: "Token inválido" } };
 
