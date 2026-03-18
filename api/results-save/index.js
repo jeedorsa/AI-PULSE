@@ -139,7 +139,7 @@ module.exports = async function (context, req) {
     //Actualizar status del participante
     pEntity.status = "completed";
     pEntity.completedAt = completedAt;
-    await participantsClient.upsertEntity(pEntity, "Replace");
+    await participantsClient.upsertEntity(pEntity, "Merge");
 
     context.res = { status: 200, body: { success: true, assessmentId: token } };
 
