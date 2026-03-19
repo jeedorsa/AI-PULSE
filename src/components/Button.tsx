@@ -11,8 +11,8 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     const baseStyles = "inline-flex items-center justify-center rounded-full font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-bk disabled:opacity-50 disabled:cursor-not-allowed";
     
     const variants = {
-      primary: "bg-primary text-white hover:bg-secondary focus:ring-primary",
-      secondary: "bg-d3 text-white hover:bg-g4 focus:ring-g4 border border-g4",
+      primary: "bg-primary text-[#111111] hover:bg-secondary focus:ring-primary",
+      secondary: "bg-d3 text-[#111111] hover:bg-g4 focus:ring-g4 border border-g4",
       outline: "bg-transparent border border-primary text-primary hover:bg-primary/10 focus:ring-primary"
     };
 

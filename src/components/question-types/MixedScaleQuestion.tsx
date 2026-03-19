@@ -29,13 +29,13 @@ export const MixedScaleQuestion: React.FC<MixedScaleProps> = ({ question, value,
               onClick={() => handleScaleChange(opt.value)}
               className={`p-4 rounded-xl border text-left transition-all ${
                 currentScale === opt.value
-                  ? 'bg-primary/10 border-primary text-white'
+                  ? 'bg-primary/10 border-primary text-[#111111]'
                   : 'bg-d2 border-d3 text-g2 hover:border-g4 hover:bg-d3'
               }`}
             >
               <div className="flex items-center gap-3">
                 <div className={`w-6 h-6 rounded-full border flex items-center justify-center text-xs font-mono ${
-                   currentScale === opt.value ? 'border-primary bg-primary text-white' : 'border-g3 text-g3'
+                   currentScale === opt.value ? 'border-primary bg-primary text-[#111111]' : 'border-g3 text-g3'
                 }`}>
                   {opt.value}
                 </div>
@@ -49,7 +49,7 @@ export const MixedScaleQuestion: React.FC<MixedScaleProps> = ({ question, value,
       <div className="space-y-2">
         <p className="font-display text-xl text-g2">{question.openText}</p>
         <textarea
-          className="w-full h-32 bg-d2 border border-d3 rounded-xl p-4 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all resize-none font-body"
+          className="w-full h-32 bg-d2 border border-d3 rounded-xl p-4 text-[#111111] focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all resize-none font-body"
           placeholder="Profundiza en tu respuesta..."
           value={currentText}
           onChange={(e) => handleTextChange(e.target.value)}

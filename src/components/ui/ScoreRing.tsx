@@ -61,7 +61,7 @@ export const ScoreRing: React.FC<ScoreRingProps> = ({ score, level, levelName })
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 1.6, duration: 0.4 }}
-        className="font-display text-[36px] md:text-[52px] text-white leading-none mt-8 mb-2"
+        className="font-display text-[36px] md:text-[52px] text-[#111111] leading-none mt-8 mb-2"
       >
         {levelName}
       </motion.h1>

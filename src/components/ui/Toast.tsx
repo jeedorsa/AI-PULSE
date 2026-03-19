@@ -26,7 +26,7 @@ export const Toast: React.FC<ToastProps> = ({ message, isVisible, onClose, durat
           animate={{ opacity: 1, y: 0, x: '-50%' }}
           exit={{ opacity: 0, y: 10, x: '-50%' }}
           transition={{ duration: 0.2 }}
-          className="fixed bottom-6 left-1/2 z-[200] bg-primary text-white px-4 py-2 rounded-[2px] shadow-lg whitespace-nowrap"
+          className="fixed bottom-6 left-1/2 z-[200] bg-primary text-[#111111] px-4 py-2 rounded-[2px] shadow-lg whitespace-nowrap"
         >
           <span className="font-mono text-[10px] uppercase tracking-wider">
             {message}

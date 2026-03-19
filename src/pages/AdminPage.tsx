@@ -224,7 +224,7 @@ export default function AdminPage() {
   // ── Login Screen ──
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-[#080808] flex flex-col">
+      <div className="min-h-screen bg-white flex flex-col">
         <Navbar />
         <div className="flex-1 pt-[56px] flex items-center justify-center">
           <motion.div
@@ -236,10 +236,10 @@ export default function AdminPage() {
               <span className="font-mono text-[9px] tracking-[0.4em] text-primary uppercase block mb-3">
                 ACCESO RESTRINGIDO
               </span>
-              <h1 className="font-display text-[28px] md:text-[36px] leading-[0.95] text-white mb-2">
+              <h1 className="font-display text-[28px] md:text-[36px] leading-[0.95] text-[#111111] mb-2">
                 AI <span className="text-primary">PULSE</span> Admin
               </h1>
-              <p className="font-body text-[13px] font-light text-[#808080]">
+              <p className="font-body text-[13px] font-light text-[#666666]">
                 Ingresa la contrasena de administrador
               </p>
             </div>
@@ -252,8 +252,8 @@ export default function AdminPage() {
                   onChange={(e) => setLoginPassword(e.target.value)}
                   placeholder="Contrasena"
                   autoFocus
-                  className="w-full bg-[#0f0f0f] border border-[#2a2a2a] rounded-[2px] px-4 py-3
-                    font-body text-[14px] text-white placeholder-[#4D4D4D]
+                  className="w-full bg-[#F7F7F7] border border-[#CCCCCC] rounded-[2px] px-4 py-3
+                    font-body text-[14px] text-[#111111] placeholder-[#AAAAAA]
                     focus:outline-none focus:border-primary/60 transition-colors"
                 />
               </div>
@@ -283,7 +283,7 @@ export default function AdminPage() {
 
   // ── Admin Dashboard ──
   return (
-    <div className="min-h-screen bg-[#080808] flex flex-col">
+    <div className="min-h-screen bg-white flex flex-col">
       <Navbar />
 
       <div className="flex-1 pt-[56px]">
@@ -295,23 +295,23 @@ export default function AdminPage() {
               <span className="font-mono text-[9px] tracking-[0.4em] text-primary uppercase block mb-3">
                 PANEL DE ADMINISTRACION
               </span>
-              <h1 className="font-display text-[32px] md:text-[42px] leading-[0.95] text-white mb-2">
+              <h1 className="font-display text-[32px] md:text-[42px] leading-[0.95] text-[#111111] mb-2">
                 AI <span className="text-primary">PULSE</span> Admin
               </h1>
-              <p className="font-body text-[14px] font-light text-[#808080]">
+              <p className="font-body text-[14px] font-light text-[#666666]">
                 Gestiona participantes, envia invitaciones y administra el diagnostico.
               </p>
             </div>
             <button
               onClick={handleLogout}
-              className="font-mono text-[9px] uppercase tracking-wider text-[#4D4D4D] hover:text-[#FF3C3C] transition-colors mt-2 px-3 py-2 border border-[#1a1a1a] hover:border-[rgba(255,60,60,0.3)] rounded-[2px]"
+              className="font-mono text-[9px] uppercase tracking-wider text-[#AAAAAA] hover:text-[#FF3C3C] transition-colors mt-2 px-3 py-2 border border-[#E0E0E0] hover:border-[rgba(255,60,60,0.3)] rounded-[2px]"
             >
               Cerrar sesion
             </button>
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-[2px] mb-8 border-b border-[#1a1a1a]">
+          <div className="flex gap-[2px] mb-8 border-b border-[#E0E0E0]">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -323,7 +323,7 @@ export default function AdminPage() {
                   px-5 py-3 font-mono text-[10px] uppercase tracking-wider transition-all
                   ${activeTab === tab.id
                     ? 'text-primary border-b-2 border-primary -mb-[1px]'
-                    : 'text-[#4D4D4D] hover:text-[#808080]'
+                    : 'text-[#AAAAAA] hover:text-[#666666]'
                   }
                 `}
               >
@@ -340,17 +340,17 @@ export default function AdminPage() {
               className="space-y-6"
             >
               {/* Instructions */}
-              <div className="bg-[#0f0f0f] border border-[#1f1f1f] rounded-[2px] p-5">
-                <h3 className="font-body text-[14px] font-semibold text-white mb-3">
+              <div className="bg-[#F7F7F7] border border-[#E0E0E0] rounded-[2px] p-5">
+                <h3 className="font-body text-[14px] font-semibold text-[#111111] mb-3">
                   Formato del Excel
                 </h3>
-                <p className="font-body text-[12px] font-light text-[#808080] leading-[1.6] mb-3">
+                <p className="font-body text-[12px] font-light text-[#666666] leading-[1.6] mb-3">
                   El archivo Excel (.xlsx) debe contener las siguientes columnas en la primera fila:
                 </p>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left">
                     <thead>
-                      <tr className="border-b border-[#1a1a1a]">
+                      <tr className="border-b border-[#E0E0E0]">
                         {['email', 'nombre', 'posicion', 'empresa', 'departamento'].map((col) => (
                           <th key={col} className="font-mono text-[9px] text-primary uppercase tracking-wider py-2 px-3">
                             {col}
@@ -359,12 +359,12 @@ export default function AdminPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      <tr className="border-b border-[#111]">
-                        <td className="font-body text-[11px] text-[#808080] py-2 px-3">juan@empresa.com</td>
-                        <td className="font-body text-[11px] text-[#808080] py-2 px-3">Juan Perez</td>
-                        <td className="font-body text-[11px] text-[#808080] py-2 px-3">Manager</td>
-                        <td className="font-body text-[11px] text-[#808080] py-2 px-3">ACME Corp</td>
-                        <td className="font-body text-[11px] text-[#808080] py-2 px-3">Marketing</td>
+                      <tr className="border-b border-[#EEEEEE]">
+                        <td className="font-body text-[11px] text-[#666666] py-2 px-3">juan@empresa.com</td>
+                        <td className="font-body text-[11px] text-[#666666] py-2 px-3">Juan Perez</td>
+                        <td className="font-body text-[11px] text-[#666666] py-2 px-3">Manager</td>
+                        <td className="font-body text-[11px] text-[#666666] py-2 px-3">ACME Corp</td>
+                        <td className="font-body text-[11px] text-[#666666] py-2 px-3">Marketing</td>
                       </tr>
                     </tbody>
                   </table>
@@ -374,7 +374,7 @@ export default function AdminPage() {
               {/* Upload Area */}
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-[#2a2a2a] rounded-[2px] p-10 flex flex-col items-center cursor-pointer hover:border-primary/40 transition-colors"
+                className="border-2 border-dashed border-[#CCCCCC] rounded-[2px] p-10 flex flex-col items-center cursor-pointer hover:border-primary/40 transition-colors"
               >
                 <input
                   ref={fileInputRef}
@@ -384,10 +384,10 @@ export default function AdminPage() {
                   className="hidden"
                 />
                 <span className="text-[32px] mb-3">+</span>
-                <p className="font-body text-[13px] text-[#808080] mb-1">
+                <p className="font-body text-[13px] text-[#666666] mb-1">
                   {uploadStatus === 'uploading' ? 'Procesando...' : 'Haz clic para seleccionar archivo Excel'}
                 </p>
-                <p className="font-mono text-[9px] text-[#4D4D4D] uppercase tracking-wider">
+                <p className="font-mono text-[9px] text-[#AAAAAA] uppercase tracking-wider">
                   .xlsx o .xls
                 </p>
               </div>
@@ -409,18 +409,18 @@ export default function AdminPage() {
 
               {/* Preview of uploaded data */}
               {participants.length > 0 && uploadStatus === 'success' && (
-                <div className="bg-[#0f0f0f] border border-[#1f1f1f] rounded-[2px] overflow-hidden">
-                  <div className="px-5 py-3 border-b border-[#1a1a1a] flex justify-between items-center">
+                <div className="bg-[#F7F7F7] border border-[#E0E0E0] rounded-[2px] overflow-hidden">
+                  <div className="px-5 py-3 border-b border-[#E0E0E0] flex justify-between items-center">
                     <span className="font-mono text-[9px] text-primary uppercase tracking-wider">
                       {participants.length} participantes cargados
                     </span>
                   </div>
                   <div className="overflow-x-auto max-h-[300px] overflow-y-auto">
                     <table className="w-full text-left">
-                      <thead className="sticky top-0 bg-[#0f0f0f]">
-                        <tr className="border-b border-[#1a1a1a]">
+                      <thead className="sticky top-0 bg-[#F7F7F7]">
+                        <tr className="border-b border-[#E0E0E0]">
                           {['Email', 'Nombre', 'Posicion', 'Empresa', 'Depto'].map((col) => (
-                            <th key={col} className="font-mono text-[8px] text-[#4D4D4D] uppercase tracking-wider py-2 px-3">
+                            <th key={col} className="font-mono text-[8px] text-[#AAAAAA] uppercase tracking-wider py-2 px-3">
                               {col}
                             </th>
                           ))}
@@ -428,12 +428,12 @@ export default function AdminPage() {
                       </thead>
                       <tbody>
                         {participants.map((p, i) => (
-                          <tr key={i} className="border-b border-[#111] hover:bg-[#161616]">
-                            <td className="font-body text-[11px] text-white py-2 px-3">{p.email}</td>
-                            <td className="font-body text-[11px] text-[#B3B3B3] py-2 px-3">{p.nombre}</td>
-                            <td className="font-body text-[11px] text-[#808080] py-2 px-3">{p.posicion}</td>
-                            <td className="font-body text-[11px] text-[#808080] py-2 px-3">{p.empresa}</td>
-                            <td className="font-body text-[11px] text-[#808080] py-2 px-3">{p.departamento}</td>
+                          <tr key={i} className="border-b border-[#EEEEEE] hover:bg-[#EFEFEF]">
+                            <td className="font-body text-[11px] text-[#111111] py-2 px-3">{p.email}</td>
+                            <td className="font-body text-[11px] text-[#555555] py-2 px-3">{p.nombre}</td>
+                            <td className="font-body text-[11px] text-[#666666] py-2 px-3">{p.posicion}</td>
+                            <td className="font-body text-[11px] text-[#666666] py-2 px-3">{p.empresa}</td>
+                            <td className="font-body text-[11px] text-[#666666] py-2 px-3">{p.departamento}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -452,30 +452,58 @@ export default function AdminPage() {
             >
               {participants.length === 0 ? (
                 <div className="text-center py-16">
-                  <p className="font-body text-[14px] text-[#4D4D4D]">
+                  <p className="font-body text-[14px] text-[#AAAAAA]">
                     No hay participantes cargados. Sube un Excel primero.
                   </p>
                 </div>
               ) : (
-                <div className="bg-[#0f0f0f] border border-[#1f1f1f] rounded-[2px] overflow-hidden">
-                  <div className="px-5 py-3 border-b border-[#1a1a1a] flex justify-between items-center">
+                <div className="bg-[#F7F7F7] border border-[#E0E0E0] rounded-[2px] overflow-hidden">
+                  <div className="px-5 py-3 border-b border-[#E0E0E0] flex justify-between items-center gap-3 flex-wrap">
                     <span className="font-mono text-[9px] text-primary uppercase tracking-wider">
                       {participants.length} participantes
                     </span>
-                    <Button
-                      variant="ghost"
-                      onClick={fetchParticipants}
-                      className="text-[9px] h-7 px-3"
-                    >
-                      Actualizar
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        onClick={fetchParticipants}
+                        className="text-[9px] h-7 px-3"
+                      >
+                        Actualizar
+                      </Button>
+                      <button
+                        onClick={() => {
+                          const headers = ['Email', 'Nombre', 'Posicion', 'Empresa', 'Departamento', 'Estado'];
+                          const rows = participants.map(p => [
+                            p.email,
+                            p.nombre,
+                            p.posicion,
+                            p.empresa || '',
+                            p.departamento || '',
+                            p.status || 'pending'
+                          ]);
+                          const csv = [headers, ...rows]
+                            .map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
+                            .join('\n');
+                          const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `aipulse-participantes-${new Date().toISOString().slice(0,10)}.csv`;
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        }}
+                        className="font-mono text-[9px] uppercase tracking-wider h-7 px-3 border border-[#CCCCCC] rounded-[2px] text-[#666666] hover:border-primary hover:text-primary transition-colors"
+                      >
+                        ↓ Exportar CSV
+                      </button>
+                    </div>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-left">
                       <thead>
-                        <tr className="border-b border-[#1a1a1a]">
-                          {['Email', 'Nombre', 'Posicion', 'Estado'].map((col) => (
-                            <th key={col} className="font-mono text-[8px] text-[#4D4D4D] uppercase tracking-wider py-2 px-3">
+                        <tr className="border-b border-[#E0E0E0]">
+                          {['Email', 'Nombre', 'Empresa', 'Posición', 'Estado'].map((col) => (
+                            <th key={col} className="font-mono text-[8px] text-[#AAAAAA] uppercase tracking-wider py-2 px-3">
                               {col}
                             </th>
                           ))}
@@ -483,17 +511,18 @@ export default function AdminPage() {
                       </thead>
                       <tbody>
                         {participants.map((p, i) => (
-                          <tr key={i} className="border-b border-[#111] hover:bg-[#161616]">
-                            <td className="font-body text-[11px] text-white py-2 px-3">{p.email}</td>
-                            <td className="font-body text-[11px] text-[#B3B3B3] py-2 px-3">{p.nombre}</td>
-                            <td className="font-body text-[11px] text-[#808080] py-2 px-3">{p.posicion}</td>
+                          <tr key={i} className="border-b border-[#EEEEEE] hover:bg-[#EFEFEF]">
+                            <td className="font-body text-[11px] text-[#111111] py-2 px-3">{p.email}</td>
+                            <td className="font-body text-[11px] text-[#555555] py-2 px-3">{p.nombre}</td>
+                            <td className="font-body text-[11px] text-[#555555] font-medium py-2 px-3">{p.empresa || '—'}</td>
+                            <td className="font-body text-[11px] text-[#666666] py-2 px-3">{p.posicion}</td>
                             <td className="py-2 px-3">
-                              <span className={`font-mono text-[8px] uppercase tracking-wider px-2 py-0.5 rounded-[2px] ${
+                              <span className={`font-mono text-[8px] uppercase tracking-wider px-2 py-0.5 rounded-[2px] border ${
                                 p.status === 'completed'
-                                  ? 'text-[#00CC66] bg-[rgba(0,204,102,0.08)]'
+                                  ? 'text-[#00AA55] bg-[rgba(0,170,85,0.08)] border-[rgba(0,170,85,0.20)]'
                                   : p.status === 'started'
-                                  ? 'text-[#FFD600] bg-[rgba(255,214,0,0.08)]'
-                                  : 'text-[#4D4D4D] bg-[rgba(77,77,77,0.08)]'
+                                  ? 'text-[#CC8800] bg-[rgba(204,136,0,0.08)] border-[rgba(204,136,0,0.20)]'
+                                  : 'text-[#888888] bg-[rgba(0,0,0,0.04)] border-[rgba(0,0,0,0.10)]'
                               }`}>
                                 {p.status || 'pending'}
                               </span>
@@ -515,11 +544,11 @@ export default function AdminPage() {
               animate={{ opacity: 1, y: 0 }}
               className="space-y-6"
             >
-              <div className="bg-[#0f0f0f] border border-[#1f1f1f] rounded-[2px] p-6">
-                <h3 className="font-body text-[14px] font-semibold text-white mb-3">
+              <div className="bg-[#F7F7F7] border border-[#E0E0E0] rounded-[2px] p-6">
+                <h3 className="font-body text-[14px] font-semibold text-[#111111] mb-3">
                   Enviar invitaciones
                 </h3>
-                <p className="font-body text-[12px] font-light text-[#808080] leading-[1.6] mb-5">
+                <p className="font-body text-[12px] font-light text-[#666666] leading-[1.6] mb-5">
                   Se enviara un correo con un link unico a cada participante que tenga estado "pending".
                   El link contiene un token de acceso que expira en 7 dias.
                 </p>

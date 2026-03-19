@@ -18,15 +18,15 @@ export const AnswerCard: React.FC<AnswerCardProps> = ({ letter, text, selected, 
         transition-all duration-150 ease-out relative
         ${selected 
           ? 'bg-[rgba(254,60,28,0.08)] border border-primary' 
-          : 'bg-[#161616] border border-[#2a2a2a] hover:border-l-[3px] hover:border-l-primary'
+          : 'bg-[#EFEFEF] border border-[#CCCCCC] hover:border-l-[3px] hover:border-l-primary'
         }
       `}
     >
-      <span className={`font-display text-[20px] leading-none mt-0.5 ${selected ? 'text-primary' : 'text-[#4D4D4D]'}`}>
+      <span className={`font-display text-[20px] leading-none mt-0.5 ${selected ? 'text-primary' : 'text-[#AAAAAA]'}`}>
         {letter}
       </span>
       
-      <span className={`font-body text-[12.5px] font-light leading-relaxed flex-1 ${selected ? 'text-[#E0E0E0]' : 'text-[#B3B3B3]'}`}>
+      <span className={`font-body text-[12.5px] font-light leading-relaxed flex-1 ${selected ? 'text-[#E0E0E0]' : 'text-[#555555]'}`}>
         {text}
       </span>
 

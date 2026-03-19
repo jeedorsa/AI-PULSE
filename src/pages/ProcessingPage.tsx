@@ -62,7 +62,7 @@ export default function ProcessingPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#080808] flex flex-col items-center justify-center p-8 relative overflow-hidden">
+    <div className="min-h-screen bg-white flex flex-col items-center justify-center p-8 relative overflow-hidden">
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/5 blur-[100px] rounded-full pointer-events-none" />
 
       <div className="flex flex-col items-center z-10">
@@ -75,7 +75,7 @@ export default function ProcessingPage() {
           />
         </div>
 
-        <h2 className="font-display text-4xl mb-4 text-white tracking-wide">
+        <h2 className="font-display text-4xl mb-4 text-[#111111] tracking-wide">
           ANALIZANDO RESPUESTAS
         </h2>
 

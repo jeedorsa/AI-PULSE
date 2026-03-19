@@ -81,7 +81,7 @@ export const PromptInputQuestion: React.FC<PromptInputProps> = ({ question, valu
 
       <div className="relative">
         <textarea
-          className="w-full h-64 bg-d1 border border-d3 rounded-xl p-6 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all resize-none font-mono text-sm leading-relaxed"
+          className="w-full h-64 bg-d1 border border-d3 rounded-xl p-6 text-[#111111] focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all resize-none font-mono text-sm leading-relaxed"
           placeholder="Escribe tu prompt aquí..."
           value={text}
           onChange={(e) => handleTextChange(e.target.value)}

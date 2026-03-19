@@ -64,7 +64,7 @@ export const AIQRing: React.FC<AIQRingProps> = ({
           {label}
         </span>
         <span 
-          className="font-mono text-[#808080] text-center uppercase tracking-[0.15em] whitespace-pre-line mt-1"
+          className="font-mono text-[#666666] text-center uppercase tracking-[0.15em] whitespace-pre-line mt-1"
           style={{ fontSize: '9px', lineHeight: '1.4' }}
         >
           {sublabel}

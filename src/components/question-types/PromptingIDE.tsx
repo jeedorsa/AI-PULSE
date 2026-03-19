@@ -109,11 +109,11 @@ export const PromptingIDE: React.FC<PromptingIDEProps> = ({ question, value, onC
   if (question.type === 'narrative') {
     return (
       <div className="w-full">
-        <div className="font-mono text-[9px] text-[#4D4D4D] mb-2">
+        <div className="font-mono text-[9px] text-[#AAAAAA] mb-2">
           Cuéntame cómo gestionas tus prompts
         </div>
         <textarea
-          className="w-full bg-[#050505] border border-[#2a2a2a] rounded-[2px] p-4 text-[#B3B3B3] font-mono text-[11.5px] leading-[1.75] focus:border-primary outline-none resize-none min-h-[120px]"
+          className="w-full bg-[#050505] border border-[#CCCCCC] rounded-[2px] p-4 text-[#555555] font-mono text-[11.5px] leading-[1.75] focus:border-primary outline-none resize-none min-h-[120px]"
           placeholder="Describe tu sistema de organización, si tienes uno..."
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -128,24 +128,24 @@ export const PromptingIDE: React.FC<PromptingIDEProps> = ({ question, value, onC
     <div className="w-full">
       {/* Scenario Card */}
       <div className={`
-        bg-[#1e1e1e] border border-[#2a2a2a] border-l-[3px] border-l-primary 
+        bg-[#E5E5E5] border border-[#CCCCCC] border-l-[3px] border-l-primary 
         px-5 py-4 rounded-[2px] mb-5 transition-opacity duration-250
         ${isFocused ? 'md:opacity-100 opacity-10' : 'opacity-100'}
       `}>
         <div className="font-mono text-[8px] uppercase text-primary tracking-[0.2em] mb-2">
           Escenario {question.id}
         </div>
-        <p className="font-body text-[13px] text-[#B3B3B3] leading-[1.6] font-normal">
+        <p className="font-body text-[13px] text-[#555555] leading-[1.6] font-normal">
           {question.scenarioText}
         </p>
 
         {/* C3 Special Case */}
         {question.originalPrompt && (
-          <div className="bg-[#0a0a0a] border-l-2 border-[#2a2a2a] px-[14px] py-[10px] rounded-[2px] mt-2">
-            <div className="font-mono text-[7.5px] text-[#4D4D4D] mb-1">
+          <div className="bg-[#0a0a0a] border-l-2 border-[#CCCCCC] px-[14px] py-[10px] rounded-[2px] mt-2">
+            <div className="font-mono text-[7.5px] text-[#AAAAAA] mb-1">
               PROMPT A MEJORAR
             </div>
-            <p className="font-mono text-[10.5px] text-[#808080] italic leading-[1.6]">
+            <p className="font-mono text-[10.5px] text-[#666666] italic leading-[1.6]">
               "{question.originalPrompt}"
             </p>
           </div>
@@ -169,7 +169,7 @@ export const PromptingIDE: React.FC<PromptingIDEProps> = ({ question, value, onC
               font-mono text-[8.5px] px-2 py-[3px] rounded-[2px] border transition-all duration-200
               ${chips[chip.id as keyof typeof chips]
                 ? 'bg-[rgba(0,200,100,0.06)] border-[rgba(0,200,100,0.15)] text-[#00CC66]'
-                : 'bg-[#161616] border-[#1f1f1f] text-[#4D4D4D]'
+                : 'bg-[#EFEFEF] border-[#E0E0E0] text-[#AAAAAA]'
               }
             `}
           >
@@ -181,7 +181,7 @@ export const PromptingIDE: React.FC<PromptingIDEProps> = ({ question, value, onC
       {/* IDE Input */}
       <div className={`
         bg-[#050505] border rounded-[2px] p-4 relative transition-colors duration-200
-        ${isFocused ? 'border-primary' : 'border-[#2a2a2a]'}
+        ${isFocused ? 'border-primary' : 'border-[#CCCCCC]'}
       `}>
         <div className="flex items-start">
           <span className="text-primary mr-2 font-mono text-[11.5px] mt-[2px]">{'>'}</span>
@@ -193,7 +193,7 @@ export const PromptingIDE: React.FC<PromptingIDEProps> = ({ question, value, onC
               onFocus={handleFocus}
               onBlur={handleBlur}
               placeholder="Escribe tu prompt aquí..."
-              className="w-full bg-transparent border-none outline-none resize-none font-mono text-[11.5px] text-[#B3B3B3] leading-[1.75] min-h-[120px] placeholder-[#2a2a2a]"
+              className="w-full bg-transparent border-none outline-none resize-none font-mono text-[11.5px] text-[#555555] leading-[1.75] min-h-[120px] placeholder-[#2a2a2a]"
             />
             {/* Cursor visible if focused OR empty */}
             {(isFocused || !text) && (
@@ -218,11 +218,11 @@ export const PromptingIDE: React.FC<PromptingIDEProps> = ({ question, value, onC
         </div>
 
         {/* Footer */}
-        <div className="flex justify-between items-center mt-2 pt-2 border-t border-[#1a1a1a]">
-          <span className="font-mono text-[9px] text-[#4D4D4D]">
+        <div className="flex justify-between items-center mt-2 pt-2 border-t border-[#E0E0E0]">
+          <span className="font-mono text-[9px] text-[#AAAAAA]">
             Incluye: rol · contexto · formato · restricciones
           </span>
-          <span className="font-mono text-[10px] text-[#4D4D4D]">
+          <span className="font-mono text-[10px] text-[#AAAAAA]">
             ⏱ {formatTime(elapsedTime)}
           </span>
         </div>

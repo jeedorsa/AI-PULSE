@@ -96,7 +96,7 @@ useEffect(() => {
   const actionItems = getActionItems();
 
   return (
-    <div className="min-h-screen bg-[#080808] flex flex-col items-center p-8 md:p-14 relative overflow-x-hidden">
+    <div className="min-h-screen bg-white flex flex-col items-center p-8 md:p-14 relative overflow-x-hidden">
       
       {/* Glow Background */}
       <div 
@@ -149,16 +149,16 @@ useEffect(() => {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 3.6 + (i * 0.2) }}
-              className="flex gap-3.5 p-[14px_18px] bg-[#0f0f0f] border border-[#1f1f1f] rounded-[2px] mb-[3px]"
+              className="flex gap-3.5 p-[14px_18px] bg-[#F7F7F7] border border-[#E0E0E0] rounded-[2px] mb-[3px]"
             >
               <span className="font-display text-[28px] text-[rgba(254,60,28,0.3)] leading-none min-w-[20px]">
                 {i + 1}
               </span>
               <div className="flex flex-col">
-                <span className="font-body text-[12px] font-bold text-white mb-1">
+                <span className="font-body text-[12px] font-bold text-[#111111] mb-1">
                   {item.title}
                 </span>
-                <span className="font-body text-[11px] font-light text-[#808080] leading-[1.5]">
+                <span className="font-body text-[11px] font-light text-[#666666] leading-[1.5]">
                   {item.text}
                 </span>
               </div>

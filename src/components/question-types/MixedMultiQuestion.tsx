@@ -32,7 +32,7 @@ export const MixedMultiQuestion: React.FC<MixedMultiProps> = ({ question, value,
               onClick={() => toggleOption(opt)}
               className={`p-4 rounded-xl border text-left transition-all ${
                 selected.includes(opt)
-                  ? 'bg-primary/10 border-primary text-white'
+                  ? 'bg-primary/10 border-primary text-[#111111]'
                   : 'bg-d2 border-d3 text-g2 hover:border-g4 hover:bg-d3'
               }`}
             >
@@ -52,7 +52,7 @@ export const MixedMultiQuestion: React.FC<MixedMultiProps> = ({ question, value,
       <div className="space-y-2">
         <p className="font-display text-xl text-g2">{question.openText}</p>
         <textarea
-          className="w-full h-32 bg-d2 border border-d3 rounded-xl p-4 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all resize-none font-body"
+          className="w-full h-32 bg-d2 border border-d3 rounded-xl p-4 text-[#111111] focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all resize-none font-body"
           placeholder="Cuéntame más..."
           value={currentText}
           onChange={(e) => handleTextChange(e.target.value)}

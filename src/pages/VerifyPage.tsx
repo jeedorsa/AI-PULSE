@@ -109,7 +109,7 @@ export default function VerifyPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0f0f0f] flex flex-col relative overflow-hidden">
+    <div className="min-h-screen bg-[#F7F7F7] flex flex-col relative overflow-hidden">
       <Navbar />
 
       {/* Glow Background */}
@@ -131,14 +131,14 @@ export default function VerifyPage() {
               className="flex flex-col items-center"
             >
               <div className="relative w-16 h-16 mb-6">
-                <div className="absolute inset-0 border-4 border-[#1a1a1a] rounded-full" />
+                <div className="absolute inset-0 border-4 border-[#E0E0E0] rounded-full" />
                 <motion.div
                   className="absolute inset-0 border-t-4 border-primary rounded-full"
                   animate={{ rotate: 360 }}
                   transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
                 />
               </div>
-              <p className="font-mono text-[11px] text-[#808080] uppercase tracking-wider">
+              <p className="font-mono text-[11px] text-[#666666] uppercase tracking-wider">
                 Verificando acceso...
               </p>
             </motion.div>
@@ -158,46 +158,46 @@ export default function VerifyPage() {
               </span>
 
               {/* Greeting */}
-              <h1 className="font-display text-[32px] md:text-[42px] leading-[0.95] text-white mb-4 text-center">
+              <h1 className="font-display text-[32px] md:text-[42px] leading-[0.95] text-[#111111] mb-4 text-center">
                 Hola, <span className="text-primary">{participantData.nombre.split(' ')[0]}</span>
               </h1>
 
-              <p className="font-body text-[14px] font-light text-[#B3B3B3] leading-[1.6] text-center mb-8 max-w-[400px]">
+              <p className="font-body text-[14px] font-light text-[#555555] leading-[1.6] text-center mb-8 max-w-[400px]">
                 Para confirmar tu identidad, ingresa el correo electrónico al que recibiste esta invitación.
               </p>
 
               {/* Participant Info Card */}
-              <div className="w-full bg-[#161616] border border-[#2a2a2a] rounded-[2px] p-5 mb-6">
+              <div className="w-full bg-[#EFEFEF] border border-[#CCCCCC] rounded-[2px] p-5 mb-6">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <span className="font-mono text-[8px] text-[#4D4D4D] uppercase tracking-wider block mb-1">
+                    <span className="font-mono text-[8px] text-[#AAAAAA] uppercase tracking-wider block mb-1">
                       Nombre
                     </span>
-                    <span className="font-body text-[13px] text-white">
+                    <span className="font-body text-[13px] text-[#111111]">
                       {participantData.nombre}
                     </span>
                   </div>
                   <div>
-                    <span className="font-mono text-[8px] text-[#4D4D4D] uppercase tracking-wider block mb-1">
+                    <span className="font-mono text-[8px] text-[#AAAAAA] uppercase tracking-wider block mb-1">
                       Posicion
                     </span>
-                    <span className="font-body text-[13px] text-white">
+                    <span className="font-body text-[13px] text-[#111111]">
                       {participantData.posicion}
                     </span>
                   </div>
                   <div>
-                    <span className="font-mono text-[8px] text-[#4D4D4D] uppercase tracking-wider block mb-1">
+                    <span className="font-mono text-[8px] text-[#AAAAAA] uppercase tracking-wider block mb-1">
                       Empresa
                     </span>
-                    <span className="font-body text-[13px] text-white">
+                    <span className="font-body text-[13px] text-[#111111]">
                       {participantData.empresa}
                     </span>
                   </div>
                   <div>
-                    <span className="font-mono text-[8px] text-[#4D4D4D] uppercase tracking-wider block mb-1">
+                    <span className="font-mono text-[8px] text-[#AAAAAA] uppercase tracking-wider block mb-1">
                       Departamento
                     </span>
-                    <span className="font-body text-[13px] text-white">
+                    <span className="font-body text-[13px] text-[#111111]">
                       {participantData.departamento}
                     </span>
                   </div>
@@ -206,7 +206,7 @@ export default function VerifyPage() {
 
               {/* Email Input */}
               <div className="w-full mb-6">
-                <label className="font-mono text-[9px] text-[#4D4D4D] uppercase tracking-wider block mb-2">
+                <label className="font-mono text-[9px] text-[#AAAAAA] uppercase tracking-wider block mb-2">
                   Confirma tu correo electronico
                 </label>
                 <input
@@ -219,7 +219,7 @@ export default function VerifyPage() {
                   onKeyDown={handleKeyDown}
                   placeholder="tu@correo.com"
                   autoFocus
-                  className="w-full bg-[#0a0a0a] border border-[#2a2a2a] rounded-[2px] px-4 py-3 text-white font-body text-[14px] placeholder:text-[#333] focus:outline-none focus:border-primary transition-colors"
+                  className="w-full bg-[#0a0a0a] border border-[#CCCCCC] rounded-[2px] px-4 py-3 text-[#111111] font-body text-[14px] placeholder:text-[#333] focus:outline-none focus:border-primary transition-colors"
                 />
               </div>
 
@@ -232,7 +232,7 @@ export default function VerifyPage() {
                 {confirming ? 'Verificando...' : 'Confirmar y comenzar diagnostico'}
               </Button>
 
-              <p className="font-mono text-[9px] text-[#4D4D4D] text-center mt-3 uppercase tracking-wider">
+              <p className="font-mono text-[9px] text-[#AAAAAA] text-center mt-3 uppercase tracking-wider">
                 Confidencial · ~12 minutos
               </p>
             </motion.div>
@@ -250,11 +250,11 @@ export default function VerifyPage() {
                 <span className="text-[20px]">!</span>
               </div>
 
-              <h2 className="font-display text-[24px] text-white mb-3 text-center">
+              <h2 className="font-display text-[24px] text-[#111111] mb-3 text-center">
                 Correo no coincide
               </h2>
 
-              <p className="font-body text-[14px] font-light text-[#B3B3B3] leading-[1.6] text-center mb-6 max-w-[400px]">
+              <p className="font-body text-[14px] font-light text-[#555555] leading-[1.6] text-center mb-6 max-w-[400px]">
                 El correo que ingresaste no corresponde al registrado para esta invitacion. Verifica e intenta de nuevo.
               </p>
 
@@ -269,7 +269,7 @@ export default function VerifyPage() {
                   }}
                   placeholder="tu@correo.com"
                   autoFocus
-                  className="w-full bg-[#0a0a0a] border border-[rgba(255,60,60,0.3)] rounded-[2px] px-4 py-3 text-white font-body text-[14px] placeholder:text-[#333] focus:outline-none focus:border-primary transition-colors"
+                  className="w-full bg-[#0a0a0a] border border-[rgba(255,60,60,0.3)] rounded-[2px] px-4 py-3 text-[#111111] font-body text-[14px] placeholder:text-[#333] focus:outline-none focus:border-primary transition-colors"
                 />
               </div>
 
@@ -295,11 +295,11 @@ export default function VerifyPage() {
                 <span className="text-[20px]">!</span>
               </div>
 
-              <h2 className="font-display text-[24px] text-white mb-3 text-center">
+              <h2 className="font-display text-[24px] text-[#111111] mb-3 text-center">
                 Acceso no autorizado
               </h2>
 
-              <p className="font-body text-[14px] font-light text-[#B3B3B3] leading-[1.6] text-center max-w-[400px]">
+              <p className="font-body text-[14px] font-light text-[#555555] leading-[1.6] text-center max-w-[400px]">
                 {errorMessage}
               </p>
             </motion.div>

@@ -53,11 +53,11 @@ export const ProgressSidebar: React.FC = () => {
   const chips = currentAnswer?.chips || { rol: false, contexto: false, formato: false, restricciones: false };
 
   return (
-    <aside className="hidden md:flex flex-col gap-5 w-[280px] bg-[#0f0f0f] border-l border-[#1a1a1a] p-8 h-full fixed right-0 top-0 pt-[80px]">
+    <aside className="hidden md:flex flex-col gap-5 w-[280px] bg-[#F7F7F7] border-l border-[#E0E0E0] p-8 h-full fixed right-0 top-0 pt-[80px]">
       
       {/* Block 1: Total Progress */}
       <div>
-        <div className="font-mono text-[8.5px] uppercase text-[#4D4D4D] mb-2.5 tracking-wider">
+        <div className="font-mono text-[8.5px] uppercase text-[#AAAAAA] mb-2.5 tracking-wider">
           Progreso total
         </div>
         <div className="w-full h-1 bg-[#1a1a1a] rounded-[1px] overflow-hidden">
@@ -68,14 +68,14 @@ export const ProgressSidebar: React.FC = () => {
             transition={{ duration: 0.4 }}
           />
         </div>
-        <div className="font-mono text-[9px] text-[#4D4D4D] mt-1.5">
+        <div className="font-mono text-[9px] text-[#AAAAAA] mt-1.5">
           {percentComplete}% completado · ~{minutesRemaining}' restantes
         </div>
       </div>
 
       {/* Block 2: Sections */}
       <div>
-        <div className="font-mono text-[8.5px] uppercase text-[#4D4D4D] mb-2.5 tracking-wider">
+        <div className="font-mono text-[8.5px] uppercase text-[#AAAAAA] mb-2.5 tracking-wider">
           Secciones
         </div>
         <div className="flex flex-col gap-2">
@@ -93,13 +93,13 @@ export const ProgressSidebar: React.FC = () => {
                   ${status === 'completed' ? 'opacity-50' : ''}
                 `}
               >
-                <span className={`font-display text-[16px] leading-none ${status === 'pending' ? 'text-[#4D4D4D]' : 'text-primary'}`}>
+                <span className={`font-display text-[16px] leading-none ${status === 'pending' ? 'text-[#AAAAAA]' : 'text-primary'}`}>
                   {section.id}
                 </span>
-                <span className={`font-body text-[10.5px] flex-1 ${status === 'active' ? 'font-medium text-[#B3B3B3]' : 'text-[#4D4D4D]'}`}>
+                <span className={`font-body text-[10.5px] flex-1 ${status === 'active' ? 'font-medium text-[#555555]' : 'text-[#AAAAAA]'}`}>
                   {section.name}
                 </span>
-                <span className={`font-mono text-[9px] ${status === 'completed' ? 'text-primary' : 'text-[#4D4D4D]'}`}>
+                <span className={`font-mono text-[9px] ${status === 'completed' ? 'text-primary' : 'text-[#AAAAAA]'}`}>
                   {completed}/{section.total} {status === 'completed' && '✓'}
                 </span>
               </div>
@@ -111,7 +111,7 @@ export const ProgressSidebar: React.FC = () => {
       {/* Section C Extra Block: Checklist */}
       {isSectionC && currentQuestionData.type !== 'narrative' && (
         <div className="mt-4">
-          <div className="font-mono text-[8.5px] uppercase text-[#4D4D4D] mb-2.5 tracking-wider">
+          <div className="font-mono text-[8.5px] uppercase text-[#AAAAAA] mb-2.5 tracking-wider">
             Elementos en tu prompt
           </div>
           <div className="flex flex-col gap-2 mb-3">
@@ -122,17 +122,17 @@ export const ProgressSidebar: React.FC = () => {
               { id: 'restricciones', label: 'Restricciones' }
             ].map(item => (
               <div key={item.id} className="flex items-center gap-2">
-                <span className={`text-[12px] ${chips[item.id as keyof typeof chips] ? 'text-[#00CC66]' : 'text-[#4D4D4D]'}`}>
+                <span className={`text-[12px] ${chips[item.id as keyof typeof chips] ? 'text-[#00CC66]' : 'text-[#AAAAAA]'}`}>
                   {chips[item.id as keyof typeof chips] ? '✓' : '○'}
                 </span>
-                <span className={`font-body text-[11px] ${chips[item.id as keyof typeof chips] ? 'text-white' : 'text-[#808080]'}`}>
+                <span className={`font-body text-[11px] ${chips[item.id as keyof typeof chips] ? 'text-[#111111]' : 'text-[#666666]'}`}>
                   {item.label}
                 </span>
               </div>
             ))}
           </div>
-          <div className="bg-[#161616] border border-[#2a2a2a] px-[10px] py-2 rounded-[2px]">
-            <p className="font-mono text-[8px] text-[#4D4D4D] leading-[1.6]">
+          <div className="bg-[#EFEFEF] border border-[#CCCCCC] px-[10px] py-2 rounded-[2px]">
+            <p className="font-mono text-[8px] text-[#AAAAAA] leading-[1.6]">
               El checklist orienta, no evalúa. Escribe con libertad.
             </p>
           </div>
@@ -141,8 +141,8 @@ export const ProgressSidebar: React.FC = () => {
 
       {/* Block 3: Section Info */}
       {currentSectionData && !isSectionC && (
-        <div className="mt-auto border-t border-[#1a1a1a] pt-4">
-          <p className="font-mono text-[8.5px] text-[#4D4D4D] leading-[1.6] whitespace-pre-line">
+        <div className="mt-auto border-t border-[#E0E0E0] pt-4">
+          <p className="font-mono text-[8.5px] text-[#AAAAAA] leading-[1.6] whitespace-pre-line">
             Sección {currentSectionData.id} · {currentSectionData.weight}% del AIQ final{'\n'}
             {currentSectionData.desc}
           </p>

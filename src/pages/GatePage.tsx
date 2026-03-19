@@ -32,7 +32,7 @@ export default function GatePage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#0f0f0f] flex flex-col items-center justify-center p-5 md:p-12 relative overflow-hidden">
+    <div className="min-h-screen bg-[#F7F7F7] flex flex-col items-center justify-center p-5 md:p-12 relative overflow-hidden">
       {/* Glow Background */}
       <div 
         className="absolute inset-0 pointer-events-none"
@@ -55,7 +55,7 @@ export default function GatePage() {
           className="animate-fade-in-up mb-10 pl-4 md:pl-5 border-l-2 border-primary max-w-[540px] text-left"
           style={{ animationDelay: '100ms' }}
         >
-          <p className="font-body text-[14px] md:text-[16px] font-light text-[#B3B3B3] leading-[1.7]">
+          <p className="font-body text-[14px] md:text-[16px] font-light text-[#555555] leading-[1.7]">
             Este diagnóstico analiza tu comportamiento real con IA — no lo que crees saber, sino lo que realmente haces. Las respuestas honestas dan resultados accionables.
             {isEnterprise && " Los resultados se agregan con los de tu equipo."}
           </p>
@@ -63,7 +63,7 @@ export default function GatePage() {
 
         {/* Selector Label */}
         <div className="animate-fade-in-up w-full" style={{ animationDelay: '200ms' }}>
-          <p className="font-mono text-[10px] text-[#4D4D4D] text-center mb-4 uppercase tracking-wider">
+          <p className="font-mono text-[10px] text-[#AAAAAA] text-center mb-4 uppercase tracking-wider">
             Selecciona tu rol para personalizar la experiencia:
           </p>
         </div>
@@ -79,16 +79,16 @@ export default function GatePage() {
               onClick={() => setSelectedRole(role.id)}
               className={`
                 relative flex flex-col items-center gap-2 px-[14px] py-[18px]
-                bg-[#161616] border rounded-[2px] transition-all duration-200 cursor-pointer min-h-[100px]
+                bg-[#EFEFEF] border rounded-[2px] transition-all duration-200 cursor-pointer min-h-[100px]
                 hover:bg-[rgba(254,60,28,0.08)] hover:border-[rgba(254,60,28,0.4)] hover:-translate-y-[1px]
                 ${selectedRole === role.id 
                   ? 'bg-[rgba(254,60,28,0.08)] border-[#FE3C1C] translate-y-0' 
-                  : 'border-[#2a2a2a]'
+                  : 'border-[#CCCCCC]'
                 }
               `}
             >
               <span className="text-[24px] leading-none">{role.icon}</span>
-              <span className="font-body text-[11px] font-semibold text-white text-center">
+              <span className="font-body text-[11px] font-semibold text-[#111111] text-center">
                 {role.label}
               </span>
               
@@ -121,7 +121,7 @@ export default function GatePage() {
           </div>
 
           {/* Microcopy */}
-          <p className="font-mono text-[9px] text-[#4D4D4D] text-center mt-3 uppercase tracking-wider">
+          <p className="font-mono text-[9px] text-[#AAAAAA] text-center mt-3 uppercase tracking-wider">
             Sin registro · ~12 minutos · Confidencial
           </p>
         </div>

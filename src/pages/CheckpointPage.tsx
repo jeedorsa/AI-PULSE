@@ -49,7 +49,7 @@ export default function CheckpointPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#080808] flex flex-col items-center justify-center text-center p-5 md:p-14 relative overflow-hidden">
+    <div className="min-h-screen bg-white flex flex-col items-center justify-center text-center p-5 md:p-14 relative overflow-hidden">
       
       {/* Glow Background */}
       <div 
@@ -77,7 +77,7 @@ export default function CheckpointPage() {
 
         {/* Title */}
         <h1 
-          className="font-display text-[40px] md:text-[56px] text-white tracking-[0.5px] leading-none mb-3 animate-fade-in-up"
+          className="font-display text-[40px] md:text-[56px] text-[#111111] tracking-[0.5px] leading-none mb-3 animate-fade-in-up"
           style={{ animationDelay: '250ms' }}
         >
           SECCIÓN {sectionId} <span className="text-primary">COMPLETADA</span>
@@ -85,7 +85,7 @@ export default function CheckpointPage() {
 
         {/* Subtitle */}
         <p 
-          className="font-mono text-[10px] text-[#4D4D4D] tracking-[0.2em] uppercase mb-10 animate-fade-in-up"
+          className="font-mono text-[10px] text-[#AAAAAA] tracking-[0.2em] uppercase mb-10 animate-fade-in-up"
           style={{ animationDelay: '350ms' }}
         >
           {currentContent.subtitle}
@@ -100,7 +100,7 @@ export default function CheckpointPage() {
             return (
               <div 
                 key={seg} 
-                className={`w-[64px] h-[4px] rounded-[2px] transition-colors duration-600 ${isCompleted ? 'bg-primary' : 'bg-[#1e1e1e]'}`}
+                className={`w-[64px] h-[4px] rounded-[2px] transition-colors duration-600 ${isCompleted ? 'bg-primary' : 'bg-[#E5E5E5]'}`}
               />
             );
           })}
@@ -108,16 +108,16 @@ export default function CheckpointPage() {
 
         {/* Next Section Card */}
         <div 
-          className="bg-[#161616] border border-[#2a2a2a] p-6 md:p-8 rounded-[2px] text-left w-full max-w-[400px] animate-fade-in-up"
+          className="bg-[#EFEFEF] border border-[#CCCCCC] p-6 md:p-8 rounded-[2px] text-left w-full max-w-[400px] animate-fade-in-up"
           style={{ animationDelay: '600ms' }}
         >
           <div className="font-mono text-[9px] text-primary uppercase tracking-[0.2em] mb-2">
             Siguiente
           </div>
-          <div className="font-body text-[14px] font-semibold text-white mb-1">
+          <div className="font-body text-[14px] font-semibold text-[#111111] mb-1">
             {currentContent.next.title}
           </div>
-          <div className="font-body text-[11.5px] text-[#808080]">
+          <div className="font-body text-[11.5px] text-[#666666]">
             {currentContent.next.sub}
           </div>
         </div>

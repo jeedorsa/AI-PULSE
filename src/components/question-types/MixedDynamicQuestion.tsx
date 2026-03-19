@@ -42,7 +42,7 @@ export const MixedDynamicQuestion: React.FC<MixedDynamicProps> = ({ question, va
                 onClick={() => toggleOption(opt)}
                 className={`w-full p-4 rounded-xl border text-left transition-all ${
                   selected.includes(opt)
-                    ? 'bg-primary/10 border-primary text-white'
+                    ? 'bg-primary/10 border-primary text-[#111111]'
                     : 'bg-d2 border-d3 text-g2 hover:border-g4 hover:bg-d3'
                 }`}
               >

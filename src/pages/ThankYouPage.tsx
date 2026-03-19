@@ -16,7 +16,7 @@ export default function ThankYouPage() {
   }, [userRole, participant, navigate]);
 
   return (
-    <div className="min-h-screen bg-[#080808] flex flex-col relative overflow-hidden">
+    <div className="min-h-screen bg-white flex flex-col relative overflow-hidden">
       <Navbar />
 
       {/* Glow Background */}
@@ -45,7 +45,7 @@ export default function ThankYouPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3, duration: 0.4 }}
-            className="font-display text-[36px] md:text-[48px] leading-[0.95] text-white mb-4"
+            className="font-display text-[36px] md:text-[48px] leading-[0.95] text-[#111111] mb-4"
           >
             {participant ? (
               <>Gracias, <span className="text-primary">{participant.nombre.split(' ')[0]}</span></>
@@ -59,7 +59,7 @@ export default function ThankYouPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5, duration: 0.4 }}
-            className="font-body text-[16px] font-light text-[#B3B3B3] leading-[1.6] mb-8 max-w-[420px]"
+            className="font-body text-[16px] font-light text-[#555555] leading-[1.6] mb-8 max-w-[420px]"
           >
             Tus respuestas han sido registradas exitosamente. Los resultados seran procesados y compartidos por el equipo a cargo del diagnostico.
           </motion.p>
@@ -69,15 +69,15 @@ export default function ThankYouPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7, duration: 0.4 }}
-            className="w-full bg-[#0f0f0f] border border-[#1f1f1f] rounded-[2px] p-6 mb-6"
+            className="w-full bg-[#F7F7F7] border border-[#E0E0E0] rounded-[2px] p-6 mb-6"
           >
             <div className="flex items-start gap-3">
               <span className="text-primary text-[18px] mt-0.5">i</span>
               <div className="text-left">
-                <p className="font-body text-[13px] font-semibold text-white mb-1">
+                <p className="font-body text-[13px] font-semibold text-[#111111] mb-1">
                   Que sigue?
                 </p>
-                <p className="font-body text-[12px] font-light text-[#808080] leading-[1.6]">
+                <p className="font-body text-[12px] font-light text-[#666666] leading-[1.6]">
                   El equipo de AI Pulse analizara todas las respuestas del diagnostico y te compartira los resultados una vez que el proceso haya concluido. Ya puedes cerrar esta ventana.
                 </p>
               </div>
@@ -92,7 +92,7 @@ export default function ThankYouPage() {
             className="flex items-center gap-2"
           >
             <div className="w-[6px] h-[6px] rounded-full bg-[#00CC66]" />
-            <span className="font-mono text-[9px] text-[#4D4D4D] uppercase tracking-wider">
+            <span className="font-mono text-[9px] text-[#AAAAAA] uppercase tracking-wider">
               Respuestas registradas correctamente
             </span>
           </motion.div>

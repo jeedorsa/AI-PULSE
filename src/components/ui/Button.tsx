@@ -18,8 +18,8 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         active:scale-[0.98] active:bg-[#D43010]
       `,
       ghost: `
-        bg-transparent border border-[#2a2a2a] text-[#B3B3B3] px-8 py-[14px]
-        hover:border-primary hover:text-white
+        bg-transparent border border-[#CCCCCC] text-[#555555] px-8 py-[14px]
+        hover:border-primary hover:text-[#111111]
       `
     };
 

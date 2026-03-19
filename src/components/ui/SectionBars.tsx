@@ -31,7 +31,7 @@ export const SectionBars: React.FC<SectionBarsProps> = ({ sectionScores, alerts 
             transition={{ delay: 2.2 + (index * 0.2) }}
             className="grid grid-cols-[20px_1fr_80px] items-center gap-3"
           >
-            <span className="font-display text-[20px] text-[#4D4D4D] leading-none">
+            <span className="font-display text-[20px] text-[#AAAAAA] leading-none">
               {id}
             </span>
             
@@ -44,7 +44,7 @@ export const SectionBars: React.FC<SectionBarsProps> = ({ sectionScores, alerts 
               />
             </div>
 
-            <span className={`font-mono text-[10px] text-right ${isCritical ? 'text-[#F30302]' : 'text-[#808080]'}`}>
+            <span className={`font-mono text-[10px] text-right ${isCritical ? 'text-[#F30302]' : 'text-[#666666]'}`}>
               {data.level} · {data.score?.toFixed(1)}
             </span>
           </motion.div>

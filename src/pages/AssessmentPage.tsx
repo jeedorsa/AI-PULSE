@@ -133,7 +133,7 @@ export default function AssessmentPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#080808] text-white flex flex-col">
+    <div className="min-h-screen bg-white text-[#111111] flex flex-col">
       <Navbar progress={percentComplete} />
 
       <div className="flex-1 grid grid-cols-1 md:grid-cols-[1fr_280px] pt-[56px]">
@@ -155,7 +155,7 @@ export default function AssessmentPage() {
               <span className="font-mono text-[8px] text-primary uppercase tracking-wider">
                 Sección {question.section} · {sectionNames[question.section]}
               </span>
-              <span className="font-mono text-[8px] text-[#4D4D4D]">
+              <span className="font-mono text-[8px] text-[#AAAAAA]">
                 {currentQuestion + 1} / {questions.length}
               </span>
             </div>
@@ -168,11 +168,11 @@ export default function AssessmentPage() {
             overflow: 'hidden',
             display: isIdeFocused ? 'flex' : 'none'
           }}>
-            <div className="flex justify-between items-center w-full border-b border-[#1a1a1a] pb-2">
+            <div className="flex justify-between items-center w-full border-b border-[#E0E0E0] pb-2">
               <span className="font-mono text-[9px] text-primary uppercase tracking-wider">
                 MODO ESCRITURA
               </span>
-              <span className="font-mono text-[9px] text-[#4D4D4D]">
+              <span className="font-mono text-[9px] text-[#AAAAAA]">
                 ⏱ {currentAnswer?.time ? Math.floor(currentAnswer.time / 60).toString().padStart(2, '0') + ':' + (currentAnswer.time % 60).toString().padStart(2, '0') : '00:00'}
               </span>
             </div>
@@ -203,7 +203,7 @@ export default function AssessmentPage() {
 
               {/* Question Text */}
               <div className="transition-opacity duration-250" style={{ opacity: isIdeFocused ? 0.1 : 1 }}>
-                <h2 className="font-body text-[16px] md:text-[20px] font-medium text-white leading-[1.5] mb-8">
+                <h2 className="font-body text-[16px] md:text-[20px] font-medium text-[#111111] leading-[1.5] mb-8">
                   {question.text || question.scaleText || question.multiText || question.closedText}
                 </h2>
               </div>
@@ -218,12 +218,12 @@ export default function AssessmentPage() {
 
           {/* Navigation Footer */}
           <div className={`
-            fixed bottom-0 left-0 w-full bg-[#080808] border-t border-[#1a1a1a] p-4 z-50
+            fixed bottom-0 left-0 w-full bg-white border-t border-[#E0E0E0] p-4 z-50
             flex justify-between items-center md:relative md:bg-transparent md:border-t md:p-0 md:pt-6 md:mt-auto md:block
             transition-all duration-250 pb-[calc(16px+env(safe-area-inset-bottom))]
           `}>
             {/* Desktop Counter */}
-            <span className={`hidden md:inline font-mono text-[10px] text-[#4D4D4D] uppercase tracking-wider ${isIdeFocused ? 'hidden' : ''}`}>
+            <span className={`hidden md:inline font-mono text-[10px] text-[#AAAAAA] uppercase tracking-wider ${isIdeFocused ? 'hidden' : ''}`}>
               Pregunta {currentQuestion + 1} de {questions.length}
             </span>
 
@@ -233,7 +233,7 @@ export default function AssessmentPage() {
                {currentQuestion > 0 && (
                  <button 
                    onClick={() => navigate(-1)} // This might need real back logic in store if we want to support back
-                   className="text-[#808080] text-[12px] font-body px-3 py-2"
+                   className="text-[#666666] text-[12px] font-body px-3 py-2"
                  >
                    ← Anterior
                  </button>

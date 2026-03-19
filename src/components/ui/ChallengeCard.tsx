@@ -34,12 +34,12 @@ export const ChallengeCard: React.FC<ChallengeCardProps> = ({ profile, levelName
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 3.2, duration: 0.5 }}
-      className="bg-[#161616] border border-[#2a2a2a] border-l-[3px] border-l-primary p-6 md:p-7 rounded-[2px] text-left w-full mx-auto"
+      className="bg-[#EFEFEF] border border-[#CCCCCC] border-l-[3px] border-l-primary p-6 md:p-7 rounded-[2px] text-left w-full mx-auto"
     >
-      <h3 className="font-body text-[15px] font-bold text-white mb-2">
+      <h3 className="font-body text-[15px] font-bold text-[#111111] mb-2">
         {data.title}
       </h3>
-      <p className="font-body text-[12.5px] font-light text-[#B3B3B3] leading-[1.6]">
+      <p className="font-body text-[12.5px] font-light text-[#555555] leading-[1.6]">
         {data.text}
       </p>
     </motion.div>
