@@ -66,8 +66,8 @@ export const MixedDynamicQuestion: React.FC<MixedDynamicProps> = ({ question, va
                         onClick={() => handleOriginChange(opt, origin)}
                         className={`px-3 py-1 rounded text-xs transition-colors ${
                           origins[opt] === origin
-                            ? 'bg-white text-bk font-bold'
-                            : 'bg-d3 text-g2 hover:bg-g4'
+                            ? 'bg-primary text-white font-bold'
+                            : 'bg-[#EEEEEE] text-[#555555] hover:bg-[#E0E0E0]'
                         }`}
                       >
                         {origin}

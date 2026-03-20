@@ -48,7 +48,7 @@ export const AIQRing: React.FC<AIQRingProps> = ({
 
       {/* Central Content */}
       <div 
-        className="absolute flex flex-col items-center justify-center z-10 overflow-hidden"
+        className="absolute flex flex-col items-center justify-center z-10"
         style={{
           width: centerSize,
           height: centerSize,

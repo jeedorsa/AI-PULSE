@@ -58,6 +58,7 @@ module.exports = async function (context, req) {
 
         const emailMessage = {
           senderAddress,
+          replyTo: [{ address: "contacto@javiercruz.ai", displayName: "AI Pulse" }],
           content: {
             subject: "AI Pulse — Tu diagnóstico de madurez en IA te espera",
             html: buildEmailHtml(participant.nombre || "Participante", participant.empresa, verifyUrl),
@@ -131,15 +132,15 @@ function buildEmailHtml(nombre, empresa, verifyUrl) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body style="margin:0; padding:0; background-color:#080808; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#080808; padding:40px 20px;">
+<body style="margin:0; padding:0; background-color:#ffffff; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#ffffff; padding:40px 20px;">
     <tr>
       <td align="center">
         <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;">
           <!-- Logo -->
           <tr>
             <td style="padding-bottom:32px;">
-              <span style="font-size:22px; letter-spacing:3px; color:#ffffff; font-weight:bold;">
+              <span style="font-size:22px; letter-spacing:3px; color:#111111; font-weight:bold;">
                 AI <span style="color:#FE3C1C;">PULSE</span>
               </span>
             </td>
@@ -148,7 +149,7 @@ function buildEmailHtml(nombre, empresa, verifyUrl) {
           <!-- Greeting -->
           <tr>
             <td style="padding-bottom:16px;">
-              <h1 style="margin:0; font-size:28px; color:#ffffff; line-height:1.2;">
+              <h1 style="margin:0; font-size:28px; color:#111111; line-height:1.2;">
                 Hola, <span style="color:#FE3C1C;">${firstName}</span>
               </h1>
             </td>
@@ -157,9 +158,9 @@ function buildEmailHtml(nombre, empresa, verifyUrl) {
           <!-- Body -->
           <tr>
             <td style="padding-bottom:24px;">
-              <p style="margin:0; font-size:15px; color:#B3B3B3; line-height:1.6;">
-                Has sido invitado a participar en el <strong style="color:#ffffff;">Diagnóstico de Madurez en IA</strong>
-                ${safeEmpresa ? ` de <strong style="color:#ffffff;">${safeEmpresa}</strong>` : ""}.
+              <p style="margin:0; font-size:15px; color:#444444; line-height:1.6;">
+                Has sido invitado a participar en el <strong style="color:#111111;">Diagnóstico de Madurez en IA</strong>
+                ${safeEmpresa ? ` de <strong style="color:#111111;">${safeEmpresa}</strong>` : ""}.
                 Este diagnóstico mide tu AIQ — tu nivel de integración con inteligencia artificial.
               </p>
             </td>
@@ -168,18 +169,18 @@ function buildEmailHtml(nombre, empresa, verifyUrl) {
           <!-- Info -->
           <tr>
             <td style="padding-bottom:28px;">
-              <table cellpadding="0" cellspacing="0" style="background-color:#161616; border:1px solid #2a2a2a; width:100%;">
+              <table cellpadding="0" cellspacing="0" style="background-color:#F7F7F7; border:1px solid #E0E0E0; width:100%;">
                 <tr>
                   <td style="padding:16px;">
                     <table cellpadding="0" cellspacing="0" width="100%">
                       <tr>
-                        <td style="font-size:11px; color:#808080; padding-right:16px;">
-                          <span style="color:#FE3C1C; font-weight:bold;">31</span> preguntas
+                        <td style="font-size:11px; color:#555555; padding-right:16px;">
+                          <span style="color:#FE3C1C; font-weight:bold;">25</span> preguntas
                         </td>
-                        <td style="font-size:11px; color:#808080; padding-right:16px;">
+                        <td style="font-size:11px; color:#555555; padding-right:16px;">
                           <span style="color:#FE3C1C; font-weight:bold;">~12</span> minutos
                         </td>
-                        <td style="font-size:11px; color:#808080;">
+                        <td style="font-size:11px; color:#555555;">
                           <span style="color:#FE3C1C; font-weight:bold;">100%</span> confidencial
                         </td>
                       </tr>
@@ -213,8 +214,8 @@ function buildEmailHtml(nombre, empresa, verifyUrl) {
 
           <!-- Footer -->
           <tr>
-            <td style="border-top:1px solid #1a1a1a; padding-top:16px;">
-              <p style="margin:0; font-size:9px; color:#333333; text-transform:uppercase; letter-spacing:2px;">
+            <td style="border-top:1px solid #E0E0E0; padding-top:16px;">
+              <p style="margin:0; font-size:9px; color:#888888; text-transform:uppercase; letter-spacing:2px;">
                 AI PULSE &middot; Diagnóstico de Madurez en IA
               </p>
             </td>
@@ -234,7 +235,7 @@ function buildEmailPlainText(nombre, verifyUrl) {
 Has sido invitado a participar en el Diagnóstico de Madurez en IA — AI Pulse.
 
 Este diagnóstico mide tu AIQ, tu nivel de integración con inteligencia artificial.
-Son 31 preguntas y toma aproximadamente 12 minutos. Es 100% confidencial.
+Son 25 preguntas y toma aproximadamente 12 minutos. Es 100% confidencial.
 
 Para comenzar, visita este link:
 ${verifyUrl}
