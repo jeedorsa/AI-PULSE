@@ -219,7 +219,7 @@ export default function VerifyPage() {
                   onKeyDown={handleKeyDown}
                   placeholder="tu@correo.com"
                   autoFocus
-                  className="w-full bg-[#0a0a0a] border border-[#CCCCCC] rounded-[2px] px-4 py-3 text-[#111111] font-body text-[14px] placeholder:text-[#333] focus:outline-none focus:border-primary transition-colors"
+                  className="w-full bg-white border border-[#CCCCCC] rounded-[2px] px-4 py-3 text-[#111111] font-body text-[14px] placeholder:text-[#AAAAAA] focus:outline-none focus:border-primary transition-colors"
                 />
               </div>
 
@@ -269,7 +269,7 @@ export default function VerifyPage() {
                   }}
                   placeholder="tu@correo.com"
                   autoFocus
-                  className="w-full bg-[#0a0a0a] border border-[rgba(255,60,60,0.3)] rounded-[2px] px-4 py-3 text-[#111111] font-body text-[14px] placeholder:text-[#333] focus:outline-none focus:border-primary transition-colors"
+                  className="w-full bg-white border border-[rgba(255,60,60,0.3)] rounded-[2px] px-4 py-3 text-[#111111] font-body text-[14px] placeholder:text-[#AAAAAA] focus:outline-none focus:border-primary transition-colors"
                 />
               </div>
 
