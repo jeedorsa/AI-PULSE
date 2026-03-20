@@ -7,12 +7,46 @@ import { AIQRing } from '../components/ui/AIQRing';
 
 export default function ThankYouPage() {
   const navigate = useNavigate();
-  const { participant, userRole } = useAssessmentStore();
+  const { aiqResult, participant,userRole, answers, aiScores, startTime } = useAssessmentStore();
+  //const { participant, userRole } = useAssessmentStore();
 
   useEffect(() => {
     if (!userRole && !participant) {
       navigate('/', { replace: true });
     }
+
+    //Agregar lógica para guardar resultados en base de datos.......
+    const saveResults = async () => {
+    try {
+      await fetch('/api/results-save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: participant?.token,
+          participant,
+          answers,
+          aiScores,
+          aiqResult,
+          metadata: {
+            startTime,
+            completedAt: new Date().toISOString(),
+            durationMinutes: startTime 
+              ? (Date.now() - startTime) / 60000 
+              : null
+          }
+        })
+      });
+    } catch (err) {
+      console.error('Error saving results:', err);
+    }
+  };
+
+  // Solo disparamos el guardado si tenemos un token válido
+  if (participant?.token) {
+    saveResults();
+  }
+  //Fin de lógica para guardar resultados.......
+
   }, [userRole, participant, navigate]);
 
   return (
