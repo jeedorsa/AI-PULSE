@@ -21,7 +21,7 @@ export const MixedScaleQuestion: React.FC<MixedScaleProps> = ({ question, value,
   return (
     <div className="w-full space-y-8">
       <div className="space-y-4">
-        <p className="font-display text-xl text-g2">{question.scaleText}</p>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {question.scaleOptions.map((opt: any) => (
             <button
@@ -34,10 +34,10 @@ export const MixedScaleQuestion: React.FC<MixedScaleProps> = ({ question, value,
               }`}
             >
               <div className="flex items-center gap-3">
-                <div className={`w-6 h-6 rounded-full border flex items-center justify-center text-xs font-mono ${
-                   currentScale === opt.value ? 'border-primary bg-primary text-[#111111]' : 'border-g3 text-g3'
+                <div className={`w-6 h-6 rounded-full border flex items-center justify-center text-xs font-mono flex-shrink-0 ${
+                   currentScale === opt.value ? 'border-primary bg-primary text-white' : 'border-g3 text-g3'
                 }`}>
-                  {opt.value}
+                  {opt.letter ?? opt.value}
                 </div>
                 <span className="font-body">{opt.label}</span>
               </div>
@@ -46,15 +46,17 @@ export const MixedScaleQuestion: React.FC<MixedScaleProps> = ({ question, value,
         </div>
       </div>
 
-      <div className="space-y-2">
-        <p className="font-display text-xl text-g2">{question.openText}</p>
-        <textarea
-          className="w-full h-32 bg-d2 border border-d3 rounded-xl p-4 text-[#111111] focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all resize-none font-body"
-          placeholder="Profundiza en tu respuesta..."
-          value={currentText}
-          onChange={(e) => handleTextChange(e.target.value)}
-        />
-      </div>
+      {question.openText && (
+        <div className="space-y-2">
+          <p className="font-display text-xl text-g2">{question.openText}</p>
+          <textarea
+            className="w-full h-32 bg-d2 border border-d3 rounded-xl p-4 text-[#111111] focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all resize-none font-body"
+            placeholder="Profundiza en tu respuesta..."
+            value={currentText}
+            onChange={(e) => handleTextChange(e.target.value)}
+          />
+        </div>
+      )}
     </div>
   );
 };

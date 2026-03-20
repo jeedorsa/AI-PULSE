@@ -24,7 +24,7 @@ export const MixedMultiQuestion: React.FC<MixedMultiProps> = ({ question, value,
   return (
     <div className="w-full space-y-8">
       <div className="space-y-4">
-        <p className="font-display text-xl text-g2">{question.multiText}</p>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {question.multiOptions.map((opt: string) => (
             <button
@@ -49,15 +49,17 @@ export const MixedMultiQuestion: React.FC<MixedMultiProps> = ({ question, value,
         </div>
       </div>
 
-      <div className="space-y-2">
-        <p className="font-display text-xl text-g2">{question.openText}</p>
-        <textarea
-          className="w-full h-32 bg-d2 border border-d3 rounded-xl p-4 text-[#111111] focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all resize-none font-body"
-          placeholder="Cuéntame más..."
-          value={currentText}
-          onChange={(e) => handleTextChange(e.target.value)}
-        />
-      </div>
+      {question.openText && (
+        <div className="space-y-2">
+          <p className="font-display text-xl text-g2">{question.openText}</p>
+          <textarea
+            className="w-full h-32 bg-d2 border border-d3 rounded-xl p-4 text-[#111111] focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all resize-none font-body"
+            placeholder="Cuéntame más..."
+            value={currentText}
+            onChange={(e) => handleTextChange(e.target.value)}
+          />
+        </div>
+      )}
     </div>
   );
 };

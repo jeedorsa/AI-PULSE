@@ -117,19 +117,19 @@ export default function AssessmentPage() {
 
   // Section Name Map
   const sectionNames: Record<string, string> = {
-    'A': 'Escenarios',
-    'B': 'Conocimiento',
-    'C': 'Prompting',
-    'D': 'Organizacional',
-    'GAPS': 'Cierre'
+    'V': 'Sobre Ti',
+    'A': 'Experiencia Real',
+    'B': 'Criterio Técnico',
+    'C': 'Laboratorio',
+    'D': 'Cultura y Futuro'
   };
 
   const sectionWeights: Record<string, number> = {
-    'A': 40,
-    'B': 25,
-    'C': 35,
-    'D': 0,
-    'GAPS': 0
+    'V': 0,
+    'A': 30,
+    'B': 30,
+    'C': 40,
+    'D': 0
   };
 
   return (

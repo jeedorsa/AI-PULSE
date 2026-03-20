@@ -34,7 +34,7 @@ export const MixedDynamicQuestion: React.FC<MixedDynamicProps> = ({ question, va
   return (
     <div className="w-full space-y-8">
       <div className="space-y-4">
-        <p className="font-display text-xl text-g2">{question.multiText}</p>
+
         <div className="grid grid-cols-1 gap-3">
           {question.multiOptions.map((opt: string) => (
             <div key={opt} className="space-y-3">

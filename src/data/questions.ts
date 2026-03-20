@@ -3,36 +3,56 @@
 //  AI PULSE · v2.0 · 25 preguntas · ~12 minutos
 // ─────────────────────────────────────────────────────────────────
 
-// ── BLOQUE 1 — SOBRE TI Y TU ROL (contextVariables · No puntúa) ──
-export const contextVariables = [
+// ── BLOQUE 1 — SOBRE TI Y TU ROL integrado en questions array (sección V · No puntúa) ──
+// contextVariables eliminado — las preguntas V1-V4 están al inicio de questions[]
+export const contextVariables: any[] = []; // mantenido por compatibilidad
+
+// ── PREGUNTAS SCORED ──────────────────────────────────────────────
+export const questions = [
+
+  // ── BLOQUE 1 — SOBRE TI Y TU ROL (section: V · weight: 0 · No puntúa) ─────
+
   {
     id: 'V1',
+    section: 'V',
     type: 'open',
     text: '¿En qué área de la organización trabajas?',
     placeholder: 'Ej: Marketing, Tecnología, Operaciones, Finanzas...'
   },
+
   {
     id: 'V2',
-    type: 'single_choice',
-    text: '¿Cuál es tu nivel jerárquico actual?',
-    options: ['Colaborador individual', 'Manager o Líder de equipo', 'Director', 'VP o C-Suite']
+    section: 'V',
+    type: 'mixed_scale',
+    scaleText: '¿Cuál es tu nivel jerárquico actual?',
+    scaleOptions: [
+      { value: 1, label: 'Colaborador individual' },
+      { value: 2, label: 'Manager o Líder de equipo' },
+      { value: 3, label: 'Director' },
+      { value: 4, label: 'VP o C-Suite' }
+    ]
   },
+
   {
     id: 'V3',
-    type: 'single_choice',
-    text: '¿Cuántos años llevas desempeñando tu rol actual?',
-    options: ['Menos de 1 año', '1 a 3 años', '3 a 5 años', 'Más de 5 años']
+    section: 'V',
+    type: 'mixed_scale',
+    scaleText: '¿Cuántos años llevas desempeñando tu rol actual?',
+    scaleOptions: [
+      { value: 1, label: 'Menos de 1 año' },
+      { value: 2, label: '1 a 3 años' },
+      { value: 3, label: '3 a 5 años' },
+      { value: 4, label: 'Más de 5 años' }
+    ]
   },
+
   {
     id: 'V4',
-    type: 'multi_choice',
-    text: '¿Qué herramientas de IA generativa has utilizado al menos una vez?',
-    options: ['ChatGPT', 'Claude', 'Gemini', 'Copilot', 'Midjourney', 'Llama / Meta AI', 'Otra']
-  }
-];
-
-// ── PREGUNTAS SCORED ──────────────────────────────────────────────
-export const questions = [
+    section: 'V',
+    type: 'mixed_multi',
+    multiText: '¿Qué herramientas de IA generativa has utilizado al menos una vez?',
+    multiOptions: ['ChatGPT', 'Claude', 'Gemini', 'Copilot', 'Midjourney', 'Llama / Meta AI', 'Otra']
+  },
 
   // ── SECCIÓN A — TU EXPERIENCIA REAL CON IA (weight: 0.30) ────────
 

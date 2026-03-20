@@ -23,7 +23,7 @@ export const MixedConditionalQuestion: React.FC<MixedConditionalProps> = ({ ques
   return (
     <div className="w-full space-y-8">
       <div className="space-y-4">
-        <p className="font-display text-xl text-g2">{question.closedText}</p>
+
         <div className="grid grid-cols-1 gap-3">
           {question.closedOptions.map((opt: any) => (
             <button
