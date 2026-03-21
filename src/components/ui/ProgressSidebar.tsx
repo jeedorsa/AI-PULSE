@@ -11,21 +11,17 @@ export const ProgressSidebar: React.FC = () => {
   const minutesRemaining = Math.max(1, Math.round(12 * (1 - currentQuestion / totalQuestions)));
 
   const sections = [
-    { id: 'A', name: 'Escenarios', total: 5, weight: 40, desc: 'Evalúa tu capacidad de aplicar IA en situaciones reales.' },
-    { id: 'B', name: 'Conocimiento', total: 6, weight: 25, desc: 'Mide tu comprensión técnica y gestión de riesgos.' },
-    { id: 'C', name: 'Prompting', total: 5, weight: 35, desc: 'Analiza tu habilidad para comunicarte con la IA.' },
-    { id: 'D', name: 'Organizacional', total: 8, weight: 0, desc: 'Contexto sobre el soporte de tu empresa.' },
-    { id: 'GAPS', name: 'Cierre', total: 2, weight: 0, desc: 'Impacto y percepción final.' }
+    { id: 'V', name: 'Sobre Ti y Tu Rol',              total: questions.filter(q => q.section === 'V').length, weight: 0 },
+    { id: 'A', name: 'Tu Experiencia Real con IA',      total: questions.filter(q => q.section === 'A').length, weight: 30 },
+    { id: 'B', name: 'Criterio y Capacidades Técnicas', total: questions.filter(q => q.section === 'B').length, weight: 30 },
+    { id: 'C', name: 'Laboratorio de Ejecución',        total: questions.filter(q => q.section === 'C').length, weight: 40 },
+    { id: 'D', name: 'Cultura, Impacto y Futuro',       total: questions.filter(q => q.section === 'D').length, weight: 0 },
   ];
 
-  // Helper to calculate progress per section
   const getSectionStatus = (sectionId: string) => {
-    const sectionQuestions = questions.filter(q => q.section === sectionId);
     const firstIndex = questions.findIndex(q => q.section === sectionId);
+    const sectionQuestions = questions.filter(q => q.section === sectionId);
     const lastIndex = firstIndex + sectionQuestions.length - 1;
-    
-    const completedCount = Math.max(0, Math.min(currentQuestion - firstIndex, sectionQuestions.length));
-    
     if (currentQuestion > lastIndex) return 'completed';
     if (currentQuestion >= firstIndex && currentQuestion <= lastIndex) return 'active';
     return 'pending';
@@ -35,32 +31,27 @@ export const ProgressSidebar: React.FC = () => {
     const sectionQuestions = questions.filter(q => q.section === sectionId);
     const firstIndex = questions.findIndex(q => q.section === sectionId);
     const lastIndex = firstIndex + sectionQuestions.length - 1;
-    
     if (currentQuestion > lastIndex) return sectionQuestions.length;
     if (currentQuestion < firstIndex) return 0;
     return currentQuestion - firstIndex;
   };
 
-  const currentSectionData = sections.find(s => {
-    const q = questions[currentQuestion];
-    return q && q.section === s.id;
-  });
-
-  // Section C Checklist Logic
   const currentQuestionData = questions[currentQuestion];
   const isSectionC = currentQuestionData?.section === 'C';
   const currentAnswer = useAssessmentStore(state => state.answers[currentQuestionData?.id]);
   const chips = currentAnswer?.chips || { rol: false, contexto: false, formato: false, restricciones: false };
 
+  const currentSectionData = sections.find(s => currentQuestionData?.section === s.id);
+
   return (
     <aside className="hidden md:flex flex-col gap-5 w-[280px] bg-[#F7F7F7] border-l border-[#E0E0E0] p-8 h-full fixed right-0 top-0 pt-[80px]">
       
-      {/* Block 1: Total Progress */}
+      {/* Progreso total */}
       <div>
         <div className="font-mono text-[8.5px] uppercase text-[#AAAAAA] mb-2.5 tracking-wider">
           Progreso total
         </div>
-        <div className="w-full h-1 bg-[#1a1a1a] rounded-[1px] overflow-hidden">
+        <div className="w-full h-1 bg-[#E0E0E0] rounded-[1px] overflow-hidden">
           <motion.div 
             className="h-full bg-primary"
             initial={{ width: 0 }}
@@ -73,18 +64,17 @@ export const ProgressSidebar: React.FC = () => {
         </div>
       </div>
 
-      {/* Block 2: Sections */}
+      {/* Secciones */}
       <div>
         <div className="font-mono text-[8.5px] uppercase text-[#AAAAAA] mb-2.5 tracking-wider">
-          Secciones
+          Bloques
         </div>
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-1.5">
           {sections.map(section => {
             const status = getSectionStatus(section.id);
             const completed = getCompletedCount(section.id);
-            
             return (
-              <div 
+              <div
                 key={section.id}
                 className={`
                   flex items-center gap-2.5 px-2.5 py-2 rounded-[2px] transition-all duration-300
@@ -93,10 +83,10 @@ export const ProgressSidebar: React.FC = () => {
                   ${status === 'completed' ? 'opacity-50' : ''}
                 `}
               >
-                <span className={`font-display text-[16px] leading-none ${status === 'pending' ? 'text-[#AAAAAA]' : 'text-primary'}`}>
+                <span className={`font-display text-[14px] leading-none ${status === 'pending' ? 'text-[#AAAAAA]' : 'text-primary'}`}>
                   {section.id}
                 </span>
-                <span className={`font-body text-[10.5px] flex-1 ${status === 'active' ? 'font-medium text-[#555555]' : 'text-[#AAAAAA]'}`}>
+                <span className={`font-body text-[10px] flex-1 leading-tight ${status === 'active' ? 'font-medium text-[#555555]' : 'text-[#AAAAAA]'}`}>
                   {section.name}
                 </span>
                 <span className={`font-mono text-[9px] ${status === 'completed' ? 'text-primary' : 'text-[#AAAAAA]'}`}>
@@ -108,7 +98,7 @@ export const ProgressSidebar: React.FC = () => {
         </div>
       </div>
 
-      {/* Section C Extra Block: Checklist */}
+      {/* Checklist Sección C */}
       {isSectionC && currentQuestionData.type !== 'narrative' && (
         <div className="mt-4">
           <div className="font-mono text-[8.5px] uppercase text-[#AAAAAA] mb-2.5 tracking-wider">
@@ -139,12 +129,11 @@ export const ProgressSidebar: React.FC = () => {
         </div>
       )}
 
-      {/* Block 3: Section Info */}
-      {currentSectionData && !isSectionC && (
+      {/* Info sección actual */}
+      {currentSectionData && !isSectionC && currentSectionData.weight > 0 && (
         <div className="mt-auto border-t border-[#E0E0E0] pt-4">
-          <p className="font-mono text-[8.5px] text-[#AAAAAA] leading-[1.6] whitespace-pre-line">
-            Sección {currentSectionData.id} · {currentSectionData.weight}% del AIQ final{'\n'}
-            {currentSectionData.desc}
+          <p className="font-mono text-[8.5px] text-[#AAAAAA] leading-[1.6]">
+            {currentSectionData.weight}% del AIQ final
           </p>
         </div>
       )}

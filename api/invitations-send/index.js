@@ -207,7 +207,7 @@ function buildEmailHtml(nombre, empresa, verifyUrl) {
             <td style="padding-bottom:16px;">
               <p style="margin:0; font-size:12px; color:#4D4D4D; line-height:1.5;">
                 Este link es personal e intransferible. Al hacer clic, se te pedirá confirmar tu correo electrónico para verificar tu identidad.
-                El link expira en 7 días.
+                El link expira en 14 días.
               </p>
             </td>
           </tr>
@@ -241,7 +241,7 @@ Para comenzar, visita este link:
 ${verifyUrl}
 
 Este link es personal e intransferible. Se te pedirá confirmar tu correo electrónico.
-El link expira en 7 días.
+El link expira en 14 días.
 
 — AI PULSE`;
 }

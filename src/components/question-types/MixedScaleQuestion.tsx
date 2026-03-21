@@ -34,12 +34,7 @@ export const MixedScaleQuestion: React.FC<MixedScaleProps> = ({ question, value,
               }`}
             >
               <div className="flex items-center gap-3">
-                <div className={`w-6 h-6 rounded-full border flex items-center justify-center text-xs font-mono flex-shrink-0 ${
-                   currentScale === opt.value ? 'border-primary bg-primary text-white' : 'border-g3 text-g3'
-                }`}>
-                  {opt.letter ?? opt.value}
-                </div>
-                <span className="font-body">{opt.label}</span>
+<span className="font-body">{opt.label}</span>
               </div>
             </button>
           ))}

@@ -21,7 +21,7 @@ import { useState } from 'react';
 
 export default function AssessmentPage() {
   const navigate = useNavigate();
-  const { currentQuestion, answers, answerQuestion, nextQuestion, userRole, participant } = useAssessmentStore();
+  const { currentQuestion, answers, answerQuestion, nextQuestion, prevQuestion, userRole, participant } = useAssessmentStore();
   const [isIdeFocused, setIsIdeFocused] = useState(false);
   
   const question = questions[currentQuestion];
@@ -117,11 +117,11 @@ export default function AssessmentPage() {
 
   // Section Name Map
   const sectionNames: Record<string, string> = {
-    'V': 'Sobre Ti',
-    'A': 'Experiencia Real',
-    'B': 'Criterio Técnico',
-    'C': 'Laboratorio',
-    'D': 'Cultura y Futuro'
+    'V': 'Sobre Ti y Tu Rol',
+    'A': 'Tu Experiencia Real con IA',
+    'B': 'Criterio y Capacidades Técnicas',
+    'C': 'Laboratorio de Ejecución',
+    'D': 'Cultura, Impacto y Futuro'
   };
 
   const sectionWeights: Record<string, number> = {
@@ -153,7 +153,7 @@ export default function AssessmentPage() {
             </div>
             <div className="flex justify-between items-center">
               <span className="font-mono text-[8px] text-primary uppercase tracking-wider">
-                Sección {question.section} · {sectionNames[question.section]}
+                {sectionNames[question.section]}
               </span>
               <span className="font-mono text-[8px] text-[#AAAAAA]">
                 {currentQuestion + 1} / {questions.length}
@@ -193,11 +193,7 @@ export default function AssessmentPage() {
                   letter={question.section as any} 
                   name={sectionNames[question.section]} 
                   weight={sectionWeights[question.section]}
-                  rightSlot={question.concept && (
-                    <span className="font-mono text-[9px] text-[#00D4FF] bg-[rgba(0,212,255,0.08)] border border-[rgba(0,212,255,0.2)] px-2.5 py-1 rounded-[2px] uppercase tracking-wider">
-                      CONCEPTO: {question.concept}
-                    </span>
-                  )}
+
                 />
               </div>
 
@@ -222,22 +218,19 @@ export default function AssessmentPage() {
             flex justify-between items-center md:relative md:bg-transparent md:border-t md:p-0 md:pt-6 md:mt-auto md:block
             transition-all duration-250 pb-[calc(16px+env(safe-area-inset-bottom))]
           `}>
-            {/* Desktop Counter */}
-            <span className={`hidden md:inline font-mono text-[10px] text-[#AAAAAA] uppercase tracking-wider ${isIdeFocused ? 'hidden' : ''}`}>
-              Pregunta {currentQuestion + 1} de {questions.length}
-            </span>
-
-            {/* Mobile Back Button (Ghost) */}
-            <div className="md:hidden">
-               {/* Optional: Add back button logic if needed, currently just placeholder or hidden if first Q */}
-               {currentQuestion > 0 && (
-                 <button 
-                   onClick={() => navigate(-1)} // This might need real back logic in store if we want to support back
-                   className="text-[#666666] text-[12px] font-body px-3 py-2"
-                 >
-                   ← Anterior
-                 </button>
-               )}
+            {/* Contador + Botón Volver */}
+            <div className="flex items-center gap-4">
+              {currentQuestion > 0 && (
+                <button
+                  onClick={() => prevQuestion()}
+                  className="font-body text-[13px] text-[#666666] hover:text-[#111111] transition-colors px-2 py-2"
+                >
+                  ← Anterior
+                </button>
+              )}
+              <span className={`font-mono text-[10px] text-[#AAAAAA] uppercase tracking-wider ${isIdeFocused ? 'hidden' : ''}`}>
+                Pregunta {currentQuestion + 1} de {questions.length}
+              </span>
             </div>
             
             <Button 

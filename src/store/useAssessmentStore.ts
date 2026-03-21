@@ -53,6 +53,7 @@ interface AssessmentState {
   setAdmin: (isAdmin: boolean) => void;
   answerQuestion: (questionId: string, value: any) => void;
   nextQuestion: () => void;
+  prevQuestion: () => void;
   gradeWithAI: () => Promise<void>;   // llama a Azure OpenAI para preguntas abiertas
   calculateAIQ: () => AIQResult;
   reset: () => void;
@@ -120,6 +121,19 @@ export const useAssessmentStore = create<AssessmentState>()(
             };
           }
           return { currentQuestion: nextIndex };
+        });
+      },
+
+      prevQuestion: () => {
+        set((state) => {
+          const prevIndex = state.currentQuestion - 1;
+          if (prevIndex >= 0) {
+            return {
+              currentQuestion: prevIndex,
+              currentSection: questions[prevIndex].section as any
+            };
+          }
+          return {};
         });
       },
 

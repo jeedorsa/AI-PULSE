@@ -60,26 +60,40 @@ module.exports = async function (context, req) {
     const sectionC = safeNumber(aiqResult.sectionScores?.C?.avg, 0);
     const durationMinutes = metadata.durationMinutes != null ? safeNumber(metadata.durationMinutes, null) : null;
 
-    // ESTRUCTURA DEL TEXTO PARA EMBEDDING
+    // ESTRUCTURA DEL TEXTO PARA EMBEDDING — v2.0 (25 preguntas)
     const textToEmbed = `
+      Área: ${answers.V1 || ""}
+      Nivel jerárquico: ${answers.V2?.value || ""}
+      Años en rol: ${answers.V3?.value || ""}
+      Herramientas usadas: ${(answers.V4?.selected || []).join(", ")}
       Posición: ${participant.posicion}
       Empresa: ${participant.empresa}
       Departamento: ${participant.departamento}
 
-      [E1] ${answers.E1 || ""}
-      [E2 texto] ${answers.E2?.text || ""}
-      [E3] ${answers.E3 || ""}
-      [E4] ${answers.E4 || ""}
-      [E5] ${answers.E5 || ""}
-      [B1] ${answers.B1 || ""}
-      [B2] ${answers.B2 || ""}
-      [B3] ${answers.B3 || ""}
-      [B4 texto] ${answers.B4?.text || ""}
-      [B5] ${answers.B5 || ""}
-      [C1 texto] ${answers.C1?.text || ""}
-      [C2 texto] ${answers.C2?.text || ""}
-      [C3 texto] ${answers.C3?.text || ""}
-      [G1 texto] ${answers.G1?.text || ""}
+      [E2 - Último entregable] ${answers.E2 || ""}
+      [E3 - Reacción a error IA] ${answers.E3?.value || ""}
+      [E4 - IA ante tema desconocido] ${answers.E4?.value || ""}
+      [E5 - Enseñanza sobre IA] ${answers.E5 || ""}
+
+      [B1 - Verificación datos] ${answers.B1?.value || ""}
+      [B2 - Seguridad datos] ${answers.B2 || ""}
+      [B3 - Casos de uso este mes] ${(answers.B3?.selected || []).join(", ")}
+      [B4 - Archivos analizados] ${(answers.B4?.selected || []).join(", ")} — ${answers.B4?.text || ""}
+      [B5 - Automatización] ${answers.B5 || ""}
+      [B6 - IA con info empresa] ${answers.B6 || ""}
+
+      [C1 - Prompt email cliente] ${answers.C1?.text || ""}
+      [C2 - Mejora de prompt] ${answers.C2?.text || ""}
+      [C3 - Prompt razonamiento] ${answers.C3?.text || ""}
+
+      [D1 - Apoyo empresa] ${answers.D1?.value || ""} — ${answers.D1?.text || ""}
+      [D2 - IA mal vista] ${answers.D2 || ""}
+      [D3 - Herramientas] ${(answers.D3?.selected || []).join(", ")}
+      [D4 - Herramienta que necesita] ${answers.D4 || ""}
+      [D5 - Espacios compartir IA] ${answers.D5?.choice || ""} — ${answers.D5?.text || ""}
+      [D6 - Políticas uso responsable] ${answers.D6 || ""}
+      [D7 - No usar IA por ética] ${answers.D7 || ""}
+      [D9 - Futuro del rol] ${answers.D9?.value || ""}
     `.replace(/\s+/g, ' ').trim();
 
     // GENERACIÓN DEL EMBEDDING 
