@@ -13,7 +13,7 @@ interface ParticipantRow {
   status?: string;
 }
 
-type AdminTab = 'upload' | 'participants' | 'invitations';
+type AdminTab = 'upload' | 'participants' | 'invitations' | 'reporteria';
 
 const ADMIN_TOKEN_KEY = 'aipulse_admin_token';
 
@@ -49,6 +49,27 @@ export default function AdminPage() {
   const [uploadMessage, setUploadMessage] = useState('');
   const [sendingStatus, setSendingStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
   const [sendingMessage, setSendingMessage] = useState('');
+
+  // Reportería
+  interface ResultRow {
+    email: string; nombre: string; posicion: string; empresa: string; departamento: string;
+    aiqScore: number; aiqLevel: string; sectionA: number; sectionB: number; sectionC: number;
+    challengeProfile: string; completedAt: string; answers: Record<string, any>;
+  }
+  const [results, setResults] = useState<ResultRow[]>([]);
+  const [loadingResults, setLoadingResults] = useState(false);
+  const [expandedResult, setExpandedResult] = useState<string | null>(null);
+
+  const fetchResults = async () => {
+    setLoadingResults(true);
+    try {
+      const response = await fetch('/api/results-list', { headers: adminHeaders() });
+      if (response.status === 401) { handleUnauthorized(); return; }
+      const data = await response.json();
+      if (data.results) setResults(data.results);
+    } catch (err) { console.error('results error:', err); }
+    setLoadingResults(false);
+  };
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Check if we have a stored token on mount
@@ -219,6 +240,7 @@ export default function AdminPage() {
     { id: 'upload', label: 'Cargar Excel' },
     { id: 'participants', label: 'Participantes' },
     { id: 'invitations', label: 'Invitaciones' },
+    { id: 'reporteria', label: 'Reportería' },
   ];
 
   // ── Login Screen ──
@@ -318,6 +340,7 @@ export default function AdminPage() {
                 onClick={() => {
                   setActiveTab(tab.id);
                   if (tab.id === 'participants') fetchParticipants();
+                  if (tab.id === 'reporteria') fetchResults();
                 }}
                 className={`
                   px-5 py-3 font-mono text-[10px] uppercase tracking-wider transition-all
@@ -575,6 +598,229 @@ export default function AdminPage() {
                   }`}>
                     {sendingMessage}
                   </p>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+
+          {/* ── REPORTERÍA TAB ───────────────────────────────────────── */}
+          {activeTab === 'reporteria' && (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+
+              {/* KPIs */}
+              {(() => {
+                const total = participants.length;
+                const completed = participants.filter(p => p.status === 'completed').length;
+                const invited = participants.filter(p => p.status === 'invited').length;
+                const pending = participants.filter(p => p.status === 'pending').length;
+                const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+                return (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {[
+                      { label: 'Total invitados', value: total, color: '#111111' },
+                      { label: 'Completados', value: completed, color: '#00AA55' },
+                      { label: 'Link enviado', value: invited, color: '#CC8800' },
+                      { label: 'Pendientes', value: pending, color: '#AAAAAA' },
+                    ].map((kpi, i) => (
+                      <div key={i} className="bg-[#F7F7F7] border border-[#E0E0E0] rounded-[2px] p-4">
+                        <div className="font-display text-[32px] leading-none mb-1" style={{ color: kpi.color }}>{kpi.value}</div>
+                        <div className="font-mono text-[8px] uppercase tracking-wider text-[#AAAAAA]">{kpi.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+
+              {/* Barra de progreso general */}
+              {(() => {
+                const total = participants.length;
+                const completed = participants.filter(p => p.status === 'completed').length;
+                const invited = participants.filter(p => p.status === 'invited').length;
+                const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+                const pctInvited = total > 0 ? Math.round((invited / total) * 100) : 0;
+                return total > 0 ? (
+                  <div className="bg-[#F7F7F7] border border-[#E0E0E0] rounded-[2px] p-5">
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="font-mono text-[9px] uppercase tracking-wider text-[#555555]">Tasa de completion</span>
+                      <span className="font-display text-[20px] text-primary">{pct}%</span>
+                    </div>
+                    <div className="w-full h-2 bg-[#E8E8E8] rounded-full overflow-hidden">
+                      <div className="h-full flex">
+                        <div className="h-full bg-[#00AA55] transition-all duration-500" style={{ width: `${pct}%` }} />
+                        <div className="h-full bg-[#FFCC44] transition-all duration-500" style={{ width: `${pctInvited}%` }} />
+                      </div>
+                    </div>
+                    <div className="flex gap-4 mt-2">
+                      <span className="font-mono text-[8px] text-[#AAAAAA] flex items-center gap-1">
+                        <span className="inline-block w-2 h-2 rounded-full bg-[#00AA55]"/> Completado
+                      </span>
+                      <span className="font-mono text-[8px] text-[#AAAAAA] flex items-center gap-1">
+                        <span className="inline-block w-2 h-2 rounded-full bg-[#FFCC44]"/> Link enviado
+                      </span>
+                    </div>
+                  </div>
+                ) : null;
+              })()}
+
+              {/* Header resultados */}
+              <div className="flex justify-between items-center">
+                <span className="font-mono text-[9px] text-primary uppercase tracking-wider">
+                  {results.length} resultado{results.length !== 1 ? 's' : ''} completo{results.length !== 1 ? 's' : ''}
+                </span>
+                <button
+                  onClick={() => {
+                    fetchResults();
+                    fetchParticipants();
+                  }}
+                  className="font-mono text-[9px] uppercase tracking-wider h-7 px-3 border border-[#CCCCCC] rounded-[2px] text-[#666666] hover:border-primary hover:text-primary transition-colors"
+                >
+                  ↺ Actualizar
+                </button>
+              </div>
+
+              {loadingResults ? (
+                <div className="text-center py-10">
+                  <p className="font-body text-[13px] text-[#AAAAAA]">Cargando resultados...</p>
+                </div>
+              ) : results.length === 0 ? (
+                <div className="text-center py-10 border border-dashed border-[#CCCCCC] rounded-[2px]">
+                  <p className="font-body text-[14px] text-[#AAAAAA]">Aún no hay assessments completados.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {results.map((r, i) => {
+                    const isExpanded = expandedResult === r.email;
+                    const levelColor = r.aiqLevel === 'L4L' || r.aiqLevel === 'L4T' ? '#00AA55' : r.aiqLevel === 'L3' ? '#CC8800' : '#AAAAAA';
+                    const scoreWidth = (r.aiqScore / 5) * 100;
+                    return (
+                      <div key={i} className="border border-[#E0E0E0] rounded-[2px] overflow-hidden">
+                        {/* Row header */}
+                        <button
+                          onClick={() => setExpandedResult(isExpanded ? null : r.email)}
+                          className="w-full bg-[#F7F7F7] hover:bg-[#EFEFEF] transition-colors px-5 py-4 flex items-center gap-4 text-left"
+                        >
+                          {/* Nombre + empresa */}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-body text-[13px] font-semibold text-[#111111] truncate">{r.nombre}</p>
+                            <p className="font-mono text-[9px] text-[#AAAAAA] uppercase tracking-wider truncate">{r.empresa} · {r.posicion}</p>
+                          </div>
+
+                          {/* AIQ Score bar */}
+                          <div className="hidden md:flex flex-col items-end gap-1 w-[120px]">
+                            <div className="flex items-center gap-2 w-full">
+                              <div className="flex-1 h-[3px] bg-[#E0E0E0] rounded-full overflow-hidden">
+                                <div className="h-full bg-primary transition-all" style={{ width: `${scoreWidth}%` }} />
+                              </div>
+                              <span className="font-mono text-[10px] text-[#555555] w-6 text-right">{r.aiqScore.toFixed(1)}</span>
+                            </div>
+                            <span className="font-mono text-[8px] uppercase tracking-wider" style={{ color: levelColor }}>{r.aiqLevel}</span>
+                          </div>
+
+                          {/* Section scores */}
+                          <div className="hidden md:flex gap-3">
+                            {[['A', r.sectionA], ['B', r.sectionB], ['C', r.sectionC]].map(([sec, val]) => (
+                              <div key={sec as string} className="text-center">
+                                <div className="font-mono text-[10px] text-[#555555]">{(val as number).toFixed(1)}</div>
+                                <div className="font-mono text-[7px] text-[#AAAAAA] uppercase">{sec}</div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Fecha */}
+                          <div className="text-right">
+                            <p className="font-mono text-[8px] text-[#AAAAAA]">
+                              {r.completedAt ? new Date(r.completedAt).toLocaleDateString('es-CL', { day: '2-digit', month: 'short' }) : '—'}
+                            </p>
+                            <p className="font-mono text-[9px] text-[#AAAAAA] mt-1">{isExpanded ? '▲' : '▼'}</p>
+                          </div>
+                        </button>
+
+                        {/* Expanded detail */}
+                        {isExpanded && (
+                          <div className="bg-white border-t border-[#E0E0E0] p-5 space-y-5">
+
+                            {/* Scores detalle */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                              {[
+                                { label: 'AIQ Total', value: r.aiqScore.toFixed(2), sub: r.aiqLevel },
+                                { label: 'Experiencia Real', value: r.sectionA.toFixed(2), sub: '30%' },
+                                { label: 'Criterio Técnico', value: r.sectionB.toFixed(2), sub: '30%' },
+                                { label: 'Laboratorio', value: r.sectionC.toFixed(2), sub: '40%' },
+                              ].map((s, j) => (
+                                <div key={j} className="bg-[#F7F7F7] border border-[#E0E0E0] rounded-[2px] p-3 text-center">
+                                  <div className="font-display text-[24px] text-primary leading-none">{s.value}</div>
+                                  <div className="font-mono text-[7px] uppercase tracking-wider text-[#555555] mt-1">{s.label}</div>
+                                  <div className="font-mono text-[7px] text-[#AAAAAA]">{s.sub}</div>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Herramientas que usa */}
+                            {r.answers?.V4?.selected?.length > 0 && (
+                              <div>
+                                <p className="font-mono text-[8px] uppercase tracking-wider text-[#AAAAAA] mb-2">Herramientas que usa</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {r.answers.V4.selected.map((tool: string) => (
+                                    <span key={tool} className="font-mono text-[9px] px-2 py-1 bg-primary/5 border border-primary/20 rounded-[2px] text-primary">{tool}</span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Respuestas abiertas clave */}
+                            <div className="space-y-3">
+                              <p className="font-mono text-[8px] uppercase tracking-wider text-[#AAAAAA]">Respuestas destacadas</p>
+                              {[
+                                { label: 'Último entregable con IA', value: r.answers?.E2 },
+                                { label: 'Seguridad de datos', value: r.answers?.B2 },
+                                { label: 'Automatización lograda', value: r.answers?.B5 },
+                                { label: 'IA con info de empresa', value: r.answers?.B6 },
+                                { label: 'Prompt C1 (email cliente)', value: r.answers?.C1?.text },
+                                { label: 'Prompt C2 (mejora)', value: r.answers?.C2?.text },
+                                { label: 'Prompt C3 (razonamiento)', value: r.answers?.C3?.text },
+                              ].filter(item => item.value && item.value.trim && item.value.trim().length > 3).map((item, k) => (
+                                <div key={k} className="border-l-2 border-primary/30 pl-3">
+                                  <p className="font-mono text-[8px] uppercase tracking-wider text-[#AAAAAA] mb-1">{item.label}</p>
+                                  <p className="font-body text-[12px] text-[#333333] leading-[1.6]">{item.value}</p>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Usos de IA este mes */}
+                            {r.answers?.B3?.selected?.length > 0 && (
+                              <div>
+                                <p className="font-mono text-[8px] uppercase tracking-wider text-[#AAAAAA] mb-2">Usos de IA este mes</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {r.answers.B3.selected.map((uso: string) => (
+                                    <span key={uso} className="font-mono text-[9px] px-2 py-1 bg-[#F0F0F0] border border-[#E0E0E0] rounded-[2px] text-[#555555]">{uso}</span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Info personal */}
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 pt-2 border-t border-[#EEEEEE]">
+                              {[
+                                { label: 'Email', value: r.email },
+                                { label: 'Departamento', value: r.departamento },
+                                { label: 'Área declarada', value: r.answers?.V1 },
+                                { label: 'Apoyo de su jefe', value: r.answers?.D1?.text },
+                                { label: 'Challenge Profile', value: r.challengeProfile },
+                                { label: 'Completado', value: r.completedAt ? new Date(r.completedAt).toLocaleString('es-CL') : '—' },
+                              ].map((field, m) => field.value ? (
+                                <div key={m}>
+                                  <p className="font-mono text-[7px] uppercase tracking-wider text-[#AAAAAA]">{field.label}</p>
+                                  <p className="font-body text-[11px] text-[#333333] mt-0.5">{field.value}</p>
+                                </div>
+                              ) : null)}
+                            </div>
+
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </motion.div>
