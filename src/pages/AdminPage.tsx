@@ -37,6 +37,136 @@ function adminHeaders(): Record<string, string> {
   };
 }
 
+
+// ── Mapa completo de preguntas para exportación ──────────────────
+const QUESTION_MAP: Record<string, string> = {
+  V1: '¿En qué área de la organización trabajas?',
+  V2: '¿Cuál es tu nivel jerárquico actual?',
+  V3: '¿Cuántos años llevas desempeñando tu rol actual?',
+  V4: '¿Qué herramientas de IA generativa has utilizado al menos una vez?',
+  E2: 'Pensando en el último entregable importante que produjiste, ¿qué papel jugó la IA?',
+  E3: 'Cuando la IA te da un resultado incorrecto, ¿cuál es tu reacción más frecuente?',
+  E4: '¿Cómo usas la IA ante un tema desconocido fuera de tu especialidad?',
+  E5: '¿Qué has enseñado o compartido sobre IA dentro de tu empresa?',
+  B1: '¿Cómo verificas que un dato técnico que te dio la IA es correcto?',
+  B2: '¿Qué tipo de información corporativa evitas compartir con la IA?',
+  B3: '¿Para qué has usado IA este mes?',
+  B4: '¿Qué tipos de archivos has analizado con IA además de texto?',
+  B5: '¿Qué tarea repetitiva has logrado delegar a la IA?',
+  B6: '¿Has logrado que la IA trabaje con información específica de tu empresa?',
+  C1: 'Prompt: Email a cliente VIP con retraso de 3 semanas',
+  C2: 'Prompt: Mejora de prompt de presentación de resultados',
+  C3: 'Prompt: Decisión de lanzar producto con razonamiento paso a paso',
+  D1: '¿En qué medida tu jefe o empresa apoya el uso de IA?',
+  D2: '¿Has sentido que usar IA era mal visto en tu equipo?',
+  D3: '¿Qué herramientas de IA usas actualmente?',
+  D4: '¿Qué herramienta necesitas y no tienes acceso?',
+  D5: '¿Existen espacios oficiales para compartir aprendizajes de IA?',
+  D6: '¿Conoces las políticas de uso responsable de IA de tu empresa?',
+  D7: '¿Alguna vez decidiste NO usar IA por razones éticas?',
+  D9: '¿Cómo ves el futuro de tu rol con la llegada de la IA?',
+};
+
+const V2_OPTIONS: Record<number, string> = { 1: 'Colaborador individual', 2: 'Manager o Líder de equipo', 3: 'Director', 4: 'VP o C-Suite' };
+const V3_OPTIONS: Record<number, string> = { 1: 'Menos de 1 año', 2: '1 a 3 años', 3: '3 a 5 años', 4: 'Más de 5 años' };
+const E3_OPTIONS: Record<number, string> = { 1: 'No lo noto', 2: 'Repito la pregunta igual', 3: 'Ajusto el prompt manualmente', 4: 'Aplico un proceso sistemático de corrección', 5: 'Comparto la lección con mi equipo' };
+const E4_OPTIONS: Record<number, string> = { 1: 'No la uso', 2: 'Busco definiciones rápidas', 3: 'Pido analogías y explicaciones', 4: 'Diseño un plan de estudio y casos prácticos' };
+const B1_OPTIONS: Record<number, string> = { 1: 'Confío si suena bien', 2: 'Búsqueda rápida en Google', 3: 'Método sistemático de verificación cruzada' };
+const D1_OPTIONS: Record<number, string> = { 1: 'Nunca ha habido incentivo', 2: 'Menciones generales sin acciones', 3: 'He recibido recursos o tiempo específico', 4: 'Existe una estrategia clara con liderazgo' };
+const D9_OPTIONS: Record<number, string> = { 1: 'Me genera incertidumbre', 2: 'Tengo curiosidad pero no sé cómo afectará', 3: 'Lo veo como oportunidad de crecimiento', 4: 'La IA ya es central en mi desarrollo profesional' };
+
+function resolveAnswer(id: string, raw: any): string {
+  if (raw === undefined || raw === null) return '';
+  switch (id) {
+    case 'V1': return typeof raw === 'string' ? raw : '';
+    case 'V2': return V2_OPTIONS[raw?.value] || String(raw?.value || '');
+    case 'V3': return V3_OPTIONS[raw?.value] || String(raw?.value || '');
+    case 'V4': return (raw?.selected || []).join(', ');
+    case 'E2': return typeof raw === 'string' ? raw : raw?.text || '';
+    case 'E3': return E3_OPTIONS[raw?.value] || String(raw?.value || '');
+    case 'E4': return E4_OPTIONS[raw?.value] || String(raw?.value || '');
+    case 'E5': return typeof raw === 'string' ? raw : raw?.text || '';
+    case 'B1': return B1_OPTIONS[raw?.value] || String(raw?.value || '');
+    case 'B2': return typeof raw === 'string' ? raw : raw?.text || '';
+    case 'B3': return (raw?.selected || []).join(', ');
+    case 'B4': return [(raw?.selected || []).join(', '), raw?.text || ''].filter(Boolean).join(' — ');
+    case 'B5': return typeof raw === 'string' ? raw : raw?.text || '';
+    case 'B6': return typeof raw === 'string' ? raw : raw?.text || '';
+    case 'C1': return raw?.text || '';
+    case 'C2': return raw?.text || '';
+    case 'C3': return raw?.text || '';
+    case 'D1': return [D1_OPTIONS[raw?.value] || '', raw?.text || ''].filter(Boolean).join(' → ');
+    case 'D2': return typeof raw === 'string' ? raw : raw?.text || '';
+    case 'D3': {
+      const selected = raw?.selected || [];
+      const origins = raw?.origins || {};
+      return selected.map((t: string) => origins[t] ? `${t} (${origins[t]})` : t).join(', ');
+    }
+    case 'D4': return typeof raw === 'string' ? raw : raw?.text || '';
+    case 'D5': return [raw?.choice || '', raw?.text || ''].filter(Boolean).join(' → ');
+    case 'D6': return typeof raw === 'string' ? raw : raw?.text || '';
+    case 'D7': return typeof raw === 'string' ? raw : raw?.text || '';
+    case 'D9': return D9_OPTIONS[raw?.value] || String(raw?.value || '');
+    default: return typeof raw === 'string' ? raw : JSON.stringify(raw);
+  }
+}
+
+function downloadCSV(results: any[]) {
+  const questionIds = Object.keys(QUESTION_MAP);
+  const metaHeaders = ['Nombre', 'Email', 'Empresa', 'Posición', 'Departamento', 'AIQ Score', 'Nivel AIQ', 'Bloque A', 'Bloque B', 'Bloque C', 'Completado'];
+  const questionHeaders = questionIds.map(id => `[${id}] ${QUESTION_MAP[id]}`);
+  const allHeaders = [...metaHeaders, ...questionHeaders];
+
+  const rows = results.map(r => {
+    const meta = [
+      r.nombre, r.email, r.empresa, r.posicion, r.departamento,
+      r.aiqScore?.toFixed(2), r.aiqLevel,
+      r.sectionA?.toFixed(2), r.sectionB?.toFixed(2), r.sectionC?.toFixed(2),
+      r.completedAt ? new Date(r.completedAt).toLocaleString('es-CL') : ''
+    ];
+    const answers = questionIds.map(id => resolveAnswer(id, r.answers?.[id]));
+    return [...meta, ...answers];
+  });
+
+  const csv = [allHeaders, ...rows]
+    .map(row => row.map(v => `"${String(v || '').replace(/"/g, '""')}"`).join(','))
+    .join('\n');
+
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `aipulse-respuestas-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadIndividualCSV(r: any) {
+  const questionIds = Object.keys(QUESTION_MAP);
+  const rows = [
+    ['Campo', 'Valor'],
+    ['Nombre', r.nombre], ['Email', r.email], ['Empresa', r.empresa],
+    ['Posición', r.posicion], ['Departamento', r.departamento],
+    ['AIQ Score', r.aiqScore?.toFixed(2)], ['Nivel AIQ', r.aiqLevel],
+    ['Bloque A (Experiencia)', r.sectionA?.toFixed(2)],
+    ['Bloque B (Criterio)', r.sectionB?.toFixed(2)],
+    ['Bloque C (Laboratorio)', r.sectionC?.toFixed(2)],
+    ['Completado', r.completedAt ? new Date(r.completedAt).toLocaleString('es-CL') : ''],
+    ['', ''],
+    ['── RESPUESTAS COMPLETAS ──', ''],
+    ...questionIds.map(id => [QUESTION_MAP[id], resolveAnswer(id, r.answers?.[id])])
+  ];
+
+  const csv = rows.map(row => row.map(v => `"${String(v || '').replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `aipulse-${r.nombre?.replace(/\s+/g, '-').toLowerCase() || r.email}-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginPassword, setLoginPassword] = useState('');
@@ -69,6 +199,35 @@ export default function AdminPage() {
       if (data.results) setResults(data.results);
     } catch (err) { console.error('results error:', err); }
     setLoadingResults(false);
+  };
+
+  const handleResend = async (email: string, empresa: string) => {
+    try {
+      const res = await fetch('/api/invitation-resend', {
+        method: 'POST',
+        headers: adminHeaders(),
+        body: JSON.stringify({ email, empresa })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(`✅ Invitación reenviada a ${email}`);
+        fetchParticipants();
+      } else {
+        alert(`Error: ${data.error}`);
+      }
+    } catch { alert('Error al reenviar'); }
+  };
+
+  const handleStatusChange = async (email: string, status: string) => {
+    try {
+      const res = await fetch('/api/participant-update', {
+        method: 'POST',
+        headers: adminHeaders(),
+        body: JSON.stringify({ email, status })
+      });
+      if (res.ok) fetchParticipants();
+      else { const d = await res.json(); alert(`Error: ${d.error}`); }
+    } catch { alert('Error al actualizar status'); }
   };
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -525,7 +684,7 @@ export default function AdminPage() {
                     <table className="w-full text-left">
                       <thead>
                         <tr className="border-b border-[#E0E0E0]">
-                          {['Email', 'Nombre', 'Empresa', 'Posición', 'Estado'].map((col) => (
+                          {['Email', 'Nombre', 'Empresa', 'Posición', 'Estado', ''].map((col) => (
                             <th key={col} className="font-mono text-[8px] text-[#AAAAAA] uppercase tracking-wider py-2 px-3">
                               {col}
                             </th>
@@ -540,15 +699,37 @@ export default function AdminPage() {
                             <td className="font-body text-[11px] text-[#555555] font-medium py-2 px-3">{p.empresa || '—'}</td>
                             <td className="font-body text-[11px] text-[#666666] py-2 px-3">{p.posicion}</td>
                             <td className="py-2 px-3">
-                              <span className={`font-mono text-[8px] uppercase tracking-wider px-2 py-0.5 rounded-[2px] border ${
-                                p.status === 'completed'
-                                  ? 'text-[#00AA55] bg-[rgba(0,170,85,0.08)] border-[rgba(0,170,85,0.20)]'
-                                  : p.status === 'started'
-                                  ? 'text-[#CC8800] bg-[rgba(204,136,0,0.08)] border-[rgba(204,136,0,0.20)]'
-                                  : 'text-[#888888] bg-[rgba(0,0,0,0.04)] border-[rgba(0,0,0,0.10)]'
-                              }`}>
-                                {p.status || 'pending'}
-                              </span>
+                              <select
+                                value={p.status || 'pending'}
+                                onChange={(e) => handleStatusChange(p.email, e.target.value)}
+                                className={`font-mono text-[8px] uppercase tracking-wider px-2 py-0.5 rounded-[2px] border cursor-pointer bg-transparent ${
+                                  p.status === 'completed'
+                                    ? 'text-[#00AA55] border-[rgba(0,170,85,0.30)]'
+                                    : p.status === 'started'
+                                    ? 'text-[#CC8800] border-[rgba(204,136,0,0.30)]'
+                                    : p.status === 'invited'
+                                    ? 'text-[#5588FF] border-[rgba(85,136,255,0.30)]'
+                                    : p.status === 'cancelled'
+                                    ? 'text-[#FF3C3C] border-[rgba(255,60,60,0.30)]'
+                                    : 'text-[#888888] border-[rgba(0,0,0,0.15)]'
+                                }`}
+                              >
+                                <option value="pending">pending</option>
+                                <option value="invited">invited</option>
+                                <option value="started">started</option>
+                                <option value="completed">completed</option>
+                                <option value="cancelled">cancelled</option>
+                              </select>
+                            </td>
+                            <td className="py-2 px-3">
+                              {p.status !== 'completed' && (
+                                <button
+                                  onClick={() => handleResend(p.email, p.empresa)}
+                                  className="font-mono text-[8px] uppercase tracking-wider px-2 py-1 border border-[#CCCCCC] rounded-[2px] text-[#666666] hover:border-primary hover:text-primary transition-colors whitespace-nowrap"
+                                >
+                                  ↺ Reenviar
+                                </button>
+                              )}
                             </td>
                           </tr>
                         ))}
@@ -668,15 +849,22 @@ export default function AdminPage() {
                 <span className="font-mono text-[9px] text-primary uppercase tracking-wider">
                   {results.length} resultado{results.length !== 1 ? 's' : ''} completo{results.length !== 1 ? 's' : ''}
                 </span>
-                <button
-                  onClick={() => {
-                    fetchResults();
-                    fetchParticipants();
-                  }}
-                  className="font-mono text-[9px] uppercase tracking-wider h-7 px-3 border border-[#CCCCCC] rounded-[2px] text-[#666666] hover:border-primary hover:text-primary transition-colors"
-                >
-                  ↺ Actualizar
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { fetchResults(); fetchParticipants(); }}
+                    className="font-mono text-[9px] uppercase tracking-wider h-7 px-3 border border-[#CCCCCC] rounded-[2px] text-[#666666] hover:border-primary hover:text-primary transition-colors"
+                  >
+                    ↺ Actualizar
+                  </button>
+                  {results.length > 0 && (
+                    <button
+                      onClick={() => downloadCSV(results)}
+                      className="font-mono text-[9px] uppercase tracking-wider h-7 px-3 border border-primary rounded-[2px] text-primary hover:bg-primary hover:text-white transition-colors"
+                    >
+                      ↓ Exportar todo CSV
+                    </button>
+                  )}
+                </div>
               </div>
 
               {loadingResults ? (
@@ -798,6 +986,16 @@ export default function AdminPage() {
                                 </div>
                               </div>
                             )}
+
+                            {/* Descarga individual */}
+                            <div className="flex justify-end pt-2 border-t border-[#EEEEEE]">
+                              <button
+                                onClick={() => downloadIndividualCSV(r)}
+                                className="font-mono text-[9px] uppercase tracking-wider px-3 py-1.5 border border-[#CCCCCC] rounded-[2px] text-[#666666] hover:border-primary hover:text-primary transition-colors"
+                              >
+                                ↓ Descargar respuestas completas
+                              </button>
+                            </div>
 
                             {/* Info personal */}
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-2 pt-2 border-t border-[#EEEEEE]">

@@ -10,7 +10,7 @@ type VerifyStatus = 'loading' | 'confirm' | 'error' | 'invalid_email';
 export default function VerifyPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { setParticipant, participant } = useAssessmentStore();
+  const { setParticipant, participant, restoreProgress } = useAssessmentStore();
 
   const token = searchParams.get('token');
 
@@ -83,7 +83,7 @@ export default function VerifyPage() {
         return;
       }
 
-      // Server confirmed email matches - set participant and go to assessment
+      // Server confirmed email matches - set participant
       setParticipant({
         email: data.email,
         nombre: data.nombre,
@@ -92,6 +92,16 @@ export default function VerifyPage() {
         departamento: data.departamento,
         token,
       });
+
+      // Check for saved progress (allows cross-device continuation)
+      try {
+        const progressRes = await fetch(`/api/progress-get?token=${encodeURIComponent(token)}`);
+        const progressData = await progressRes.json();
+        if (progressData.found && progressData.currentQuestion > 0) {
+          // Restore saved progress
+          restoreProgress(progressData.currentQuestion, progressData.answers);
+        }
+      } catch {}
 
       navigate('/assessment', { replace: true });
     } catch (err) {

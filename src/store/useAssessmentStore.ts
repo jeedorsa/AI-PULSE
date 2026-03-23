@@ -54,6 +54,7 @@ interface AssessmentState {
   answerQuestion: (questionId: string, value: any) => void;
   nextQuestion: () => void;
   prevQuestion: () => void;
+  restoreProgress: (currentQuestion: number, answers: Record<string, any>) => void;
   gradeWithAI: () => Promise<void>;   // llama a Azure OpenAI para preguntas abiertas
   calculateAIQ: () => AIQResult;
   reset: () => void;
@@ -106,14 +107,37 @@ export const useAssessmentStore = create<AssessmentState>()(
       setAdmin: (isAdmin) => set({ isAdmin }),
 
       answerQuestion: (questionId, value) => {
-        set((state) => ({
-          answers: { ...state.answers, [questionId]: value }
-        }));
+        set((state) => {
+          const newAnswers = { ...state.answers, [questionId]: value };
+          // Auto-save progress to backend (debounced via fire-and-forget)
+          const token = state.participantToken;
+          const currentQuestion = state.currentQuestion;
+          if (token) {
+            clearTimeout((window as any).__progressSaveTimer);
+            (window as any).__progressSaveTimer = setTimeout(() => {
+              fetch('/api/progress-save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token, currentQuestion, answers: newAnswers })
+              }).catch(() => {}); // Silencioso — no interrumpir UX
+            }, 1500); // Espera 1.5s después de última respuesta
+          }
+          return { answers: newAnswers };
+        });
       },
 
       nextQuestion: () => {
         set((state) => {
           const nextIndex = state.currentQuestion + 1;
+          // Persist navigation progress
+          const token = state.participantToken;
+          if (token && nextIndex < questions.length) {
+            fetch('/api/progress-save', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ token, currentQuestion: nextIndex, answers: state.answers })
+            }).catch(() => {});
+          }
           if (nextIndex < questions.length) {
             return {
               currentQuestion: nextIndex,
@@ -134,6 +158,15 @@ export const useAssessmentStore = create<AssessmentState>()(
             };
           }
           return {};
+        });
+      },
+
+      restoreProgress: (currentQuestion, answers) => {
+        const section = questions[currentQuestion]?.section || 'A';
+        set({
+          currentQuestion,
+          answers,
+          currentSection: section as any
         });
       },
 
