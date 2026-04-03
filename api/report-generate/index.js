@@ -200,7 +200,8 @@ module.exports = async function (context, req) {
   if (req.method === "OPTIONS") { context.res = { status: 200, headers, body: "" }; return; }
   if (!requireAdmin(context, req)) return;
 
-  const { email } = req.body || {};
+  const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body || {};
+  const { email } = body;
   if (!email) {
     context.res = { status: 400, headers, body: JSON.stringify({ error: "Falta el email" }) };
     return;
@@ -213,18 +214,20 @@ module.exports = async function (context, req) {
   const openaiVersion = process.env.AZURE_OPENAI_API_VERSION || "2024-12-01-preview";
 
   try {
-    // 1. Obtener resultado del participante
+    // 1. Obtener resultado del participante — filtrar por email directamente
     const resultsClient = TableClient.fromConnectionString(connectionString, "assessmentResults");
     let result = null;
 
-    for await (const entity of resultsClient.listEntities()) {
-      if (entity.email === email) { result = entity; break; }
-    }
+    for await (const entity of resultsClient.listEntities({
+      queryOptions: { filter: `email eq '${email}'` }
+    })) { result = entity; break; }
 
     if (!result) {
-      context.res = { status: 404, headers, body: JSON.stringify({ error: "No se encontró resultado para este email" }) };
+      context.res = { status: 404, headers, body: JSON.stringify({ error: `No se encontró resultado para ${email}` }) };
       return;
     }
+
+    context.log.info(`Resultado encontrado: ${result.nombre} / ${result.partitionKey} / ${result.aiqLevel}`);
 
     // Rearmar answers desde bloques o formato legado
     let answers = {};
@@ -267,6 +270,8 @@ module.exports = async function (context, req) {
     }
 
     // 3. Llamar a Azure OpenAI
+    context.log.info(`Llamando OpenAI: endpoint=${openaiEndpoint} deployment=${openaiDeployment} version=${openaiVersion}`);
+    context.log.info(`Config keys presentes: key=${!!openaiKey} conn=${!!connectionString}`);
     const prompt = buildPrompt(participant, answers, scores, companyDist);
     const url = `${openaiEndpoint.replace(/\/$/, '')}/openai/deployments/${openaiDeployment}/chat/completions?api-version=${openaiVersion}`;
 
@@ -300,6 +305,20 @@ module.exports = async function (context, req) {
 
     // 4. Generar HTML del informe
     const html = generateHTML(participant, scores, answers, analysis, companyDist);
+
+    // 5. Persistir coachEnabled + reportAnalysis para habilitar el coach
+    try {
+      await resultsClient.updateEntity({
+        partitionKey: result.partitionKey,
+        rowKey:       result.rowKey,
+        coachEnabled:    true,
+        reportAnalysis:  JSON.stringify(analysis),
+        reportGeneratedAt: new Date().toISOString(),
+      }, "Merge");
+    } catch (persistErr) {
+      context.log.error("Error persistiendo coachEnabled:", persistErr.message);
+      // No bloqueamos — el informe igual se devuelve
+    }
 
     context.res = {
       status: 200,

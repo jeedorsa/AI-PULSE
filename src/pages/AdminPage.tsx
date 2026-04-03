@@ -206,14 +206,14 @@ export default function AdminPage() {
         body: JSON.stringify({ email }),
       });
       if (res.status === 401) { handleUnauthorized(); return; }
-      if (!res.ok) throw new Error('Error generando informe');
       const data = await res.json();
-      if (!data.html) throw new Error(data.error || 'El informe llegó vacío');
+      if (!res.ok || !data.html) throw new Error(data.error || `Error ${res.status}`);
+
       const blob = new Blob([data.html], { type: 'text/html;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       window.open(url, '_blank');
-    } catch (err) {
-      alert('Error generando el informe. Intenta de nuevo.');
+    } catch (err: any) {
+      alert(`Error generando el informe: ${err.message}`);
     } finally {
       setGeneratingReport(null);
     }
@@ -234,8 +234,8 @@ export default function AdminPage() {
       const blob = new Blob([data.html], { type: 'text/html;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       window.open(url, '_blank');
-    } catch (err) {
-      alert('Error generando el informe de empresa. Intenta de nuevo.');
+    } catch (err: any) {
+      alert(`Error generando el informe de empresa: ${err.message}`);
     } finally {
       setGeneratingCompanyReport(false);
     }

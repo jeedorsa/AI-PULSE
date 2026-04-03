@@ -10,6 +10,7 @@ import VerifyPage from './pages/VerifyPage';
 import ThankYouPage from './pages/ThankYouPage';
 import AdminPage from './pages/AdminPage';
 import AccessPage from './pages/AccessPage';
+import CoachPage from './pages/CoachPage';
 
 const PageWrapper = ({ children }: { children: React.ReactNode }) => {
   return (
@@ -46,6 +47,8 @@ const AnimatedRoutes = () => {
         <Route path="/admin" element={<PageWrapper><AdminPage /></PageWrapper>} />
         {/* /acceso soporta modo whitelist y modo dominio abierto (?empresa=X&dominio=X.com) */}
         <Route path="/acceso" element={<PageWrapper><AccessPage /></PageWrapper>} />
+        {/* /coach — dashboard personal del participante, requiere informe generado */}
+        <Route path="/coach" element={<CoachPage />} />
       </Routes>
     </AnimatePresence>
   );

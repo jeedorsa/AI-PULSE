@@ -1,315 +1,724 @@
 const { TableClient } = require("@azure/data-tables");
 const { requireAdmin } = require("../shared/adminAuth");
 
+/**
+ * report-generate-company — Arquitectura de 3 prompts secuenciales
+ *
+ * PROMPT 1: Consolidación de datos → JSON Enterprise
+ * PROMPT 2: Análisis narrativo    → Textos por sección
+ * PROMPT 3: Plan de acción        → 30/60/90 días
+ * HTML:     Renderiza el reporte completo
+ */
+
+// ─── Mapas para resolver respuestas cerradas ───────────────────────────────
+const V2_OPT = { 1: 'Colaborador individual', 2: 'Manager o Líder de equipo', 3: 'Director', 4: 'VP o C-Suite' };
+const NIVEL_CODIGO = {
+  'VP o C-Suite': 'EJE',
+  'Director': 'DIR',
+  'Manager o Líder de equipo': 'MGR',
+  'Supervisor': 'SPV',
+  'Colaborador individual': 'COL'
+};
 const NIVEL_NOMBRES = { L1: 'Novato', L2: 'Experimentador', L3: 'Practicante', L4T: 'Amplificador Técnico', L4L: 'Amplificador Estratégico' };
 const NIVELES = ['L1', 'L2', 'L3', 'L4T', 'L4L'];
 
-function avg(arr) {
-  if (!arr.length) return 0;
-  return arr.reduce((s, v) => s + v, 0) / arr.length;
+function assembleAnswers(entity) {
+  if (entity.answersV || entity.answersA) {
+    const v  = entity.answersV ? JSON.parse(entity.answersV) : {};
+    const a  = entity.answersA ? JSON.parse(entity.answersA) : {};
+    const b  = entity.answersB ? JSON.parse(entity.answersB) : {};
+    const cc = entity.answersC ? JSON.parse(entity.answersC) : {};
+    const d  = entity.answersD ? JSON.parse(entity.answersD) : {};
+    return { ...v, ...a, ...b, ...cc, ...d };
+  }
+  try { return JSON.parse(entity.answers || '{}'); } catch { return {}; }
 }
 
-function buildCompanyPrompt(empresa, stats, participantes) {
-  const muestra = participantes.slice(0, 12).map(p =>
-    `- ${p.nombre} (${p.posicion || 'sin cargo'}): AIQ ${p.aiqScore.toFixed(2)} / Nivel ${p.aiqLevel} / A:${p.sectionA.toFixed(1)} B:${p.sectionB.toFixed(1)} C:${p.sectionC.toFixed(1)}`
-  ).join('\n');
+function safeNum(v) { return typeof v === 'number' && !isNaN(v) ? v : 0; }
+function avg(arr) { return arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : 0; }
+function stdDev(arr) {
+  if (arr.length < 2) return 0;
+  const m = avg(arr);
+  return Math.sqrt(arr.reduce((s, v) => s + Math.pow(v - m, 2), 0) / arr.length);
+}
 
-  return `Eres el analista principal de AI Pulse. Genera el análisis ejecutivo del diagnóstico AIQ de toda la empresa.
+// ─── PROMPT 1 — Consolidación ────────────────────────────────────────────
+function buildPrompt1(empresa, participantes) {
+  const jsons = participantes.map(p => ({
+    nombre: p.nombre,
+    posicion: p.posicion,
+    nivel_codigo: p.nivelCodigo,
+    departamento: p.departamento,
+    aiq_final: safeNum(p.aiqScore),
+    nivel: p.aiqLevel,
+    seccion_a: safeNum(p.sectionA),
+    seccion_b: safeNum(p.sectionB),
+    seccion_c: safeNum(p.sectionC),
+    challenge_profile: p.challengeProfile,
+    alerts: p.alerts || [],
+    // Datos D relevantes para brechas
+    b2_score: p.b2_raw,
+    d3_herramientas: p.answers?.D3?.selected || [],
+    d5_espacios: p.answers?.D5?.choice || '',
+    d6_politicas: p.answers?.D6 || '',
+    d1_apoyo: p.answers?.D1?.value || 0,
+  }));
+
+  return `Eres el analizador Enterprise del AIQ Framework de AI Pulse.
+Recibes los JSONs de evaluación individual de todos los encuestados de una organización
+y produces un único objeto JSON consolidado con las métricas organizacionales.
+
+INSTRUCCIONES:
+- Procesa todos los JSONs del array recibido
+- Calcula las métricas según las fórmulas indicadas
+- Detecta patrones, brechas y fortalezas organizacionales
+- Responde ÚNICAMENTE con el JSON consolidado — sin texto antes ni después
 
 EMPRESA: ${empresa}
-FECHA: ${new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}
+FECHA: ${new Date().toISOString().slice(0,10)}
+JSONS INDIVIDUALES:
+${JSON.stringify(jsons, null, 2)}
 
-ESTADÍSTICAS GENERALES:
-- Total evaluados: ${stats.total}
-- Score AIQ promedio: ${stats.avgAIQ.toFixed(2)} / 5.0
-- Promedio Bloque A (Experiencia Real, 30%): ${stats.avgA.toFixed(2)}
-- Promedio Bloque B (Criterio Técnico, 30%): ${stats.avgB.toFixed(2)}
-- Promedio Bloque C (Laboratorio, 40%): ${stats.avgC.toFixed(2)}
+CÁLCULOS REQUERIDOS:
 
-DISTRIBUCIÓN POR NIVEL:
-${NIVELES.map(n => `- ${NIVEL_NOMBRES[n]} (${n}): ${stats.dist[n]} personas (${stats.total > 0 ? Math.round((stats.dist[n]/stats.total)*100) : 0}%)`).join('\n')}
+MÉTRICAS GLOBALES:
+- n_total: número total de encuestados
+- aiq_promedio: promedio de aiq_final
+- aiq_desviacion: desviación estándar
+- aiq_max / aiq_min
+- nivel_organizacional + nombre_nivel_organizacional (L1<2.0 / L2=2.0-2.9 / L3=3.0-3.4 / L4T=3.5-4.4 / L4L>=4.5)
+- seccion_a_promedio / seccion_b_promedio / seccion_c_promedio
 
-MUESTRA DE PARTICIPANTES (hasta 12):
-${muestra}
+DISTRIBUCIÓN DE NIVELES:
+- n_l1, pct_l1 / n_l2, pct_l2 / n_l3, pct_l3 / n_l4t, pct_l4t / n_l4l, pct_l4l
 
-Genera el análisis ejecutivo del estado de madurez IA de esta organización. Responde SOLO con un JSON válido, sin markdown:
+POR JERARQUÍA (agrupar por nivel_codigo: EJE, DIR, MGR, SPV, COL). Para cada grupo:
+- n, aiq_promedio, seccion_a, seccion_b, seccion_c, nivel_predominante, regla1_activos
 
+ARQUETIPO (clasificar en este orden de prioridad):
+1. "Organización Dormida": aiq_promedio < 2.0 Y aiq_desviacion < 0.5
+2. "Organización Fragmentada": aiq_desviacion >= 0.6 O (aiq_max - aiq_min) >= 2.0
+3. "Organización en Transición": aiq_promedio 2.5–3.4 Y lideres_adelante = true
+4. "Organización Amplificada": aiq_promedio >= 3.5 Y aiq_desviacion < 0.5
+Default: "Organización Fragmentada"
+
+PATRÓN JERÁRQUICO:
+- lideres_adelante: true si DIR/EJE tienen aiq_promedio > COL en al menos 0.5 puntos
+- colaboradores_adelante: true si COL aiq_promedio > DIR/EJE en al menos 0.5 puntos
+- homogeneo_bajo: true si todos los grupos < 2.5 Y diferencia entre grupos < 0.4
+
+BRECHAS ORGANIZACIONALES:
+
+brecha_gobernanza:
+  activa: true si > 40% encuestados tienen b2_score = 1 O b2_score vacío/vago
+  severidad: "critica" si >50% | "importante" si 25-50% | "leve" si <25%
+  n_afectados, pct_afectados
+  politicas_existen: true si al menos 1 tiene d6_politicas con contenido distinto de vacío
+
+brecha_comunicacion:
+  activa: true si >60% tienen d5_espacios = "nunca" o vacío
+  severidad: "total" si 100% | "alta" si >60% | "media" si 30-60%
+  n_sin_espacios
+
+brecha_habilitacion:
+  activa: true si algún participante tiene "pagada_por_empleado" en d3_herramientas o la mención de pago propio
+  n_afectados
+
+brecha_liderazgo:
+  activa: true si colaboradores_adelante = true
+
+brecha_adopcion:
+  activa: true si hay herramientas empresa que no aparecen en uso habitual de al menos 30% de participantes
+
+FORTALEZAS:
+- liderazgo_adelante: lideres_adelante
+- capacidad_avanzada_existe: true si al menos 1 tiene seccion_c >= 4.0
+- n_perfiles_avanzados: número con aiq_final >= 3.0
+- motivacion_espontanea: brecha_habilitacion.activa (pagan de su bolsillo = motivación)
+- max_laboratorio: valor máximo de seccion_c
+
+FLAGS CRÍTICOS:
+- riesgo_gobernanza_critico: brecha_gobernanza.activa Y brecha_comunicacion.activa
+- n_perfiles_con_pausa: número con "REGLA_1" en alerts
+
+OUTPUT JSON EXACTO:
 {
-  "resumen_ejecutivo": "3-4 oraciones describiendo el estado general de madurez IA de la empresa. Sé directo y específico con los números.",
-  "nivel_predominante": "${stats.nivelPredominante}",
-  "descripcion_nivel_empresa": "2 oraciones sobre qué significa que la mayoría esté en ese nivel para el negocio.",
-  "fortaleza_colectiva": "1-2 oraciones sobre qué hace bien la organización como conjunto.",
-  "brecha_critica": "1-2 oraciones sobre el gap más importante que limita el avance colectivo.",
-  "dimension_mas_fuerte": "${stats.dimMasFuerte}",
-  "dimension_mas_debil": "${stats.dimMasDebil}",
-  "analisis_dimension_fuerte": "2 oraciones interpretando por qué esta dimensión es la más fuerte y qué lo explica.",
-  "analisis_dimension_debil": "2 oraciones sobre por qué esta dimensión es la más débil y qué impacto tiene.",
-  "patrones_detectados": [
-    { "patron": "Título del patrón observado", "descripcion": "2 oraciones explicando el patrón y su implicancia para la empresa." }
-  ],
-  "recomendaciones": [
-    { "prioridad": "Alta", "accion": "Acción concreta y específica para esta empresa", "impacto": "1 oración sobre el impacto esperado." }
-  ],
-  "proximos_pasos": "2-3 oraciones sobre qué debería hacer la organización en los próximos 30 días para acelerar la madurez colectiva.",
-  "frase_cierre": "1 frase que capture el momento actual de la empresa con IA. Directa, honesta, inspiradora."
+  "metadata": {"empresa": "${empresa}", "fecha_reporte": "${new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}", "n_total": 0, "version_framework": "AIQ v2.0"},
+  "metricas_globales": {
+    "aiq_promedio": 0, "aiq_desviacion": 0, "aiq_max": 0, "aiq_min": 0,
+    "nivel_organizacional": "", "nombre_nivel_organizacional": "",
+    "seccion_a_promedio": 0, "seccion_b_promedio": 0, "seccion_c_promedio": 0
+  },
+  "distribucion_niveles": {
+    "n_l1": 0, "pct_l1": 0, "n_l2": 0, "pct_l2": 0, "n_l3": 0, "pct_l3": 0,
+    "n_l4t": 0, "pct_l4t": 0, "n_l4l": 0, "pct_l4l": 0
+  },
+  "por_jerarquia": {
+    "EJE": {"n": 0, "aiq_promedio": 0, "seccion_a": 0, "seccion_b": 0, "seccion_c": 0, "nivel_predominante": "", "regla1_activos": 0},
+    "DIR": {"n": 0, "aiq_promedio": 0, "seccion_a": 0, "seccion_b": 0, "seccion_c": 0, "nivel_predominante": "", "regla1_activos": 0},
+    "MGR": {"n": 0, "aiq_promedio": 0, "seccion_a": 0, "seccion_b": 0, "seccion_c": 0, "nivel_predominante": "", "regla1_activos": 0},
+    "SPV": {"n": 0, "aiq_promedio": 0, "seccion_a": 0, "seccion_b": 0, "seccion_c": 0, "nivel_predominante": "", "regla1_activos": 0},
+    "COL": {"n": 0, "aiq_promedio": 0, "seccion_a": 0, "seccion_b": 0, "seccion_c": 0, "nivel_predominante": "", "regla1_activos": 0}
+  },
+  "arquetipo": "",
+  "patron_jerarquico": {"lideres_adelante": false, "colaboradores_adelante": false, "homogeneo_bajo": false},
+  "brechas": {
+    "gobernanza": {"activa": false, "severidad": "", "n_afectados": 0, "pct_afectados": 0, "politicas_existen": false},
+    "comunicacion": {"activa": false, "severidad": "", "n_sin_espacios": 0},
+    "habilitacion": {"activa": false, "n_afectados": 0},
+    "liderazgo": {"activa": false},
+    "adopcion": {"activa": false}
+  },
+  "fortalezas": {
+    "liderazgo_adelante": false, "capacidad_avanzada_existe": false,
+    "n_perfiles_avanzados": 0, "motivacion_espontanea": false, "max_laboratorio": 0
+  },
+  "flags_criticos": {"riesgo_gobernanza_critico": false, "n_perfiles_con_pausa": 0}
+}`;
 }
+
+// ─── PROMPT 2 — Análisis Narrativo ────────────────────────────────────────
+function buildPrompt2(jsonEnterprise) {
+  return `Eres el analista de AI Pulse. Recibes el JSON Enterprise consolidado de una evaluación AIQ
+organizacional y produces el análisis narrativo para el reporte de dirección.
+
+Tu análisis debe ser:
+- Directo y ejecutivo — sin rodeos ni relleno
+- Basado exclusivamente en los datos del JSON — no inventes lo que no está en los datos
+- Sin mencionar personas específicas — solo patrones, porcentajes y niveles jerárquicos
+- En español, tono profesional, párrafos cortos
+- Máximo 3 oraciones por campo salvo indicación contraria
+
+JSON ENTERPRISE:
+${JSON.stringify(jsonEnterprise, null, 2)}
+
+GENERA el siguiente JSON con secciones narrativas:
+
+1. resumen_ejecutivo: 3 oraciones: (1) situación actual con AIQ y nivel, (2) el hallazgo más crítico, (3) la oportunidad más clara.
+
+2. descripcion_arquetipo: 2 oraciones sobre qué significa este arquetipo usando los datos reales.
+
+3. por_seccion:
+   seccion_a: qué revela el promedio de A sobre los escenarios de uso reales
+   seccion_b: qué revela el promedio de B. Si brecha_gobernanza activa, mencionar el porcentaje.
+   seccion_c: qué revela C. Si hay perfiles con C alto, mencionar que la capacidad avanzada existe internamente.
+
+4. brechas_activas: Para cada brecha con activa = true:
+   id, titulo_brecha, severidad_texto ("Crítica"|"Importante"|"Total"|"Detectada"),
+   descripcion (1 oración sobre qué es),
+   lo_que_no_existe (texto iniciando con "Lo que no existe / Lo que no se evidencia / Lo que no provee" — 2-3 items del vacío),
+   dato_clave (el número más importante)
+
+5. brechas_inactivas: Para cada brecha con activa = false:
+   id, titulo_brecha, por_que_no_aplica (1 oración)
+
+6. fortalezas: Para cada fortaleza con valor true:
+   id, titulo (nombre corto),
+   descripcion (2 oraciones — qué significa y por qué es relevante)
+
+7. patron_jerarquico:
+   descripcion: 2 oraciones — patrón detectado y su implicación estratégica
+
+OUTPUT JSON EXACTO:
+{
+  "resumen_ejecutivo": "",
+  "descripcion_arquetipo": "",
+  "por_seccion": {"seccion_a": "", "seccion_b": "", "seccion_c": ""},
+  "brechas_activas": [{"id":"","titulo_brecha":"","severidad_texto":"","descripcion":"","lo_que_no_existe":"","dato_clave":""}],
+  "brechas_inactivas": [{"id":"","titulo_brecha":"","por_que_no_aplica":""}],
+  "fortalezas": [{"id":"","titulo":"","descripcion":""}],
+  "patron_jerarquico": {"descripcion": ""}
+}`;
+}
+
+// ─── PROMPT 3 — Plan de Acción ────────────────────────────────────────────
+function buildPrompt3(jsonEnterprise, jsonAnalisis) {
+  const aiqActual = jsonEnterprise.metricas_globales?.aiq_promedio || 0;
+  let objetivo = aiqActual;
+  if (aiqActual < 2.0)      objetivo = aiqActual + 0.30;
+  else if (aiqActual < 3.0) objetivo = aiqActual + 0.35;
+  else if (aiqActual <= 3.5) objetivo = aiqActual + 0.25;
+  else                       objetivo = aiqActual + 0.20;
+  objetivo = Math.round(objetivo * 100) / 100;
+
+  return `Eres el estratega de adopción de IA de AI Pulse. Recibes el JSON Enterprise consolidado
+y el análisis narrativo, y generas un plan de acción de 30/60/90 días calibrado a los hallazgos reales.
 
 REGLAS:
-- Exactamente 2-3 patrones detectados.
-- Exactamente 3 recomendaciones, ordenadas por prioridad (Alta, Media, Media).
-- Todo basado en los datos reales, no en generalidades.
-- Tono: consultor senior hablando con el CEO, no coach motivacional.`;
+- Máximo 3 acciones por horizonte temporal
+- Cada acción: concreta y ejecutable — no aspiracional
+- No mencionar personas específicas ni cargos nominales
+- Si brecha_gobernanza.activa = true Y severidad = "critica" → prioridad 1 a 30 días
+- Si brecha_comunicacion.activa = true → aparece en 60 días
+- Si brecha_habilitacion.activa = true → aparece en 90 días
+- El KPI de cada horizonte debe ser verificable en la re-evaluación de 90 días
+- aiq_actual = ${aiqActual.toFixed(2)}, aiq_objetivo_90_dias = ${objetivo.toFixed(2)}
+
+JSON ENTERPRISE:
+${JSON.stringify(jsonEnterprise, null, 2)}
+
+ANÁLISIS NARRATIVO:
+${JSON.stringify(jsonAnalisis, null, 2)}
+
+OUTPUT JSON EXACTO:
+{
+  "plan": [
+    {"horizonte_dias": "30", "prioridad": 1, "titulo": "", "acciones": ["", "", ""], "kpi": ""},
+    {"horizonte_dias": "60", "prioridad": 2, "titulo": "", "acciones": ["", "", ""], "kpi": ""},
+    {"horizonte_dias": "90", "prioridad": 3, "titulo": "", "acciones": ["", "", ""], "kpi": ""}
+  ],
+  "aiq_actual": ${aiqActual.toFixed(2)},
+  "aiq_objetivo_90_dias": ${objetivo.toFixed(2)},
+  "delta_esperado_pct": "${Math.round(((objetivo - aiqActual) / aiqActual) * 100)}%"
+}`;
 }
 
-function generateCompanyHTML(empresa, stats, participantes, analysis) {
-  const fecha = new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' });
+// ─── Llamada a Azure OpenAI ───────────────────────────────────────────────
+async function callOpenAI(url, key, systemMsg, userMsg, maxTokens = 3000) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'api-key': key },
+    body: JSON.stringify({
+      messages: [
+        { role: 'system', content: systemMsg },
+        { role: 'user',   content: userMsg }
+      ],
+      max_tokens: maxTokens,
+      temperature: 0.5
+    })
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Azure OpenAI ${res.status}: ${err.slice(0, 200)}`);
+  }
+  const data = await res.json();
+  const raw  = data?.choices?.[0]?.message?.content || '';
+  if (!raw) throw new Error('Azure OpenAI devolvió respuesta vacía');
+  return JSON.parse(raw.replace(/```json|```/g, '').trim());
+}
 
-  const distHTML = NIVELES.map(n => {
-    const count = stats.dist[n] || 0;
-    const pct = stats.total > 0 ? Math.round((count / stats.total) * 100) : 0;
-    const isMax = n === stats.nivelPredominante;
-    return `<div class="dist-row${isMax ? ' dist-row--active' : ''}">
-      <span class="dist-label">${NIVEL_NOMBRES[n]}</span>
-      <div class="dist-bar-wrap"><div class="dist-bar" style="width:${pct}%"></div></div>
-      <span class="dist-count">${count} <span class="dist-pct">(${pct}%)</span></span>
+// ─── HTML del Reporte ────────────────────────────────────────────────────
+function generateHTML(empresa, enterprise, analisis, plan, participantes) {
+  const m    = enterprise.metricas_globales || {};
+  const dist = enterprise.distribucion_niveles || {};
+  const jer  = enterprise.por_jerarquia || {};
+  const brec = enterprise.brechas || {};
+  const fort = enterprise.fortalezas || {};
+
+  const fecha = enterprise.metadata?.fecha_reporte || new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  // Distribución de niveles
+  const distRows = [
+    { label: 'Novato',                codigo: 'L1',  n: dist.n_l1  || 0, pct: dist.pct_l1  || 0 },
+    { label: 'Experimentador',        codigo: 'L2',  n: dist.n_l2  || 0, pct: dist.pct_l2  || 0 },
+    { label: 'Practicante',           codigo: 'L3',  n: dist.n_l3  || 0, pct: dist.pct_l3  || 0 },
+    { label: 'Amplificador Técnico',  codigo: 'L4T', n: dist.n_l4t || 0, pct: dist.pct_l4t || 0 },
+    { label: 'Amplificador Estratégico', codigo: 'L4L', n: dist.n_l4l || 0, pct: dist.pct_l4l || 0 },
+  ];
+  const nivelOrg = enterprise.metricas_globales?.nivel_organizacional || 'L2';
+  const distHTML = distRows.map(r => {
+    const isOrg = r.codigo === nivelOrg;
+    return `<div class="dist-row${isOrg ? ' dist-row--active' : ''}">
+      <div class="dist-meta">
+        <span class="dist-label">${r.label}</span>
+        <span class="dist-code">${r.codigo}</span>
+      </div>
+      <div class="dist-bar-wrap"><div class="dist-bar" style="width:${r.pct}%"></div></div>
+      <div class="dist-nums">
+        <span class="dist-n">${r.n}</span>
+        <span class="dist-pct">${r.pct}%</span>
+      </div>
     </div>`;
   }).join('');
 
-  const patronesHTML = (analysis.patrones_detectados || []).map((p, i) => `
-    <div class="patron-item">
-      <div class="patron-num">0${i+1}</div>
-      <div class="patron-body">
-        <div class="patron-titulo">${p.patron}</div>
-        <div class="patron-desc">${p.descripcion}</div>
+  // Mapa de calor jerárquico
+  const jerarquias = ['EJE','DIR','MGR','SPV','COL'];
+  const jerLabels  = { EJE: 'Ejecutivos', DIR: 'Directores', MGR: 'Managers', SPV: 'Supervisores', COL: 'Colaboradores' };
+  const heatHTML = jerarquias.filter(j => jer[j]?.n > 0).map(j => {
+    const d = jer[j];
+    const pct = (safeNum(d.aiq_promedio) / 5) * 100;
+    const col = safeNum(d.aiq_promedio) >= 3.5 ? '#00AA55' : safeNum(d.aiq_promedio) >= 2.5 ? '#CC8800' : '#E63946';
+    return `<div class="heat-row">
+      <span class="heat-label">${jerLabels[j]}</span>
+      <div class="heat-bar-wrap"><div class="heat-bar" style="width:${pct}%;background:${col}"></div></div>
+      <span class="heat-score" style="color:${col}">${safeNum(d.aiq_promedio).toFixed(2)}</span>
+      <span class="heat-nivel">${d.nivel_predominante || ''}</span>
+      <span class="heat-n">${d.n} pers.</span>
+    </div>`;
+  }).join('');
+
+  // Brechas activas
+  const brechasActivasHTML = (analisis.brechas_activas || []).map(b => `
+    <div class="brecha-card brecha-card--active">
+      <div class="brecha-header">
+        <span class="brecha-sev brecha-sev--${b.severidad_texto?.toLowerCase().replace('í','i') || 'detectada'}">${b.severidad_texto}</span>
+        <span class="brecha-titulo">${b.titulo_brecha}</span>
       </div>
+      <p class="brecha-desc">${b.descripcion}</p>
+      <div class="brecha-vacío">${b.lo_que_no_existe}</div>
+      <div class="brecha-dato">Dato clave: <strong>${b.dato_clave}</strong></div>
     </div>`).join('');
 
-  const recsHTML = (analysis.recomendaciones || []).map(r => `
-    <div class="rec-item">
-      <div class="rec-prioridad rec-prioridad--${r.prioridad.toLowerCase()}">${r.prioridad}</div>
-      <div class="rec-body">
-        <div class="rec-accion">${r.accion}</div>
-        <div class="rec-impacto">${r.impacto}</div>
+  // Brechas inactivas
+  const brechasInactivasHTML = (analisis.brechas_inactivas || []).map(b => `
+    <div class="brecha-card brecha-card--inactive">
+      <div class="brecha-header">
+        <span class="brecha-sev brecha-sev--ok">No detectada</span>
+        <span class="brecha-titulo">${b.titulo_brecha}</span>
       </div>
+      <p class="brecha-desc">${b.por_que_no_aplica}</p>
     </div>`).join('');
 
+  // Fortalezas
+  const fortalezasHTML = (analisis.fortalezas || []).map(f => `
+    <div class="fort-card">
+      <div class="fort-titulo">${f.titulo}</div>
+      <p class="fort-desc">${f.descripcion}</p>
+    </div>`).join('');
+
+  // Plan 30/60/90
+  const planHTML = (plan.plan || []).map(h => `
+    <div class="plan-card">
+      <div class="plan-header">
+        <span class="plan-dias">${h.horizonte_dias} días</span>
+        <span class="plan-titulo">${h.titulo}</span>
+      </div>
+      <ul class="plan-acciones">
+        ${(h.acciones || []).filter(Boolean).map(a => `<li>${a}</li>`).join('')}
+      </ul>
+      <div class="plan-kpi">KPI: ${h.kpi}</div>
+    </div>`).join('');
+
+  // Tabla de participantes
   const tablaHTML = participantes.map(p => {
-    const levelColor = (p.aiqLevel === 'L4L' || p.aiqLevel === 'L4T') ? '#00AA55' : p.aiqLevel === 'L3' ? '#CC8800' : '#AAAAAA';
+    const col = ['L4L','L4T'].includes(p.aiqLevel) ? '#00AA55' : p.aiqLevel === 'L3' ? '#CC8800' : '#AAAAAA';
     return `<tr>
-      <td class="td-nombre">${p.nombre}</td>
-      <td class="td-cargo">${p.posicion || '—'}</td>
-      <td class="td-dept">${p.departamento || '—'}</td>
-      <td class="td-score" style="color:${levelColor};font-weight:600">${p.aiqScore.toFixed(2)}</td>
-      <td class="td-level" style="color:${levelColor}">${p.aiqLevel}</td>
-      <td class="td-a">${p.sectionA.toFixed(1)}</td>
-      <td class="td-b">${p.sectionB.toFixed(1)}</td>
-      <td class="td-c">${p.sectionC.toFixed(1)}</td>
+      <td class="td-n">${p.nombre}</td>
+      <td class="td-c">${p.posicion || '—'}</td>
+      <td class="td-d">${p.departamento || '—'}</td>
+      <td style="color:${col};font-weight:600">${safeNum(p.aiqScore).toFixed(2)}</td>
+      <td style="color:${col}">${p.aiqLevel}</td>
+      <td>${safeNum(p.sectionA).toFixed(1)}</td>
+      <td>${safeNum(p.sectionB).toFixed(1)}</td>
+      <td>${safeNum(p.sectionC).toFixed(1)}</td>
     </tr>`;
   }).join('');
 
-  const dimNombres = { A: 'Experiencia Real', B: 'Criterio Técnico', C: 'Laboratorio' };
+  const nivelCol = ['L4L','L4T'].includes(nivelOrg) ? '#00AA55' : nivelOrg === 'L3' ? '#CC8800' : '#E63946';
 
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Informe Empresa AIQ — ${empresa}</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Informe Enterprise AIQ — ${empresa}</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&family=DM+Serif+Display&display=swap" rel="stylesheet">
 <style>
-  :root{--p:#E63946;--g1:#111;--g3:#555;--g4:#AAA;--g5:#F7F7F7;--border:#E0E0E0;}
-  *{box-sizing:border-box;margin:0;padding:0;}
-  body{font-family:'DM Sans',sans-serif;color:var(--g1);background:#fff;font-size:14px;}
-  .page{max-width:900px;margin:0 auto;padding:48px 40px;}
-  /* Header */
-  .hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid var(--g1);padding-bottom:24px;margin-bottom:40px;}
-  .hdr-logo{font-family:'DM Serif Display',serif;font-size:28px;color:var(--p);letter-spacing:-.02em;}
-  .hdr-right{text-align:right;}
-  .hdr-empresa{font-family:'DM Serif Display',serif;font-size:18px;color:var(--g1);}
-  .hdr-meta{font-family:'DM Mono',monospace;font-size:10px;color:var(--g4);letter-spacing:.15em;text-transform:uppercase;margin-top:4px;}
-  /* Sección */
-  .section{margin-bottom:48px;}
-  .section-num{font-family:'DM Mono',monospace;font-size:10px;color:var(--p);letter-spacing:.2em;text-transform:uppercase;margin-bottom:6px;}
-  .section-title{font-family:'DM Serif Display',serif;font-size:22px;color:var(--g1);margin-bottom:16px;}
-  /* Resumen ejecutivo */
-  .resumen{background:var(--g5);border-left:3px solid var(--p);padding:20px 24px;font-size:14px;line-height:1.75;color:var(--g1);}
-  /* KPIs */
-  .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;}
-  .kpi{background:var(--g5);border:1px solid var(--border);padding:16px;text-align:center;}
-  .kpi-val{font-family:'DM Serif Display',serif;font-size:32px;color:var(--p);}
-  .kpi-label{font-family:'DM Mono',monospace;font-size:8px;text-transform:uppercase;letter-spacing:.15em;color:var(--g4);margin-top:4px;}
-  /* Dimensiones */
-  .dim-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
-  .dim{border:1px solid var(--border);padding:16px;}
-  .dim-name{font-family:'DM Mono',monospace;font-size:8px;text-transform:uppercase;letter-spacing:.15em;color:var(--g4);margin-bottom:6px;}
-  .dim-score{font-family:'DM Serif Display',serif;font-size:28px;color:var(--g1);}
-  .dim-bar{height:3px;background:var(--border);margin-top:8px;}
-  .dim-bar-fill{height:100%;background:var(--p);transition:width .5s;}
-  .dim-interp{font-size:12px;color:var(--g3);margin-top:8px;line-height:1.5;}
-  /* Distribución */
-  .dist-row{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
-  .dist-row--active .dist-label{color:var(--p);font-weight:600;}
-  .dist-label{font-family:'DM Mono',monospace;font-size:11px;width:170px;flex-shrink:0;}
-  .dist-bar-wrap{flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden;}
-  .dist-bar{height:100%;background:var(--p);border-radius:3px;}
-  .dist-row--active .dist-bar{background:var(--p);}
-  .dist-count{font-family:'DM Mono',monospace;font-size:11px;color:var(--g1);min-width:60px;}
-  .dist-pct{color:var(--g4);}
-  /* Patrones */
-  .patron-item{display:flex;gap:16px;padding:16px 0;border-bottom:1px solid var(--border);}
-  .patron-item:last-child{border-bottom:none;}
-  .patron-num{font-family:'DM Mono',monospace;font-size:18px;color:var(--p);flex-shrink:0;width:28px;}
-  .patron-titulo{font-weight:600;font-size:13px;margin-bottom:4px;}
-  .patron-desc{font-size:12px;color:var(--g3);line-height:1.6;}
-  /* Recomendaciones */
-  .rec-item{display:flex;gap:16px;padding:16px;border:1px solid var(--border);margin-bottom:10px;}
-  .rec-prioridad{font-family:'DM Mono',monospace;font-size:8px;text-transform:uppercase;letter-spacing:.1em;padding:4px 8px;border-radius:2px;height:fit-content;flex-shrink:0;}
-  .rec-prioridad--alta{background:#E63946;color:#fff;}
-  .rec-prioridad--media{background:var(--g5);color:var(--g3);border:1px solid var(--border);}
-  .rec-accion{font-weight:500;font-size:13px;margin-bottom:4px;}
-  .rec-impacto{font-size:12px;color:var(--g3);}
-  /* Tabla */
-  .tabla-wrap{overflow-x:auto;}
-  table{width:100%;border-collapse:collapse;font-size:12px;}
-  th{font-family:'DM Mono',monospace;font-size:8px;text-transform:uppercase;letter-spacing:.1em;color:var(--g4);padding:8px 10px;border-bottom:2px solid var(--g1);text-align:left;}
-  td{padding:10px 10px;border-bottom:1px solid var(--border);}
-  tr:hover td{background:var(--g5);}
-  .td-nombre{font-weight:500;}
-  .td-cargo,.td-dept{color:var(--g3);}
-  /* Cierre */
-  .cierre{background:var(--g1);color:#fff;padding:32px;text-align:center;margin-top:48px;}
-  .cierre-frase{font-family:'DM Serif Display',serif;font-size:20px;line-height:1.4;margin-bottom:16px;}
-  .cierre-meta{font-family:'DM Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.2em;color:var(--g4);}
-  /* Footer */
-  .footer{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);padding-top:24px;margin-top:48px;}
-  .footer-brand{font-family:'DM Serif Display',serif;font-size:16px;color:var(--p);}
-  .footer-meta{font-family:'DM Mono',monospace;font-size:9px;color:var(--g4);text-align:right;}
-  @media print{.page{padding:24px;}}
+:root{--p:#E63946;--g1:#111;--g3:#555;--g4:#AAA;--g5:#F7F7F7;--bd:#E0E0E0;--green:#00AA55;--amber:#CC8800;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;color:var(--g1);background:#fff;font-size:14px;line-height:1.6;}
+.page{max-width:960px;margin:0 auto;padding:56px 48px;}
+
+/* Header */
+.hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid var(--g1);padding-bottom:28px;margin-bottom:56px;}
+.hdr-left .logo{font-family:'DM Serif Display',serif;font-size:36px;color:var(--p);line-height:1;}
+.hdr-left .tagline{font-family:'DM Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.2em;color:var(--g4);margin-top:4px;}
+.hdr-right{text-align:right;}
+.hdr-empresa{font-family:'DM Serif Display',serif;font-size:22px;color:var(--g1);}
+.hdr-meta{font-family:'DM Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.15em;color:var(--g4);margin-top:4px;}
+.hdr-conf{color:var(--p);}
+
+/* Secciones */
+.section{margin-bottom:64px;}
+.sec-num{font-family:'DM Mono',monospace;font-size:9px;color:var(--p);letter-spacing:.3em;text-transform:uppercase;margin-bottom:6px;}
+.sec-title{font-family:'DM Serif Display',serif;font-size:26px;color:var(--g1);margin-bottom:20px;}
+.sec-subtitle{font-family:'DM Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.15em;color:var(--g4);margin-bottom:10px;}
+
+/* Resumen ejecutivo */
+.resumen{background:var(--g5);border-left:4px solid var(--p);padding:24px 28px;font-size:14px;line-height:1.8;}
+
+/* KPIs */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px;}
+.kpi{border:1px solid var(--bd);padding:20px 16px;text-align:center;}
+.kpi-val{font-family:'DM Serif Display',serif;font-size:36px;line-height:1;}
+.kpi-sub{font-family:'DM Mono',monospace;font-size:8px;text-transform:uppercase;letter-spacing:.15em;color:var(--g4);margin-top:6px;}
+
+/* Arquetipo */
+.arquetipo-card{background:var(--g1);color:#fff;padding:28px 32px;margin-bottom:28px;display:flex;justify-content:space-between;align-items:center;gap:24px;}
+.arq-label{font-family:'DM Mono',monospace;font-size:8px;text-transform:uppercase;letter-spacing:.2em;color:var(--g4);margin-bottom:6px;}
+.arq-nombre{font-family:'DM Serif Display',serif;font-size:24px;color:#fff;}
+.arq-desc{font-size:13px;color:#CCC;line-height:1.6;max-width:480px;}
+
+/* Dimensiones */
+.dim-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;}
+.dim{border:1px solid var(--bd);padding:20px;}
+.dim-name{font-family:'DM Mono',monospace;font-size:8px;text-transform:uppercase;letter-spacing:.15em;color:var(--g4);margin-bottom:8px;}
+.dim-score{font-family:'DM Serif Display',serif;font-size:32px;color:var(--g1);}
+.dim-bar{height:3px;background:var(--bd);margin-top:10px;margin-bottom:10px;}
+.dim-bar-fill{height:100%;background:var(--p);}
+.dim-interp{font-size:12px;color:var(--g3);line-height:1.55;}
+
+/* Distribución */
+.dist-row{display:flex;align-items:center;gap:12px;margin-bottom:12px;padding:8px 0;}
+.dist-row--active{border-left:3px solid var(--p);padding-left:12px;}
+.dist-meta{display:flex;align-items:center;gap:8px;width:220px;flex-shrink:0;}
+.dist-label{font-family:'DM Sans',sans-serif;font-size:13px;}
+.dist-code{font-family:'DM Mono',monospace;font-size:9px;color:var(--g4);}
+.dist-row--active .dist-label{font-weight:600;color:var(--p);}
+.dist-bar-wrap{flex:1;height:8px;background:var(--bd);border-radius:4px;overflow:hidden;}
+.dist-bar{height:100%;background:var(--p);border-radius:4px;}
+.dist-nums{display:flex;gap:8px;min-width:70px;justify-content:flex-end;}
+.dist-n{font-family:'DM Mono',monospace;font-size:12px;font-weight:600;}
+.dist-pct{font-family:'DM Mono',monospace;font-size:11px;color:var(--g4);}
+
+/* Mapa de calor jerárquico */
+.heat-row{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+.heat-label{font-family:'DM Sans',sans-serif;font-size:12px;width:130px;flex-shrink:0;}
+.heat-bar-wrap{flex:1;height:10px;background:var(--bd);border-radius:5px;overflow:hidden;}
+.heat-bar{height:100%;border-radius:5px;transition:width .5s;}
+.heat-score{font-family:'DM Mono',monospace;font-size:13px;font-weight:600;min-width:36px;text-align:right;}
+.heat-nivel{font-family:'DM Mono',monospace;font-size:9px;color:var(--g4);min-width:32px;}
+.heat-n{font-family:'DM Mono',monospace;font-size:9px;color:var(--g4);min-width:50px;text-align:right;}
+
+/* Brechas */
+.brechas-grid{display:grid;gap:12px;}
+.brecha-card{border:1px solid var(--bd);padding:20px;}
+.brecha-card--active{border-left:3px solid var(--p);}
+.brecha-card--inactive{opacity:.65;}
+.brecha-header{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.brecha-sev{font-family:'DM Mono',monospace;font-size:8px;text-transform:uppercase;letter-spacing:.1em;padding:3px 8px;border-radius:2px;}
+.brecha-sev--critica{background:var(--p);color:#fff;}
+.brecha-sev--importante{background:#CC8800;color:#fff;}
+.brecha-sev--total{background:var(--g1);color:#fff;}
+.brecha-sev--detectada{background:var(--g5);color:var(--g3);border:1px solid var(--bd);}
+.brecha-sev--ok{background:#E6F9EE;color:var(--green);border:1px solid #B3E6C9;}
+.brecha-titulo{font-weight:600;font-size:13px;}
+.brecha-desc{font-size:13px;color:var(--g3);margin-bottom:8px;}
+.brecha-vacío{font-size:12px;color:var(--g3);border-left:2px solid var(--bd);padding-left:10px;margin-bottom:8px;line-height:1.6;}
+.brecha-dato{font-family:'DM Mono',monospace;font-size:10px;color:var(--g4);}
+
+/* Fortalezas */
+.fort-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;}
+.fort-card{border:1px solid var(--green);padding:20px;}
+.fort-titulo{font-family:'DM Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.15em;color:var(--green);margin-bottom:6px;}
+.fort-desc{font-size:13px;color:var(--g3);line-height:1.6;}
+
+/* Patrón jerárquico */
+.patron-strip{background:var(--g5);padding:20px 24px;border-left:3px solid var(--g1);margin-bottom:24px;font-size:13px;color:var(--g3);line-height:1.7;}
+
+/* Plan 30/60/90 */
+.plan-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;}
+.plan-card{border:1px solid var(--bd);padding:20px;}
+.plan-header{margin-bottom:12px;}
+.plan-dias{font-family:'DM Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.15em;color:var(--p);display:block;margin-bottom:4px;}
+.plan-titulo{font-weight:600;font-size:13px;}
+.plan-acciones{list-style:none;padding:0;margin-bottom:12px;}
+.plan-acciones li{font-size:12px;color:var(--g3);padding:4px 0;border-bottom:1px solid var(--bd);line-height:1.5;}
+.plan-acciones li:last-child{border-bottom:none;}
+.plan-kpi{font-family:'DM Mono',monospace;font-size:9px;color:var(--g4);border-top:1px solid var(--bd);padding-top:8px;}
+
+/* Objetivo re-evaluación */
+.objetivo-card{display:flex;gap:24px;align-items:center;background:var(--g1);color:#fff;padding:24px 28px;}
+.obj-bloque{text-align:center;}
+.obj-val{font-family:'DM Serif Display',serif;font-size:40px;color:#fff;}
+.obj-label{font-family:'DM Mono',monospace;font-size:8px;text-transform:uppercase;letter-spacing:.15em;color:var(--g4);margin-top:4px;}
+.obj-arrow{font-size:28px;color:var(--green);}
+.obj-delta{font-family:'DM Mono',monospace;font-size:12px;color:var(--green);margin-top:6px;}
+
+/* Tabla */
+.tabla-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+th{font-family:'DM Mono',monospace;font-size:8px;text-transform:uppercase;letter-spacing:.1em;color:var(--g4);padding:8px 10px;border-bottom:2px solid var(--g1);text-align:left;}
+td{padding:10px;border-bottom:1px solid var(--bd);}
+tr:hover td{background:var(--g5);}
+.td-n{font-weight:500;}
+.td-c,.td-d{color:var(--g3);}
+
+/* Footer */
+.footer{display:flex;justify-content:space-between;align-items:flex-end;border-top:1px solid var(--bd);padding-top:24px;margin-top:56px;}
+.footer-brand{font-family:'DM Serif Display',serif;font-size:20px;color:var(--p);}
+.footer-meta{font-family:'DM Mono',monospace;font-size:9px;color:var(--g4);text-align:right;line-height:1.8;}
+
+/* Cierre */
+.cierre{background:var(--g1);color:#fff;padding:40px;text-align:center;margin-top:56px;}
+.cierre-label{font-family:'DM Mono',monospace;font-size:8px;text-transform:uppercase;letter-spacing:.2em;color:var(--g4);margin-bottom:12px;}
+.cierre-frase{font-family:'DM Serif Display',serif;font-size:22px;line-height:1.45;}
+
+@media print{.page{padding:24px;}body{font-size:12px;}}
 </style>
 </head>
 <body>
 <div class="page">
 
-  <!-- Header -->
-  <div class="hdr">
+<!-- Header -->
+<div class="hdr">
+  <div class="hdr-left">
+    <div class="logo">AIQ</div>
+    <div class="tagline">AI Pulse · Diagnóstico Enterprise v2.0</div>
+  </div>
+  <div class="hdr-right">
+    <div class="hdr-empresa">${empresa}</div>
+    <div class="hdr-meta">${fecha}</div>
+    <div class="hdr-meta hdr-conf">Confidencial · Solo para uso interno</div>
+  </div>
+</div>
+
+<!-- 01 Resumen ejecutivo -->
+<div class="section">
+  <div class="sec-num">01</div>
+  <div class="sec-title">Resumen ejecutivo</div>
+  <div class="resumen">${analisis.resumen_ejecutivo || ''}</div>
+</div>
+
+<!-- 02 Resultado organizacional -->
+<div class="section">
+  <div class="sec-num">02</div>
+  <div class="sec-title">Resultado organizacional</div>
+  <div class="kpi-grid">
+    <div class="kpi">
+      <div class="kpi-val" style="color:${nivelCol}">${(m.aiq_promedio||0).toFixed(2)}</div>
+      <div class="kpi-sub">AIQ Promedio</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-val" style="color:${nivelCol}">${m.nivel_organizacional || '—'}</div>
+      <div class="kpi-sub">${m.nombre_nivel_organizacional || ''}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-val">${m.n_total || participantes.length}</div>
+      <div class="kpi-sub">Evaluados</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-val">${(dist.n_l4t||0) + (dist.n_l4l||0)}</div>
+      <div class="kpi-sub">Nivel L4 (amplificadores)</div>
+    </div>
+  </div>
+
+  <div class="arquetipo-card">
     <div>
-      <div class="hdr-logo">AIQ</div>
-      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--g4);letter-spacing:.15em;text-transform:uppercase;margin-top:4px;">AI Pulse · Informe Enterprise</div>
+      <div class="arq-label">Arquetipo organizacional</div>
+      <div class="arq-nombre">${enterprise.arquetipo || ''}</div>
     </div>
-    <div class="hdr-right">
-      <div class="hdr-empresa">${empresa}</div>
-      <div class="hdr-meta">${fecha} · Diagnóstico Enterprise v2.0</div>
-      <div class="hdr-meta" style="color:var(--p);">Confidencial · Solo para uso interno</div>
+    <div class="arq-desc">${analisis.descripcion_arquetipo || ''}</div>
+  </div>
+</div>
+
+<!-- 03 Desempeño por dimensión -->
+<div class="section">
+  <div class="sec-num">03</div>
+  <div class="sec-title">Desempeño por dimensión</div>
+  <div class="dim-grid">
+    <div class="dim">
+      <div class="dim-name">Bloque A · Experiencia Real · 30%</div>
+      <div class="dim-score">${(m.seccion_a_promedio||0).toFixed(2)}</div>
+      <div class="dim-bar"><div class="dim-bar-fill" style="width:${((m.seccion_a_promedio||0)/5)*100}%"></div></div>
+      <div class="dim-interp">${analisis.por_seccion?.seccion_a || ''}</div>
     </div>
-  </div>
-
-  <!-- 01 Resumen ejecutivo -->
-  <div class="section">
-    <div class="section-num">01</div>
-    <div class="section-title">Resumen ejecutivo</div>
-    <div class="resumen">${analysis.resumen_ejecutivo || ''}</div>
-  </div>
-
-  <!-- 02 Métricas generales -->
-  <div class="section">
-    <div class="section-num">02</div>
-    <div class="section-title">Métricas generales</div>
-    <div class="kpi-grid">
-      <div class="kpi"><div class="kpi-val">${stats.total}</div><div class="kpi-label">Evaluados</div></div>
-      <div class="kpi"><div class="kpi-val">${stats.avgAIQ.toFixed(2)}</div><div class="kpi-label">AIQ promedio</div></div>
-      <div class="kpi"><div class="kpi-val">${NIVEL_NOMBRES[stats.nivelPredominante] || stats.nivelPredominante}</div><div class="kpi-label">Nivel predominante</div></div>
-      <div class="kpi"><div class="kpi-val">${stats.dist['L4T'] + stats.dist['L4L']}</div><div class="kpi-label">Nivel L4 (amplificadores)</div></div>
+    <div class="dim">
+      <div class="dim-name">Bloque B · Criterio Técnico · 30%</div>
+      <div class="dim-score">${(m.seccion_b_promedio||0).toFixed(2)}</div>
+      <div class="dim-bar"><div class="dim-bar-fill" style="width:${((m.seccion_b_promedio||0)/5)*100}%"></div></div>
+      <div class="dim-interp">${analisis.por_seccion?.seccion_b || ''}</div>
     </div>
-    <p style="font-size:13px;color:var(--g3);line-height:1.7;">${analysis.descripcion_nivel_empresa || ''}</p>
-  </div>
-
-  <!-- 03 Dimensiones -->
-  <div class="section">
-    <div class="section-num">03</div>
-    <div class="section-title">Desempeño por dimensión</div>
-    <div class="dim-grid">
-      ${['A','B','C'].map(d => {
-        const score = d === 'A' ? stats.avgA : d === 'B' ? stats.avgB : stats.avgC;
-        const interp = d === analysis.dimension_mas_fuerte.replace('Bloque ','')
-          ? analysis.analisis_dimension_fuerte
-          : d === analysis.dimension_mas_debil.replace('Bloque ','')
-            ? analysis.analisis_dimension_debil
-            : '';
-        return `<div class="dim">
-          <div class="dim-name">Bloque ${d} · ${dimNombres[d]}</div>
-          <div class="dim-score">${score.toFixed(2)}</div>
-          <div class="dim-bar"><div class="dim-bar-fill" style="width:${(score/5)*100}%"></div></div>
-          ${interp ? `<div class="dim-interp">${interp}</div>` : ''}
-        </div>`;
-      }).join('')}
+    <div class="dim">
+      <div class="dim-name">Bloque C · Laboratorio · 40%</div>
+      <div class="dim-score">${(m.seccion_c_promedio||0).toFixed(2)}</div>
+      <div class="dim-bar"><div class="dim-bar-fill" style="width:${((m.seccion_c_promedio||0)/5)*100}%"></div></div>
+      <div class="dim-interp">${analisis.por_seccion?.seccion_c || ''}</div>
     </div>
   </div>
+</div>
 
-  <!-- 04 Distribución de niveles -->
-  <div class="section">
-    <div class="section-num">04</div>
-    <div class="section-title">Distribución de niveles</div>
-    ${distHTML}
+<!-- 04 Distribución de niveles -->
+<div class="section">
+  <div class="sec-num">04</div>
+  <div class="sec-title">Distribución de niveles</div>
+  ${distHTML}
+</div>
+
+<!-- 05 Mapa jerárquico -->
+${heatHTML ? `<div class="section">
+  <div class="sec-num">05</div>
+  <div class="sec-title">Mapa de madurez por jerarquía</div>
+  <div class="patron-strip">${analisis.patron_jerarquico?.descripcion || ''}</div>
+  ${heatHTML}
+</div>` : ''}
+
+<!-- 06 Brechas organizacionales -->
+<div class="section">
+  <div class="sec-num">06</div>
+  <div class="sec-title">Brechas organizacionales</div>
+  <div class="brechas-grid">
+    ${brechasActivasHTML}
+    ${brechasInactivasHTML}
   </div>
+</div>
 
-  <!-- 05 Patrones detectados -->
-  <div class="section">
-    <div class="section-num">05</div>
-    <div class="section-title">Patrones detectados en la organización</div>
-    <p style="font-size:13px;color:var(--g3);margin-bottom:16px;line-height:1.7;">
-      <strong>Fortaleza colectiva:</strong> ${analysis.fortaleza_colectiva || ''}<br>
-      <strong>Brecha crítica:</strong> ${analysis.brecha_critica || ''}
-    </p>
-    ${patronesHTML}
-  </div>
+<!-- 07 Fortalezas -->
+${(analisis.fortalezas||[]).length > 0 ? `<div class="section">
+  <div class="sec-num">07</div>
+  <div class="sec-title">Fortalezas detectadas</div>
+  <div class="fort-grid">${fortalezasHTML}</div>
+</div>` : ''}
 
-  <!-- 06 Recomendaciones -->
-  <div class="section">
-    <div class="section-num">06</div>
-    <div class="section-title">Recomendaciones para la organización</div>
-    ${recsHTML}
-    <div style="margin-top:16px;padding:16px;background:var(--g5);font-size:13px;color:var(--g3);line-height:1.7;">
-      <strong>Próximos 30 días:</strong> ${analysis.proximos_pasos || ''}
+<!-- 08 Plan de acción 30/60/90 -->
+<div class="section">
+  <div class="sec-num">08</div>
+  <div class="sec-title">Plan de acción recomendado</div>
+  <div class="plan-grid">${planHTML}</div>
+  <div class="objetivo-card">
+    <div class="obj-bloque">
+      <div class="obj-val">${(plan.aiq_actual||0).toFixed(2)}</div>
+      <div class="obj-label">AIQ actual</div>
+    </div>
+    <div class="obj-arrow">→</div>
+    <div class="obj-bloque">
+      <div class="obj-val" style="color:var(--green)">${(plan.aiq_objetivo_90_dias||0).toFixed(2)}</div>
+      <div class="obj-label">Objetivo 90 días</div>
+      <div class="obj-delta">+${plan.delta_esperado_pct || ''}</div>
+    </div>
+    <div style="flex:1;padding-left:24px;">
+      <div class="obj-label" style="margin-bottom:6px;">Re-evaluación sugerida</div>
+      <div style="font-size:13px;color:#CCC;line-height:1.6;">
+        El objetivo de ${(plan.aiq_objetivo_90_dias||0).toFixed(2)} es alcanzable en 90 días
+        ejecutando las acciones prioritarias del plan. La re-evaluación confirmará el avance real.
+      </div>
     </div>
   </div>
+</div>
 
-  <!-- 07 Detalle por participante -->
-  <div class="section">
-    <div class="section-num">07</div>
-    <div class="section-title">Detalle por participante</div>
-    <div class="tabla-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Nombre</th><th>Cargo</th><th>Dpto.</th>
-            <th>AIQ</th><th>Nivel</th><th>A</th><th>B</th><th>C</th>
-          </tr>
-        </thead>
-        <tbody>${tablaHTML}</tbody>
-      </table>
-    </div>
+<!-- 09 Detalle por participante -->
+<div class="section">
+  <div class="sec-num">09</div>
+  <div class="sec-title">Detalle individual</div>
+  <div class="tabla-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Nombre</th><th>Cargo</th><th>Dpto.</th>
+          <th>AIQ</th><th>Nivel</th><th>A</th><th>B</th><th>C</th>
+        </tr>
+      </thead>
+      <tbody>${tablaHTML}</tbody>
+    </table>
   </div>
+</div>
 
-  <!-- Cierre -->
-  <div class="cierre">
-    <div class="cierre-frase">${analysis.frase_cierre || ''}</div>
-    <div class="cierre-meta">AIQ Framework v2.0 · ${empresa} · ${fecha}</div>
+<!-- Footer -->
+<div class="footer">
+  <div class="footer-brand">AI Pulse</div>
+  <div class="footer-meta">
+    Preparado por Javier Cruz · javiercruz.ai<br>
+    AIQ Framework v2.0 · ${empresa} · ${fecha}<br>
+    Confidencial · Solo para uso interno
   </div>
-
-  <!-- Footer -->
-  <div class="footer">
-    <div class="footer-brand">AI Pulse</div>
-    <div class="footer-meta">
-      Preparado por Javier Cruz · javiercruz.ai<br>
-      AIQ Framework v2.0 · Confidencial · Solo para uso interno
-    </div>
-  </div>
+</div>
 
 </div>
 </body>
 </html>`;
 }
 
+// ─── HANDLER PRINCIPAL ───────────────────────────────────────────────────
 module.exports = async function (context, req) {
   const headers = {
     "Access-Control-Allow-Origin": "*",
@@ -321,7 +730,7 @@ module.exports = async function (context, req) {
   if (req.method === "OPTIONS") { context.res = { status: 200, headers, body: "" }; return; }
   if (!requireAdmin(context, req)) return;
 
-  const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body || {};
+  const body    = typeof req.body === "string" ? JSON.parse(req.body) : req.body || {};
   const empresa = (body.empresa || "").trim();
 
   if (!empresa) {
@@ -329,34 +738,45 @@ module.exports = async function (context, req) {
     return;
   }
 
-  const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
-  const openaiEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
-  const openaiKey = process.env.AZURE_OPENAI_API_KEY;
-  const openaiDeployment = process.env.AZURE_OPENAI_DEPLOYMENT;
-  const openaiVersion = process.env.AZURE_OPENAI_API_VERSION || "2024-12-01-preview";
+  const conn        = process.env.AZURE_STORAGE_CONNECTION_STRING;
+  const apiEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
+  const apiKey      = process.env.AZURE_OPENAI_API_KEY;
+  const deployment  = process.env.AZURE_OPENAI_DEPLOYMENT;
+  const apiVersion  = process.env.AZURE_OPENAI_API_VERSION || "2024-12-01-preview";
 
-  if (!connectionString || !openaiKey) {
+  if (!conn || !apiKey) {
     context.res = { status: 500, headers, body: JSON.stringify({ error: "Configuración incompleta" }) };
     return;
   }
 
-  try {
-    const resultsClient = TableClient.fromConnectionString(connectionString, "assessmentResults");
+  const openaiUrl = `${apiEndpoint.replace(/\/$/, '')}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
+  const systemMsg = 'Eres el analizador Enterprise de AI Pulse. Respondes SOLO con JSON válido, sin markdown ni texto extra.';
 
-    // Obtener todos los resultados de la empresa
+  try {
+    const resultsClient = TableClient.fromConnectionString(conn, "assessmentResults");
+
+    // Cargar todos los resultados de la empresa
     const participantes = [];
     for await (const entity of resultsClient.listEntities({
       queryOptions: { filter: `PartitionKey eq '${empresa}'` }
     })) {
+      const answers = assembleAnswers(entity);
+      const v2val   = answers?.V2?.value;
+      const v2text  = V2_OPT[v2val] || '';
       participantes.push({
-        nombre:      entity.nombre || '',
-        posicion:    entity.posicion || '',
-        departamento: entity.departamento || '',
-        aiqScore:    entity.aiqScore || 0,
-        aiqLevel:    entity.aiqLevel || 'L2',
-        sectionA:    entity.sectionA || 0,
-        sectionB:    entity.sectionB || 0,
-        sectionC:    entity.sectionC || 0,
+        nombre:         entity.nombre || '',
+        posicion:       entity.posicion || '',
+        departamento:   entity.departamento || '',
+        aiqScore:       safeNum(entity.aiqScore),
+        aiqLevel:       entity.aiqLevel || 'L2',
+        sectionA:       safeNum(entity.sectionA),
+        sectionB:       safeNum(entity.sectionB),
+        sectionC:       safeNum(entity.sectionC),
+        challengeProfile: entity.challengeProfile || '',
+        alerts:         JSON.parse(entity.alerts || '[]'),
+        nivelCodigo:    NIVEL_CODIGO[v2text] || NIVEL_CODIGO[entity.posicion] || 'COL',
+        b2_raw:         answers?.B2 || '',
+        answers,
       });
     }
 
@@ -365,60 +785,25 @@ module.exports = async function (context, req) {
       return;
     }
 
-    // Calcular estadísticas
-    const dist = { L1: 0, L2: 0, L3: 0, L4T: 0, L4L: 0 };
-    participantes.forEach(p => { if (dist[p.aiqLevel] !== undefined) dist[p.aiqLevel]++; });
+    context.log.info(`Generando reporte empresa ${empresa} — ${participantes.length} participantes`);
 
-    const nivelPredominante = NIVELES.reduce((a, b) => (dist[a] >= dist[b] ? a : b));
-    const avgAIQ = avg(participantes.map(p => p.aiqScore));
-    const avgA   = avg(participantes.map(p => p.sectionA));
-    const avgB   = avg(participantes.map(p => p.sectionB));
-    const avgC   = avg(participantes.map(p => p.sectionC));
+    // ── Prompt 1: Consolidación ──────────────────────────────────────────
+    context.log.info('Ejecutando Prompt 1 — Consolidación...');
+    const jsonEnterprise = await callOpenAI(openaiUrl, apiKey, systemMsg, buildPrompt1(empresa, participantes), 4000);
+    context.log.info('Prompt 1 completado');
 
-    const dimMap = { A: avgA, B: avgB, C: avgC };
-    const dimMasFuerte = Object.entries(dimMap).sort((a,b) => b[1]-a[1])[0][0];
-    const dimMasDebil  = Object.entries(dimMap).sort((a,b) => a[1]-b[1])[0][0];
+    // ── Prompt 2: Análisis narrativo ─────────────────────────────────────
+    context.log.info('Ejecutando Prompt 2 — Análisis narrativo...');
+    const jsonAnalisis = await callOpenAI(openaiUrl, apiKey, systemMsg, buildPrompt2(jsonEnterprise), 3000);
+    context.log.info('Prompt 2 completado');
 
-    const stats = {
-      total: participantes.length,
-      dist,
-      nivelPredominante,
-      avgAIQ, avgA, avgB, avgC,
-      dimMasFuerte: `Bloque ${dimMasFuerte}`,
-      dimMasDebil:  `Bloque ${dimMasDebil}`,
-    };
+    // ── Prompt 3: Plan de acción ─────────────────────────────────────────
+    context.log.info('Ejecutando Prompt 3 — Plan de acción...');
+    const jsonPlan = await callOpenAI(openaiUrl, apiKey, systemMsg, buildPrompt3(jsonEnterprise, jsonAnalisis), 2000);
+    context.log.info('Prompt 3 completado');
 
-    // Llamar a Azure OpenAI
-    const prompt = buildCompanyPrompt(empresa, stats, participantes);
-    const url = `${openaiEndpoint.replace(/\/$/, '')}/openai/deployments/${openaiDeployment}/chat/completions?api-version=${openaiVersion}`;
-
-    const aiResponse = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'api-key': openaiKey },
-      body: JSON.stringify({
-        messages: [
-          { role: 'system', content: 'Eres el analista principal de AI Pulse. Respondes SOLO con JSON válido, sin markdown ni texto extra.' },
-          { role: 'user', content: prompt }
-        ],
-        max_tokens: 3000,
-        temperature: 0.7
-      })
-    });
-
-    if (!aiResponse.ok) {
-      const errBody = await aiResponse.text();
-      context.log.error('Azure OpenAI error:', aiResponse.status, errBody);
-      throw new Error(`Azure OpenAI respondió ${aiResponse.status}`);
-    }
-
-    const aiData = await aiResponse.json();
-    const rawText = aiData?.choices?.[0]?.message?.content || '';
-    if (!rawText) throw new Error('Azure OpenAI devolvió respuesta vacía');
-
-    const cleaned = rawText.replace(/```json|```/g, '').trim();
-    const analysis = JSON.parse(cleaned);
-
-    const html = generateCompanyHTML(empresa, stats, participantes, analysis);
+    // ── Generar HTML ─────────────────────────────────────────────────────
+    const html = generateHTML(empresa, jsonEnterprise, jsonAnalisis, jsonPlan, participantes);
 
     context.res = {
       status: 200,
