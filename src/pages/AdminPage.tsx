@@ -13,7 +13,7 @@ interface ParticipantRow {
   status?: string;
 }
 
-type AdminTab = 'upload' | 'participants' | 'invitations' | 'reporteria';
+type AdminTab = 'upload' | 'participants' | 'invitations' | 'reporteria' | 'links';
 
 const ADMIN_TOKEN_KEY = 'aipulse_admin_token';
 
@@ -169,6 +169,7 @@ function downloadIndividualCSV(r: any) {
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
@@ -189,6 +190,32 @@ export default function AdminPage() {
   const [results, setResults] = useState<ResultRow[]>([]);
   const [loadingResults, setLoadingResults] = useState(false);
   const [expandedResult, setExpandedResult] = useState<string | null>(null);
+  const [generatingReport, setGeneratingReport] = useState<string | null>(null);
+  const [filterEmpresa, setFilterEmpresa] = useState('');
+  const [linkEmpresa, setLinkEmpresa] = useState('');
+  const [linkDominio, setLinkDominio] = useState('');
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  const generateReport = async (email: string) => {
+    setGeneratingReport(email);
+    try {
+      const res = await fetch('/api/report-generate', {
+        method: 'POST',
+        headers: adminHeaders(),
+        body: JSON.stringify({ email }),
+      });
+      if (res.status === 401) { handleUnauthorized(); return; }
+      if (!res.ok) throw new Error('Error generando informe');
+      const html = await res.text();
+      const blob = new Blob([html], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    } catch (err) {
+      alert('Error generando el informe. Intenta de nuevo.');
+    } finally {
+      setGeneratingReport(null);
+    }
+  };
 
   const fetchResults = async () => {
     setLoadingResults(true);
@@ -241,7 +268,7 @@ export default function AdminPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!loginPassword.trim()) return;
+    if (!loginUsername.trim() || !loginPassword.trim()) return;
 
     setLoginLoading(true);
     setLoginError('');
@@ -250,19 +277,20 @@ export default function AdminPage() {
       const response = await fetch('/api/authenticate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: loginPassword }),
+        body: JSON.stringify({ username: loginUsername.trim(), password: loginPassword }),
       });
 
       const data = await response.json();
 
       if (!response.ok || !data.authenticated) {
-        setLoginError(data.error || 'Contrasena incorrecta');
+        setLoginError(data.error || 'Usuario o contrasena incorrectos');
         setLoginLoading(false);
         return;
       }
 
       setAdminToken(data.token);
       setIsAuthenticated(true);
+      setLoginUsername('');
       setLoginPassword('');
     } catch (err) {
       console.error('Login error:', err);
@@ -399,6 +427,7 @@ export default function AdminPage() {
     { id: 'upload', label: 'Cargar Excel' },
     { id: 'participants', label: 'Participantes' },
     { id: 'invitations', label: 'Invitaciones' },
+    { id: 'links', label: 'Links de Acceso' },
     { id: 'reporteria', label: 'Reportería' },
   ];
 
@@ -421,18 +450,31 @@ export default function AdminPage() {
                 AI <span className="text-primary">PULSE</span> Admin
               </h1>
               <p className="font-body text-[13px] font-light text-[#666666]">
-                Ingresa la contrasena de administrador
+                Ingresa tus credenciales de administrador
               </p>
             </div>
 
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
                 <input
+                  type="text"
+                  value={loginUsername}
+                  onChange={(e) => setLoginUsername(e.target.value)}
+                  placeholder="Usuario"
+                  autoFocus
+                  autoComplete="username"
+                  className="w-full bg-[#F7F7F7] border border-[#CCCCCC] rounded-[2px] px-4 py-3
+                    font-body text-[14px] text-[#111111] placeholder-[#AAAAAA]
+                    focus:outline-none focus:border-primary/60 transition-colors"
+                />
+              </div>
+              <div>
+                <input
                   type="password"
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
                   placeholder="Contrasena"
-                  autoFocus
+                  autoComplete="current-password"
                   className="w-full bg-[#F7F7F7] border border-[#CCCCCC] rounded-[2px] px-4 py-3
                     font-body text-[14px] text-[#111111] placeholder-[#AAAAAA]
                     focus:outline-none focus:border-primary/60 transition-colors"
@@ -442,7 +484,7 @@ export default function AdminPage() {
               <Button
                 variant="primary"
                 type="submit"
-                disabled={loginLoading || !loginPassword.trim()}
+                disabled={loginLoading || !loginUsername.trim() || !loginPassword.trim()}
                 className="w-full min-h-[48px]"
               >
                 {loginLoading ? 'Verificando...' : 'Iniciar sesion'}
@@ -785,6 +827,68 @@ export default function AdminPage() {
           )}
 
 
+          {/* ── LINKS DE ACCESO TAB ─────────────────────────────────── */}
+          {activeTab === 'links' && (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+              <div className="bg-[#F7F7F7] border border-[#E0E0E0] rounded-[2px] p-6 space-y-5">
+                <div>
+                  <h3 className="font-body text-[14px] font-semibold text-[#111111] mb-1">Generar link de acceso por dominio</h3>
+                  <p className="font-body text-[12px] font-light text-[#666666] leading-[1.6]">
+                    Cualquier persona con el dominio configurado puede entrar sin estar en una lista. El sistema crea su registro automáticamente y aparece en Reportería.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="font-mono text-[8px] uppercase tracking-wider text-[#AAAAAA] block mb-1">Nombre de empresa</label>
+                    <input
+                      type="text"
+                      value={linkEmpresa}
+                      onChange={e => setLinkEmpresa(e.target.value)}
+                      placeholder="ej: Inchskape"
+                      className="w-full bg-white border border-[#CCCCCC] rounded-[2px] px-3 py-2 font-body text-[13px] text-[#111111] placeholder-[#AAAAAA] focus:outline-none focus:border-primary/60 transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-mono text-[8px] uppercase tracking-wider text-[#AAAAAA] block mb-1">Dominio de correo</label>
+                    <input
+                      type="text"
+                      value={linkDominio}
+                      onChange={e => setLinkDominio(e.target.value.toLowerCase().replace(/\s/g, ''))}
+                      placeholder="ej: inchskape.com"
+                      className="w-full bg-white border border-[#CCCCCC] rounded-[2px] px-3 py-2 font-body text-[13px] text-[#111111] placeholder-[#AAAAAA] focus:outline-none focus:border-primary/60 transition-colors"
+                    />
+                  </div>
+                </div>
+
+                {linkEmpresa.trim() && linkDominio.trim() && (
+                  <div className="space-y-3">
+                    <label className="font-mono text-[8px] uppercase tracking-wider text-[#AAAAAA] block">Link generado</label>
+                    <div className="flex gap-2 items-center">
+                      <div className="flex-1 bg-white border border-[#E0E0E0] rounded-[2px] px-3 py-2 font-mono text-[11px] text-[#555555] break-all select-all">
+                        {`${window.location.origin}/acceso?empresa=${encodeURIComponent(linkEmpresa.trim().toLowerCase())}&dominio=${encodeURIComponent(linkDominio.trim())}`}
+                      </div>
+                      <button
+                        onClick={() => {
+                          const url = `${window.location.origin}/acceso?empresa=${encodeURIComponent(linkEmpresa.trim().toLowerCase())}&dominio=${encodeURIComponent(linkDominio.trim())}`;
+                          navigator.clipboard.writeText(url);
+                          setLinkCopied(true);
+                          setTimeout(() => setLinkCopied(false), 2000);
+                        }}
+                        className="font-mono text-[9px] uppercase tracking-wider px-3 py-2 border border-primary rounded-[2px] text-primary hover:bg-primary hover:text-white transition-colors whitespace-nowrap"
+                      >
+                        {linkCopied ? '✓ Copiado' : 'Copiar'}
+                      </button>
+                    </div>
+                    <p className="font-mono text-[9px] text-[#AAAAAA]">
+                      Solo personas con correo @{linkDominio.trim()} podrán acceder. Los demás verán un mensaje de error.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+
           {/* ── REPORTERÍA TAB ───────────────────────────────────────── */}
           {activeTab === 'reporteria' && (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
@@ -844,28 +948,60 @@ export default function AdminPage() {
                 ) : null;
               })()}
 
-              {/* Header resultados */}
-              <div className="flex justify-between items-center">
-                <span className="font-mono text-[9px] text-primary uppercase tracking-wider">
-                  {results.length} resultado{results.length !== 1 ? 's' : ''} completo{results.length !== 1 ? 's' : ''}
-                </span>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => { fetchResults(); fetchParticipants(); }}
-                    className="font-mono text-[9px] uppercase tracking-wider h-7 px-3 border border-[#CCCCCC] rounded-[2px] text-[#666666] hover:border-primary hover:text-primary transition-colors"
-                  >
-                    ↺ Actualizar
-                  </button>
-                  {results.length > 0 && (
-                    <button
-                      onClick={() => downloadCSV(results)}
-                      className="font-mono text-[9px] uppercase tracking-wider h-7 px-3 border border-primary rounded-[2px] text-primary hover:bg-primary hover:text-white transition-colors"
+              {/* Filtro por empresa */}
+              {results.length > 0 && (() => {
+                const empresas = Array.from(new Set(results.map(r => r.empresa).filter(Boolean))).sort();
+                if (empresas.length < 2) return null;
+                return (
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono text-[8px] uppercase tracking-wider text-[#AAAAAA] whitespace-nowrap">Filtrar por empresa</span>
+                    <select
+                      value={filterEmpresa}
+                      onChange={e => setFilterEmpresa(e.target.value)}
+                      className="bg-[#F7F7F7] border border-[#CCCCCC] rounded-[2px] px-3 py-1.5 font-mono text-[11px] text-[#333333] focus:outline-none focus:border-primary/60 transition-colors"
                     >
-                      ↓ Exportar todo CSV
-                    </button>
-                  )}
-                </div>
-              </div>
+                      <option value="">Todas las empresas</option>
+                      {empresas.map(emp => (
+                        <option key={emp} value={emp}>{emp}</option>
+                      ))}
+                    </select>
+                    {filterEmpresa && (
+                      <button onClick={() => setFilterEmpresa('')} className="font-mono text-[9px] text-[#AAAAAA] hover:text-primary transition-colors">
+                        × limpiar
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Header resultados */}
+              {(() => {
+                const filtered = filterEmpresa ? results.filter(r => r.empresa === filterEmpresa) : results;
+                return (
+                  <div className="flex justify-between items-center">
+                    <span className="font-mono text-[9px] text-primary uppercase tracking-wider">
+                      {filtered.length} resultado{filtered.length !== 1 ? 's' : ''} completo{filtered.length !== 1 ? 's' : ''}
+                      {filterEmpresa && <span className="text-[#AAAAAA] ml-2">· {filterEmpresa}</span>}
+                    </span>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { fetchResults(); fetchParticipants(); }}
+                        className="font-mono text-[9px] uppercase tracking-wider h-7 px-3 border border-[#CCCCCC] rounded-[2px] text-[#666666] hover:border-primary hover:text-primary transition-colors"
+                      >
+                        ↺ Actualizar
+                      </button>
+                      {filtered.length > 0 && (
+                        <button
+                          onClick={() => downloadCSV(filtered)}
+                          className="font-mono text-[9px] uppercase tracking-wider h-7 px-3 border border-primary rounded-[2px] text-primary hover:bg-primary hover:text-white transition-colors"
+                        >
+                          ↓ Exportar{filterEmpresa ? ` ${filterEmpresa}` : ' todo'} CSV
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {loadingResults ? (
                 <div className="text-center py-10">
@@ -877,7 +1013,7 @@ export default function AdminPage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {results.map((r, i) => {
+                  {(filterEmpresa ? results.filter(r => r.empresa === filterEmpresa) : results).map((r, i) => {
                     const isExpanded = expandedResult === r.email;
                     const levelColor = r.aiqLevel === 'L4L' || r.aiqLevel === 'L4T' ? '#00AA55' : r.aiqLevel === 'L3' ? '#CC8800' : '#AAAAAA';
                     const scoreWidth = (r.aiqScore / 5) * 100;
@@ -987,13 +1123,20 @@ export default function AdminPage() {
                               </div>
                             )}
 
-                            {/* Descarga individual */}
-                            <div className="flex justify-end pt-2 border-t border-[#EEEEEE]">
+                            {/* Acciones */}
+                            <div className="flex justify-end gap-2 pt-2 border-t border-[#EEEEEE]">
                               <button
                                 onClick={() => downloadIndividualCSV(r)}
                                 className="font-mono text-[9px] uppercase tracking-wider px-3 py-1.5 border border-[#CCCCCC] rounded-[2px] text-[#666666] hover:border-primary hover:text-primary transition-colors"
                               >
                                 ↓ Descargar respuestas completas
+                              </button>
+                              <button
+                                onClick={() => generateReport(r.email)}
+                                disabled={generatingReport === r.email}
+                                className="font-mono text-[9px] uppercase tracking-wider px-3 py-1.5 border border-primary rounded-[2px] text-primary hover:bg-primary hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {generatingReport === r.email ? '⏳ Generando...' : '⚡ Generar informe AIQ'}
                               </button>
                             </div>
 

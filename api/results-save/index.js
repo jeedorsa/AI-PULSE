@@ -140,6 +140,13 @@ module.exports = async function (context, req) {
     }
 
     // Persistencia en Table Storage
+    // Partir answers en bloques para evitar el límite de 32KB de Azure Table Storage
+    const answersV = JSON.stringify({ V1: answers.V1, V2: answers.V2, V3: answers.V3, V4: answers.V4 });
+    const answersA = JSON.stringify({ E2: answers.E2, E3: answers.E3, E4: answers.E4, E5: answers.E5 });
+    const answersB = JSON.stringify({ B1: answers.B1, B2: answers.B2, B3: answers.B3, B4: answers.B4, B5: answers.B5, B6: answers.B6 });
+    const answersC = JSON.stringify({ C1: answers.C1, C2: answers.C2, C3: answers.C3 });
+    const answersD = JSON.stringify({ D1: answers.D1, D2: answers.D2, D3: answers.D3, D4: answers.D4, D5: answers.D5, D6: answers.D6, D7: answers.D7, D9: answers.D9 });
+
     await resultsClient.upsertEntity({
       partitionKey: (participant.empresa || "General").trim(),
       rowKey: token,
@@ -154,7 +161,11 @@ module.exports = async function (context, req) {
       sectionC: sectionC,
       challengeProfile: aiqResult.challengeProfile || "unknown",
       alerts: JSON.stringify(aiqResult.alerts || []),
-      answers: JSON.stringify(answers),
+      answersV,
+      answersA,
+      answersB,
+      answersC,
+      answersD,
       aiScores: JSON.stringify(aiScores),
       vectorId,
       completedAt: completedAt,

@@ -1,8 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import LandingPage from './pages/LandingPage';
@@ -14,6 +9,7 @@ import ResultPage from './pages/ResultPage';
 import VerifyPage from './pages/VerifyPage';
 import ThankYouPage from './pages/ThankYouPage';
 import AdminPage from './pages/AdminPage';
+import AccessPage from './pages/AccessPage';
 
 const PageWrapper = ({ children }: { children: React.ReactNode }) => {
   return (
@@ -48,6 +44,8 @@ const AnimatedRoutes = () => {
         <Route path="/verify" element={<PageWrapper><VerifyPage /></PageWrapper>} />
         <Route path="/thank-you" element={<PageWrapper><ThankYouPage /></PageWrapper>} />
         <Route path="/admin" element={<PageWrapper><AdminPage /></PageWrapper>} />
+        {/* /acceso soporta modo whitelist y modo dominio abierto (?empresa=X&dominio=X.com) */}
+        <Route path="/acceso" element={<PageWrapper><AccessPage /></PageWrapper>} />
       </Routes>
     </AnimatePresence>
   );

@@ -13,8 +13,8 @@ module.exports = async function (context, req) {
     return;
   }
 
-  const adminPassword = process.env.ADMIN_PASSWORD;
-  if (!adminPassword) {
+  const signingSecret = process.env.ADMIN_PASSWORD;
+  if (!signingSecret) {
     context.res = {
       status: 500,
       headers,
@@ -34,18 +34,33 @@ module.exports = async function (context, req) {
     };
     return;
   }
+
+  const username = ((body && body.username) || "").trim().toLowerCase();
   const password = (body && body.password) || "";
 
-  if (!password || password !== adminPassword) {
+  if (!username || !password) {
     context.res = {
       status: 401,
       headers,
-      body: JSON.stringify({ error: "Contrasena incorrecta" })
+      body: JSON.stringify({ error: "Usuario y contrasena requeridos" })
     };
     return;
   }
 
-  const token = createAdminToken(adminPassword);
+  // Busca el env var ADMIN_PASSWORD_{USERNAME} (ej: ADMIN_PASSWORD_JAVIER)
+  const envKey = `ADMIN_PASSWORD_${username.toUpperCase()}`;
+  const expectedPassword = process.env[envKey];
+
+  if (!expectedPassword || password !== expectedPassword) {
+    context.res = {
+      status: 401,
+      headers,
+      body: JSON.stringify({ error: "Usuario o contrasena incorrectos" })
+    };
+    return;
+  }
+
+  const token = createAdminToken(signingSecret);
 
   context.res = {
     status: 200,
