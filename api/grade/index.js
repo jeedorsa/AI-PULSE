@@ -449,8 +449,7 @@ module.exports = async function (context, req) {
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user",   content: userPrompt }
       ],
-      max_tokens: 400,
-      temperature: 0.2  // baja temperatura para consistencia del evaluador
+      max_completion_tokens: 400
     });
 
     const raw = completion.choices[0]?.message?.content || "";

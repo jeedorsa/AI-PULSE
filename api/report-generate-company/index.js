@@ -283,8 +283,7 @@ async function callOpenAI(url, key, systemMsg, userMsg, maxTokens = 3000) {
         { role: 'system', content: systemMsg },
         { role: 'user',   content: userMsg }
       ],
-      max_tokens: maxTokens,
-      temperature: 0.5
+      max_completion_tokens: maxTokens
     })
   });
   if (!res.ok) {
