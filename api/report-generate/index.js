@@ -278,13 +278,23 @@ module.exports = async function (context, req) {
           { role: 'system', content: 'Eres el analista principal de AI Pulse. Generas análisis precisos, concretos y personalizados. Respondes SOLO con JSON válido, sin markdown.' },
           { role: 'user', content: prompt }
         ],
-        max_completion_tokens: 3000,
+        max_tokens: 3000,
         temperature: 0.7
       })
     });
 
+    if (!aiResponse.ok) {
+      const errBody = await aiResponse.text();
+      context.log.error('Azure OpenAI error:', aiResponse.status, errBody);
+      throw new Error(`Azure OpenAI respondió ${aiResponse.status}: ${errBody.slice(0, 200)}`);
+    }
+
     const aiData = await aiResponse.json();
-    const rawText = aiData?.choices?.[0]?.message?.content || '{}';
+    const rawText = aiData?.choices?.[0]?.message?.content || '';
+    context.log.info('AI raw response length:', rawText.length);
+
+    if (!rawText) throw new Error('Azure OpenAI devolvió una respuesta vacía');
+
     const cleaned = rawText.replace(/```json|```/g, '').trim();
     const analysis = JSON.parse(cleaned);
 

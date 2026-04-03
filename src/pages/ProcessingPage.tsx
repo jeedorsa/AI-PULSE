@@ -4,20 +4,18 @@ import { motion } from 'motion/react';
 import { useAssessmentStore } from '../store/useAssessmentStore';
 
 const STEPS = [
-  { label: 'Procesando respuestas...', duration: 500 },
-  { label: 'Evaluando con framework AIQ...', duration: null }, // espera al API
-  { label: 'Aplicando reglas de calibración...', duration: 800 },
-  { label: 'Generando perfil de madurez...', duration: 600 },
+  { label: 'Procesando respuestas...', duration: 600 },
+  { label: 'Aplicando fórmula AIQ...', duration: 800 },
+  { label: 'Generando perfil de madurez...', duration: 700 },
 ];
 
 export default function ProcessingPage() {
   const navigate  = useNavigate();
-  const { gradeWithAI, calculateAIQ, aiqResult, isAdmin, participant, gradingStatus } = useAssessmentStore();
+  const { calculateAIQ, aiqResult, isAdmin, participant } = useAssessmentStore();
   const [stepIndex, setStepIndex] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    // Si ya tenemos resultado (recarga), ir directo
     if (aiqResult) {
       navigate(participant && !isAdmin ? '/thank-you' : '/result', { replace: true });
       return;
@@ -25,42 +23,23 @@ export default function ProcessingPage() {
 
     const run = async () => {
       try {
-        // Paso 0 — breve pausa visual
         setStepIndex(0);
-        await sleep(STEPS[0].duration!);
+        await sleep(STEPS[0].duration);
 
-        // Paso 1 — Grading real con el framework AIQ (llama al API para TODAS las preguntas)
         setStepIndex(1);
-        await gradeWithAI();
-        // Si el grading falló, gradeWithAI pone gradingStatus='error' pero no lanza,
-        // así que calculateAIQ usará los scores locales de fallback — aceptable.
-
-        // Paso 2 — Aplicar fórmula + reglas 1-4
-        setStepIndex(2);
-        await sleep(STEPS[2].duration!);
         calculateAIQ();
+        await sleep(STEPS[1].duration);
 
-        // Paso 3 — Breve pausa final
-        setStepIndex(3);
-        await sleep(STEPS[3].duration!);
+        setStepIndex(2);
+        await sleep(STEPS[2].duration);
 
-        // Participantes enterprise → thank-you (no ven su resultado)
-        // Modo demo / admin → result
-        navigate(
-          participant && !isAdmin ? '/thank-you' : '/result',
-          { replace: true }
-        );
+        navigate(participant && !isAdmin ? '/thank-you' : '/result', { replace: true });
 
       } catch (err) {
         console.error('ProcessingPage error:', err);
-        setErrorMsg('Ocurrió un error al procesar. Intentando calcular de todas formas...');
-        // Fallback: calcular con lo que hay
-        try { calculateAIQ(); } catch (_) {}
+        setErrorMsg('Ocurrió un error al procesar.');
         await sleep(1500);
-        navigate(
-          participant && !isAdmin ? '/thank-you' : '/result',
-          { replace: true }
-        );
+        navigate(participant && !isAdmin ? '/thank-you' : '/result', { replace: true });
       }
     };
 
@@ -89,7 +68,7 @@ export default function ProcessingPage() {
               animate={{ opacity: 1, scale: 1 }}
               className="text-2xl"
             >
-              {['📊', '🔍', '⚖️', '✨'][stepIndex] || '📊'}
+              {['📊', '⚖️', '✨'][stepIndex] || '📊'}
             </motion.span>
           </div>
         </div>
@@ -152,12 +131,6 @@ export default function ProcessingPage() {
           </p>
         )}
 
-        {/* Nota de grading status si hay error de API */}
-        {gradingStatus === 'error' && !errorMsg && (
-          <p className="mt-4 text-xs text-gray-400">
-            Usando evaluación local como respaldo
-          </p>
-        )}
       </div>
     </div>
   );

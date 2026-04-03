@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { questions } from '../data/questions';
-import { gradeAnswer, consolidateAIQ } from '../lib/geminiClient';
+import { gradeAnswer } from '../lib/geminiClient';
 
 // ─── TIPOS ────────────────────────────────────────────────────────────────────
 

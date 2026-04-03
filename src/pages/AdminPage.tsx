@@ -191,6 +191,7 @@ export default function AdminPage() {
   const [loadingResults, setLoadingResults] = useState(false);
   const [expandedResult, setExpandedResult] = useState<string | null>(null);
   const [generatingReport, setGeneratingReport] = useState<string | null>(null);
+  const [generatingCompanyReport, setGeneratingCompanyReport] = useState(false);
   const [filterEmpresa, setFilterEmpresa] = useState('');
   const [linkEmpresa, setLinkEmpresa] = useState('');
   const [linkDominio, setLinkDominio] = useState('');
@@ -206,14 +207,37 @@ export default function AdminPage() {
       });
       if (res.status === 401) { handleUnauthorized(); return; }
       if (!res.ok) throw new Error('Error generando informe');
-      const html = await res.text();
-      const blob = new Blob([html], { type: 'text/html' });
+      const data = await res.json();
+      if (!data.html) throw new Error(data.error || 'El informe llegó vacío');
+      const blob = new Blob([data.html], { type: 'text/html;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       window.open(url, '_blank');
     } catch (err) {
       alert('Error generando el informe. Intenta de nuevo.');
     } finally {
       setGeneratingReport(null);
+    }
+  };
+
+  const generateCompanyReport = async (empresa: string) => {
+    setGeneratingCompanyReport(true);
+    try {
+      const res = await fetch('/api/report-generate-company', {
+        method: 'POST',
+        headers: adminHeaders(),
+        body: JSON.stringify({ empresa }),
+      });
+      if (res.status === 401) { handleUnauthorized(); return; }
+      if (!res.ok) throw new Error('Error generando informe empresa');
+      const data = await res.json();
+      if (!data.html) throw new Error(data.error || 'El informe llegó vacío');
+      const blob = new Blob([data.html], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    } catch (err) {
+      alert('Error generando el informe de empresa. Intenta de nuevo.');
+    } finally {
+      setGeneratingCompanyReport(false);
     }
   };
 
@@ -996,6 +1020,15 @@ export default function AdminPage() {
                           className="font-mono text-[9px] uppercase tracking-wider h-7 px-3 border border-primary rounded-[2px] text-primary hover:bg-primary hover:text-white transition-colors"
                         >
                           ↓ Exportar{filterEmpresa ? ` ${filterEmpresa}` : ' todo'} CSV
+                        </button>
+                      )}
+                      {filterEmpresa && filtered.length > 0 && (
+                        <button
+                          onClick={() => generateCompanyReport(filterEmpresa)}
+                          disabled={generatingCompanyReport}
+                          className="font-mono text-[9px] uppercase tracking-wider h-7 px-3 border border-[#111111] rounded-[2px] text-[#111111] hover:bg-[#111111] hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {generatingCompanyReport ? '⏳ Generando...' : `⚡ Informe ${filterEmpresa}`}
                         </button>
                       )}
                     </div>
