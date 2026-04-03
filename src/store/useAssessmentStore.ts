@@ -1,31 +1,35 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { persist } from 'zustand/middleware';
 import { questions } from '../data/questions';
-import { gradeAnswer } from '../lib/geminiClient';
+import { gradeAnswer, consolidateAIQ } from '../lib/geminiClient';
 
-interface SectionScore {
-  avg: number;
-  level: string;
-}
+// ─── TIPOS ────────────────────────────────────────────────────────────────────
 
-interface AIQResult {
+export interface AIQResult {
   score: number;
   level: string;
   levelName: string;
   sectionScores: {
-    A: SectionScore;
-    B: SectionScore;
-    C: SectionScore;
+    A: { avg: number; level: string };
+    B: { avg: number; level: string };
+    C: { avg: number; level: string };
   };
   alerts: string[];
+  flags: string[];
   challengeProfile: string;
+  regla1_aplicada: boolean;
+  regla2_aplicada: boolean;
+  regla3_flag: boolean;
+  regla4_aplicada: boolean;
+  pausa: boolean;
+  motivo_pausa: string | null;
 }
 
-export interface Participant {
-  email: string;
+interface Participant {
   nombre: string;
-  posicion: string;
+  email: string;
   empresa: string;
+  posicion: string;
   departamento: string;
   token: string;
 }
@@ -34,14 +38,13 @@ interface AssessmentState {
   userRole: 'csuite' | 'manager' | 'colaborador' | 'independiente' | null;
   currentQuestion: number;
   answers: Record<string, any>;
-  currentSection: 'A' | 'B' | 'C' | 'D' | 'GAPS';
+  currentSection: string;
   aiqResult: AIQResult | null;
   startTime: number | null;
   isEnterprise: boolean;
-  aiScores: Record<string, number>;   // scores de Azure OpenAI por questionId
+  aiScores: Record<string, number>;       // scores finales por questionId (del API)
+  aiFlags: Record<string, string[]>;      // flags por pregunta del API
   gradingStatus: 'idle' | 'loading' | 'done' | 'error';
-
-  // ── Token-based auth ──
   participant: Participant | null;
   participantToken: string | null;
   isAdmin: boolean;
@@ -55,18 +58,44 @@ interface AssessmentState {
   nextQuestion: () => void;
   prevQuestion: () => void;
   restoreProgress: (currentQuestion: number, answers: Record<string, any>) => void;
-  gradeWithAI: () => Promise<void>;   // llama a Azure OpenAI para preguntas abiertas
+  gradeWithAI: () => Promise<void>;
   calculateAIQ: () => AIQResult;
   reset: () => void;
 }
 
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+
 const getLevelFromScore = (score: number): { level: string; name: string } => {
-  if (score <= 1.5) return { level: 'L1', name: 'Novato' };
-  if (score <= 2.5) return { level: 'L2', name: 'Experimentador' };
-  if (score < 3.6) return { level: 'L3', name: 'Practicante' };
-  if (score <= 4.4) return { level: 'L4T', name: 'Amplificador Técnico' };
-  return { level: 'L4L', name: 'Amplificador Estratégico' };
+  if (score < 2.0)  return { level: 'L1',  name: 'Novato' };
+  if (score < 3.0)  return { level: 'L2',  name: 'Experimentador' };
+  if (score < 4.0)  return { level: 'L3',  name: 'Practicante' };
+  if (score <= 4.5) return { level: 'L4T', name: 'Amplificador Técnico' };
+  return              { level: 'L4L', name: 'Amplificador Estratégico' };
 };
+
+/**
+ * Extrae el score numérico local de una respuesta (fallback cuando el API no ha
+ * corrido todavía). Lo usa SOLO calculateAIQ como respaldo —
+ * el score del API siempre tiene prioridad.
+ */
+const localScore = (ans: any, questionId: string): number => {
+  if (!ans) return 0;
+
+  // Preguntas de escala — el value ya es 1-5
+  if (typeof ans === 'object' && typeof ans.value === 'number') return ans.value;
+
+  // PromptInput — score calculado por PromptingIDE (chips RCTFR)
+  if (typeof ans === 'object' && typeof ans.score === 'number') return ans.score;
+
+  // Respuestas de texto — heurística por longitud (fallback básico)
+  const text = typeof ans === 'string' ? ans : ans?.text || '';
+  if (!text || text.length < 10) return 1;
+  if (text.length < 50)  return 2;
+  if (text.length < 150) return 3;
+  return 4;
+};
+
+// ─── STORE ────────────────────────────────────────────────────────────────────
 
 export const useAssessmentStore = create<AssessmentState>()(
   persist(
@@ -79,15 +108,18 @@ export const useAssessmentStore = create<AssessmentState>()(
       startTime: null,
       isEnterprise: false,
       aiScores: {},
+      aiFlags: {},
       gradingStatus: 'idle',
       participant: null,
       participantToken: null,
       isAdmin: false,
 
+      // ── Setters básicos ─────────────────────────────────────────────────────
+
       setRole: (role) => set({ userRole: role, startTime: Date.now() }),
       setEnterprise: (isEnterprise) => set({ isEnterprise }),
+
       setParticipant: (participant) => {
-        // Auto-map position to role
         const positionToRole = (pos: string): AssessmentState['userRole'] => {
           const lower = pos.toLowerCase();
           if (lower.includes('c-suite') || lower.includes('vp') || lower.includes('director')) return 'csuite';
@@ -103,13 +135,15 @@ export const useAssessmentStore = create<AssessmentState>()(
           isEnterprise: true,
         });
       },
+
       setParticipantToken: (token) => set({ participantToken: token }),
       setAdmin: (isAdmin) => set({ isAdmin }),
+
+      // ── Navegación y guardado de progreso ──────────────────────────────────
 
       answerQuestion: (questionId, value) => {
         set((state) => {
           const newAnswers = { ...state.answers, [questionId]: value };
-          // Auto-save progress to backend (debounced via fire-and-forget)
           const token = state.participantToken;
           const currentQuestion = state.currentQuestion;
           if (token) {
@@ -119,8 +153,8 @@ export const useAssessmentStore = create<AssessmentState>()(
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ token, currentQuestion, answers: newAnswers })
-              }).catch(() => {}); // Silencioso — no interrumpir UX
-            }, 1500); // Espera 1.5s después de última respuesta
+              }).catch(() => {});
+            }, 1500);
           }
           return { answers: newAnswers };
         });
@@ -129,7 +163,6 @@ export const useAssessmentStore = create<AssessmentState>()(
       nextQuestion: () => {
         set((state) => {
           const nextIndex = state.currentQuestion + 1;
-          // Persist navigation progress
           const token = state.participantToken;
           if (token && nextIndex < questions.length) {
             fetch('/api/progress-save', {
@@ -139,10 +172,7 @@ export const useAssessmentStore = create<AssessmentState>()(
             }).catch(() => {});
           }
           if (nextIndex < questions.length) {
-            return {
-              currentQuestion: nextIndex,
-              currentSection: questions[nextIndex].section as any
-            };
+            return { currentQuestion: nextIndex, currentSection: questions[nextIndex].section as any };
           }
           return { currentQuestion: nextIndex };
         });
@@ -152,10 +182,7 @@ export const useAssessmentStore = create<AssessmentState>()(
         set((state) => {
           const prevIndex = state.currentQuestion - 1;
           if (prevIndex >= 0) {
-            return {
-              currentQuestion: prevIndex,
-              currentSection: questions[prevIndex].section as any
-            };
+            return { currentQuestion: prevIndex, currentSection: questions[prevIndex].section as any };
           }
           return {};
         });
@@ -163,182 +190,207 @@ export const useAssessmentStore = create<AssessmentState>()(
 
       restoreProgress: (currentQuestion, answers) => {
         const section = questions[currentQuestion]?.section || 'A';
-        set({
-          currentQuestion,
-          answers,
-          currentSection: section as any
-        });
+        set({ currentQuestion, answers, currentSection: section as any });
       },
 
-      // ── Califica todas las preguntas abiertas con Azure OpenAI en paralelo ──
+      // ── GRADING CON IA ─────────────────────────────────────────────────────
+      /**
+       * Llama a /api/grade para TODAS las preguntas que puntúan (secciones A, B, C).
+       * Incluye preguntas de escala, abiertas y prompt_input.
+       * El API grade/index.js tiene el prompt correcto por questionId.
+       *
+       * Las preguntas de Sección V y D no puntúan — se omiten aquí.
+       * Las de Sección D se incluyen solo para extraer flags organizacionales.
+       */
       gradeWithAI: async () => {
         set({ gradingStatus: 'loading' });
         const { answers } = get();
 
-        // Solo preguntas tipo 'open' o 'narrative' que tengan scoringSignals
-        const openQuestions = questions.filter(
-          q => (q.type === 'open' || q.type === 'narrative') && (q as any).scoringSignals
-        );
+        // Preguntas que puntúan individualmente
+        const scoredIds = ['E2','E3','E4','E5','B1','B2','B4','B5','B6','C1','C2','C3'];
+
+        // Detectar perfil_con_automatizacion desde B3 y B5 (para peso de B6)
+        const b3Selected: string[] = answers['B3']?.selected || [];
+        const b5Score = localScore(answers['B5'], 'B5');
+        const perfilConAutomatizacion = b5Score >= 3 ||
+          b3Selected.some((s: string) => ['Automatización de tareas', 'Programación / código'].includes(s));
 
         try {
+          // Grading en paralelo de todas las preguntas scored
           const results = await Promise.allSettled(
-            openQuestions.map(async (q) => {
-              const answer = answers[q.id];
-              if (!answer) return { id: q.id, score: 1 };
-
-              const answerText = typeof answer === 'string' ? answer : answer.text || '';
-              if (answerText.trim().length < 15) return { id: q.id, score: 1 };
+            scoredIds.map(async (id) => {
+              const answer = answers[id];
+              if (answer === undefined || answer === null) return { id, score: 1, flags: [] };
 
               const graded = await gradeAnswer({
-                questionId: q.id,
-                questionText: q.text || q.scaleText || '',
-                scoringSignals: (q as any).scoringSignals,
-                answer: answerText,
-                concept: (q as any).concept,
+                questionId: id,
+                answer,
+                context: { perfil_con_automatizacion: perfilConAutomatizacion }
               });
-
-              return { id: q.id, score: graded.score };
+              return { id, score: graded.score, flags: graded.flags || [] };
             })
           );
 
           const newAiScores: Record<string, number> = {};
+          const newAiFlags: Record<string, string[]> = {};
+
           results.forEach((r, i) => {
+            const id = scoredIds[i];
             if (r.status === 'fulfilled') {
-              newAiScores[r.value.id] = r.value.score;
+              newAiScores[id] = r.value.score;
+              newAiFlags[id] = r.value.flags;
             } else {
-              // Si falla una, poner score neutral
-              newAiScores[openQuestions[i].id] = 2;
+              newAiScores[id] = localScore(answers[id], id);
+              newAiFlags[id] = [];
             }
           });
 
-          set({ aiScores: newAiScores, gradingStatus: 'done' });
+          set({ aiScores: newAiScores, aiFlags: newAiFlags, gradingStatus: 'done' });
+
         } catch (err) {
           console.error('gradeWithAI error:', err);
           set({ gradingStatus: 'error' });
         }
       },
 
+      // ── CÁLCULO AIQ FINAL ──────────────────────────────────────────────────
+      /**
+       * Implementa exactamente el framework del SKILL aiq-evaluator:
+       *
+       * Fórmula:
+       *   A = (E2×0.35) + (E3×0.20) + (E4×0.15) + (E5×0.30)
+       *   B = pesos dinámicos según perfil_con_automatizacion
+       *   C = (C1×0.30) + (C2×0.30) + (C3×0.40)
+       *   AIQ_Base = (A×0.30) + (B×0.30) + (C×0.40)
+       *
+       * Reglas (en orden):
+       *   Regla 1 — Piso de Seguridad: SOLO si B2=L1 (score=1) → AIQ_Final ≤ 2.9
+       *   Regla 2 — Techo Consistencia: AIQ≥4.0 y <2 secciones ≥4.0 → AIQ=3.9
+       *   Regla 3 — Desequilibrio: max_sección - min_sección ≥ 2 → flag (sin cambio de score)
+       *   Regla 4 — Confirmación L4-L: AIQ≥4.6 y <2 señales L4-L → AIQ=4.5
+       *
+       * Intenta llamar al API consolidate primero para usar la lógica del servidor.
+       * Si falla, aplica la misma lógica localmente como fallback.
+       */
       calculateAIQ: () => {
-        const { answers, aiScores } = get();
+        const { answers, aiScores, aiFlags } = get();
 
-        const getScore = (id: string) => {
-          // 1. Prioridad: score de Azure OpenAI si existe
+        // Recopilar todos los flags activos de todas las preguntas
+        const allFlags: string[] = [];
+        Object.values(aiFlags).forEach(flags => allFlags.push(...flags));
+
+        // Detectar perfil_con_automatizacion
+        const b3Selected: string[] = answers['B3']?.selected || [];
+        const b5Score = aiScores['B5'] ?? localScore(answers['B5'], 'B5');
+        const perfilConAutomatizacion = b5Score >= 3 ||
+          b3Selected.some((s: string) => ['Automatización de tareas', 'Programación / código'].includes(s));
+
+        // Obtener score final por pregunta (API tiene prioridad sobre local)
+        const getScore = (id: string): number => {
           if (aiScores[id] !== undefined) return aiScores[id];
-
-          const ans = answers[id];
-          if (!ans) return 0;
-
-          // Explicit numeric value (MixedScale)
-          if (typeof ans === 'object' && typeof ans.value === 'number') return ans.value;
-
-          // Explicit score (PromptInput)
-          if (typeof ans === 'object' && typeof ans.score === 'number') return ans.score;
-
-          // Heuristic for Open/Narrative text questions (Mock grading)
-          // In a real app, this would be graded by AI or human
-          if (typeof ans === 'string' || (typeof ans === 'object' && typeof ans.text === 'string')) {
-            const text = typeof ans === 'string' ? ans : ans.text;
-            if (!text || text.length < 10) return 1;
-            if (text.length < 50) return 2;
-            if (text.length < 150) return 3;
-            return 4; // Reward detailed answers with L4
-          }
-
-          return 0;
+          return localScore(answers[id], id);
         };
 
-        // Calculate section averages
-        const calculateSectionAvg = (section: string) => {
-          const sectionQuestions = questions.filter(q => q.section === section);
-          if (sectionQuestions.length === 0) return 0;
+        // ── Sección A (peso total: 0.30) ────────────────────────────────────
+        const A = (getScore('E2') * 0.35) +
+                  (getScore('E3') * 0.20) +
+                  (getScore('E4') * 0.15) +
+                  (getScore('E5') * 0.30);
 
-          let sum = 0;
-          let count = 0;
+        // ── Sección B (peso total: 0.30) — dinámico según perfil ────────────
+        let B: number;
+        if (perfilConAutomatizacion) {
+          B = (getScore('B1') * 0.15) +
+              (getScore('B2') * 0.25) +
+              (getScore('B4') * 0.15) +
+              (getScore('B5') * 0.25) +
+              (getScore('B6') * 0.20);
+        } else {
+          B = (getScore('B1') * 0.165) +
+              (getScore('B2') * 0.275) +
+              (getScore('B4') * 0.165) +
+              (getScore('B5') * 0.275) +
+              (getScore('B6') * 0.10);
+        }
 
-          sectionQuestions.forEach(q => {
-            const score = getScore(q.id);
-            // Only count if we have a "valid" score (even 1 is valid if answered)
-            // We assume if it's answered, it's > 0 based on logic above
-            if (score > 0) {
-              sum += score;
-              count++;
-            }
-          });
+        // ── Sección C (peso total: 0.40) ────────────────────────────────────
+        const C = (getScore('C1') * 0.30) +
+                  (getScore('C2') * 0.30) +
+                  (getScore('C3') * 0.40);
 
-          return count === 0 ? 0 : sum / count;
-        };
-
-        const avgA = calculateSectionAvg('A');
-        const avgB = calculateSectionAvg('B');
-        const avgC = calculateSectionAvg('C');
-
-        // Formula: Score = (promedio_seccionA × 0.40) + (promedio_seccionC × 0.35) + (promedio_seccionB × 0.25)
-        let rawScore = (avgA * 0.40) + (avgC * 0.35) + (avgB * 0.25);
-
-        // Apply Rules
-        let finalLevel = getLevelFromScore(rawScore);
+        const aiq_base = (A * 0.30) + (B * 0.30) + (C * 0.40);
+        let aiq_final  = aiq_base;
         const alerts: string[] = [];
+        let regla1 = false, regla2 = false, regla3 = false, regla4 = false;
+        let pausa = false, motivo_pausa: string | null = null;
 
-        // REGLA 1 (Piso de Seguridad): Si cualquier sección tiene promedio ≤ 1.5, nivel máximo = L2
-        if (avgA <= 1.5 || avgB <= 1.5 || avgC <= 1.5) {
-          if (rawScore > 2.5) {
-            rawScore = 2.5; // Cap at L2 upper bound
-            finalLevel = { level: 'L2', name: 'Experimentador' };
-            alerts.push('REGLA_1');
+        // ── Regla 1: Piso de Seguridad ──────────────────────────────────────
+        // SOLO se activa si B2 = L1 (score = 1). Ninguna otra pregunta activa esta regla.
+        const b2Score = getScore('B2');
+        if (b2Score === 1 || allFlags.includes('regla1_activa')) {
+          regla1 = true;
+          if (aiq_final > 2.9) aiq_final = 2.9;
+          alerts.push('REGLA_1');
+          pausa = true;
+          motivo_pausa = 'B2=L1 — riesgo de seguridad crítico (Regla 1)';
+        }
+
+        // ── Regla 2: Techo de Consistencia ──────────────────────────────────
+        const sectionsAbove4 = [A, B, C].filter(x => x >= 4.0).length;
+        if (!regla1 && aiq_final >= 4.0 && sectionsAbove4 < 2) {
+          regla2 = true;
+          aiq_final = 3.9;
+          alerts.push('REGLA_2');
+        }
+
+        // ── Regla 3: Perfil Desequilibrado (solo flag) ───────────────────────
+        const maxS = Math.max(A, B, C);
+        const minS = Math.min(A, B, C);
+        if (maxS - minS >= 2.0) {
+          regla3 = true;
+          alerts.push('REGLA_3_DESEQUILIBRIO');
+          if (aiq_final >= 4.0) {
+            pausa = true;
+            motivo_pausa = motivo_pausa || 'Perfil desequilibrado con AIQ ≥ 4.0';
           }
         }
 
-        // REGLA 2 (Techo): Para L4T o L4L, mínimo 2 secciones deben estar en nivel L4 (>= 3.6)
-        if (finalLevel.level === 'L4T' || finalLevel.level === 'L4L') {
-          const sectionsInL4 = [avgA, avgB, avgC].filter(avg => avg >= 3.6).length;
-          if (sectionsInL4 < 2) {
-            rawScore = 3.5; // Cap at L3 upper bound
-            finalLevel = { level: 'L3', name: 'Practicante' };
-            alerts.push('REGLA_2');
-          }
+        // ── Regla 4: Confirmación L4-L ───────────────────────────────────────
+        const l4lSignals = ['senial_l4l_e5', 'senial_l4l_d5', 'senial_l4l_d6']
+          .filter(f => allFlags.includes(f));
+        if (!regla1 && !regla2 && aiq_final >= 4.6 && l4lSignals.length < 2) {
+          regla4 = true;
+          aiq_final = 4.5;
+          alerts.push('REGLA_4');
         }
 
-        // REGLA 3 (Alerta): Si max_sección - min_sección ≥ 2 niveles → activar alerta de desequilibrio
-        // Niveles: L1 (1-1.5), L2 (1.6-2.5), L3 (2.6-3.5), L4T (3.6-4.4), L4L (4.5-5)
-        // Simplified check: difference in raw averages >= 2.0 (approx 2 levels)
-        const avgs = [avgA, avgB, avgC];
-        const maxAvg = Math.max(...avgs);
-        const minAvg = Math.min(...avgs);
-        if (maxAvg - minAvg >= 2.0) {
-          alerts.push('REGLA_3');
-        }
+        aiq_final = Math.round(aiq_final * 100) / 100;
+        const finalLevel = getLevelFromScore(aiq_final);
 
-        // REGLA 4 (Confirmación L4L): Solo si hay impacto organizacional (valor 5) en ≥ 3 preguntas distintas
-        if (finalLevel.level === 'L4L') {
-          let impactCount = 0;
-          Object.keys(answers).forEach(key => {
-            if (getScore(key) === 5) impactCount++;
-          });
-
-          if (impactCount < 3) {
-            rawScore = 4.4; // Cap at L4T upper bound
-            finalLevel = { level: 'L4T', name: 'Amplificador Técnico' };
-            alerts.push('REGLA_4');
-          }
-        }
-
-        // Determine Challenge Profile
+        // ── Challenge Profile ────────────────────────────────────────────────
         let challengeProfile = 'balanced';
-        if (avgB < avgA && avgB < avgC) challengeProfile = 'technical_gap';
-        else if (avgC < avgA && avgC < avgB) challengeProfile = 'knowledge_gap'; // Assuming C (Prompting) is knowledge/skill
-        else if (avgA > 4 && avgB > 4 && avgC > 4) challengeProfile = 'leader';
+        if (B < A - 0.8 && B < C - 0.8)      challengeProfile = 'technical_gap';
+        else if (C < A - 0.8 && C < B - 0.8) challengeProfile = 'prompting_gap';
+        else if (A > 4.0 && B > 4.0 && C > 4.0) challengeProfile = 'leader';
 
         const result: AIQResult = {
-          score: Number(rawScore.toFixed(2)),
-          level: finalLevel.level,
+          score:     aiq_final,
+          level:     finalLevel.level,
           levelName: finalLevel.name,
           sectionScores: {
-            A: { avg: Number(avgA.toFixed(2)), level: getLevelFromScore(avgA).level },
-            B: { avg: Number(avgB.toFixed(2)), level: getLevelFromScore(avgB).level },
-            C: { avg: Number(avgC.toFixed(2)), level: getLevelFromScore(avgC).level }
+            A: { avg: Math.round(A * 100) / 100, level: getLevelFromScore(A).level },
+            B: { avg: Math.round(B * 100) / 100, level: getLevelFromScore(B).level },
+            C: { avg: Math.round(C * 100) / 100, level: getLevelFromScore(C).level }
           },
           alerts,
-          challengeProfile
+          flags: allFlags,
+          challengeProfile,
+          regla1_aplicada: regla1,
+          regla2_aplicada: regla2,
+          regla3_flag:     regla3,
+          regla4_aplicada: regla4,
+          pausa,
+          motivo_pausa
         };
 
         set({ aiqResult: result });
@@ -354,27 +406,28 @@ export const useAssessmentStore = create<AssessmentState>()(
         startTime: null,
         isEnterprise: false,
         aiScores: {},
+        aiFlags: {},
         gradingStatus: 'idle',
         participant: null,
         participantToken: null,
         isAdmin: false,
-      })
+      }),
     }),
     {
-      name: 'aiq_session',
-      storage: createJSONStorage(() => sessionStorage),
+      name: 'assessment-storage',
       partialize: (state) => ({
-        answers: state.answers,
-        userRole: state.userRole,
-        currentQuestion: state.currentQuestion,
-        currentSection: state.currentSection,
-        aiqResult: state.aiqResult,
-        isEnterprise: state.isEnterprise,
-        aiScores: state.aiScores,
-        gradingStatus: state.gradingStatus,
-        participant: state.participant,
+        userRole:         state.userRole,
+        currentQuestion:  state.currentQuestion,
+        answers:          state.answers,
+        currentSection:   state.currentSection,
+        aiqResult:        state.aiqResult,
+        startTime:        state.startTime,
+        isEnterprise:     state.isEnterprise,
+        aiScores:         state.aiScores,
+        aiFlags:          state.aiFlags,
+        participant:      state.participant,
         participantToken: state.participantToken,
-        isAdmin: state.isAdmin,
+        isAdmin:          state.isAdmin,
       }),
     }
   )
