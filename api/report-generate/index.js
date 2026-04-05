@@ -318,10 +318,15 @@ module.exports = async function (context, req) {
     }
 
     const aiData = await aiResponse.json();
+    context.log.info('AI full response:', JSON.stringify(aiData).slice(0, 500));
     const rawText = aiData?.choices?.[0]?.message?.content || '';
     context.log.info('AI raw response length:', rawText.length);
 
-    if (!rawText) throw new Error('Azure OpenAI devolvió una respuesta vacía');
+    if (!rawText) {
+      const reason = aiData?.choices?.[0]?.finish_reason || 'unknown';
+      const refusal = aiData?.choices?.[0]?.message?.refusal || '';
+      throw new Error(`Azure OpenAI devolvió contenido vacío. finish_reason=${reason} refusal=${refusal} usage=${JSON.stringify(aiData?.usage)}`);
+    }
 
     const cleaned = rawText.replace(/```json|```/g, '').trim();
     const analysis = JSON.parse(cleaned);
