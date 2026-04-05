@@ -177,6 +177,25 @@ module.exports = async function (context, req) {
     pEntity.completedAt = completedAt;
 
     await participantsClient.updateEntity(pEntity, "Merge");
+
+    // ENCOLAR GENERACIÓN DE INFORME (non-blocking)
+    try {
+      const { QueueServiceClient } = require("@azure/storage-queue");
+      const queueClient = QueueServiceClient
+        .fromConnectionString(conn)
+        .getQueueClient("report-generation");
+      await queueClient.createIfNotExists();
+      const msgPayload = Buffer.from(JSON.stringify({
+        email: participant.email,
+        empresa: (participant.empresa || "General").trim(),
+        token
+      })).toString("base64");
+      await queueClient.sendMessage(msgPayload);
+      context.log.info(`Enqueued report generation for ${participant.email}`);
+    } catch (qErr) {
+      context.log.warn("Queue enqueue failed (non-blocking):", qErr.message);
+    }
+
     context.res = { status: 200, body: { success: true, assessmentId: token } };
 
   } catch (err) {

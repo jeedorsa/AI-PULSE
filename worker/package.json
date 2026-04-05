@@ -1,0 +1,13 @@
+{
+  "name": "ai-pulse-worker",
+  "version": "1.0.0",
+  "description": "AI-PULSE background worker — queue-triggered Azure Functions",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@azure/data-tables": "^13.3.2",
+    "@azure/storage-blob": "^12.24.0",
+    "@azure/storage-queue": "^12.24.0"
+  }
+}

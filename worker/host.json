@@ -1,0 +1,12 @@
+{
+  "version": "2.0",
+  "functionTimeout": "00:10:00",
+  "extensions": {
+    "queues": {
+      "batchSize": 4,
+      "newBatchThreshold": 2,
+      "visibilityTimeout": "00:05:00",
+      "maxDequeueCount": 5
+    }
+  }
+}
