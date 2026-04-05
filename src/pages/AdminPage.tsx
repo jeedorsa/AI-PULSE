@@ -197,6 +197,12 @@ export default function AdminPage() {
   const [linkDominio, setLinkDominio] = useState('');
   const [linkCopied, setLinkCopied] = useState(false);
 
+  async function safeJsonFetch(res: Response): Promise<any> {
+    const text = await res.text();
+    try { return JSON.parse(text); }
+    catch { throw new Error(`El servidor tardó demasiado o devolvió un error inesperado (HTTP ${res.status}). Intenta de nuevo.`); }
+  }
+
   const generateReport = async (email: string) => {
     setGeneratingReport(email);
     try {
@@ -206,7 +212,7 @@ export default function AdminPage() {
         body: JSON.stringify({ email }),
       });
       if (res.status === 401) { handleUnauthorized(); return; }
-      const data = await res.json();
+      const data = await safeJsonFetch(res);
       if (!res.ok || !data.html) throw new Error(data.error || `Error ${res.status}`);
 
       const blob = new Blob([data.html], { type: 'text/html;charset=utf-8' });
@@ -228,9 +234,8 @@ export default function AdminPage() {
         body: JSON.stringify({ empresa }),
       });
       if (res.status === 401) { handleUnauthorized(); return; }
-      if (!res.ok) throw new Error('Error generando informe empresa');
-      const data = await res.json();
-      if (!data.html) throw new Error(data.error || 'El informe llegó vacío');
+      const data = await safeJsonFetch(res);
+      if (!res.ok || !data.html) throw new Error(data.error || 'El informe llegó vacío');
       const blob = new Blob([data.html], { type: 'text/html;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       window.open(url, '_blank');
@@ -321,6 +326,25 @@ export default function AdminPage() {
       setLoginError('Error de conexion. Intenta de nuevo.');
     }
     setLoginLoading(false);
+  };
+
+  const handleOpenDemo = async () => {
+    try {
+      const res = await fetch('/api/coach-demo', { method: 'POST', headers: adminHeaders() });
+      if (res.status === 401) { handleUnauthorized(); return; }
+      const data = await res.json();
+      if (!data.success) throw new Error('Error iniciando demo');
+      // Guardar sesión demo en sessionStorage y abrir en nueva pestaña
+      sessionStorage.setItem('aipulse_coach_email', data.email);
+      sessionStorage.setItem('aipulse_coach_token', data.sessionToken);
+      sessionStorage.setItem('aipulse_coach_demo', JSON.stringify({
+        profile: data.profile, tasks: data.tasks,
+        chatHistory: data.chatHistory, analysis: data.analysis, isDemo: true
+      }));
+      window.open('/coach', '_blank');
+    } catch (err: any) {
+      alert(`Error abriendo demo: ${err.message}`);
+    }
   };
 
   const handleLogout = () => {
@@ -549,12 +573,20 @@ export default function AdminPage() {
                 Gestiona participantes, envia invitaciones y administra el diagnostico.
               </p>
             </div>
-            <button
-              onClick={handleLogout}
-              className="font-mono text-[9px] uppercase tracking-wider text-[#AAAAAA] hover:text-[#FF3C3C] transition-colors mt-2 px-3 py-2 border border-[#E0E0E0] hover:border-[rgba(255,60,60,0.3)] rounded-[2px]"
-            >
-              Cerrar sesion
-            </button>
+            <div className="flex items-center gap-3 mt-2">
+              <button
+                onClick={handleOpenDemo}
+                className="font-mono text-[9px] uppercase tracking-wider px-3 py-2 border border-primary rounded-[2px] text-primary hover:bg-primary hover:text-white transition-colors"
+              >
+                ▶ Ver Coach Demo
+              </button>
+              <button
+                onClick={handleLogout}
+                className="font-mono text-[9px] uppercase tracking-wider text-[#AAAAAA] hover:text-[#FF3C3C] transition-colors px-3 py-2 border border-[#E0E0E0] hover:border-[rgba(255,60,60,0.3)] rounded-[2px]"
+              >
+                Cerrar sesion
+              </button>
+            </div>
           </div>
 
           {/* Tabs */}
@@ -1028,7 +1060,7 @@ export default function AdminPage() {
                           disabled={generatingCompanyReport}
                           className="font-mono text-[9px] uppercase tracking-wider h-7 px-3 border border-[#111111] rounded-[2px] text-[#111111] hover:bg-[#111111] hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          {generatingCompanyReport ? '⏳ Generando...' : `⚡ Informe ${filterEmpresa}`}
+                          {generatingCompanyReport ? '⏳ Procesando (~2-3 min)...' : `⚡ Informe ${filterEmpresa}`}
                         </button>
                       )}
                     </div>
@@ -1169,7 +1201,7 @@ export default function AdminPage() {
                                 disabled={generatingReport === r.email}
                                 className="font-mono text-[9px] uppercase tracking-wider px-3 py-1.5 border border-primary rounded-[2px] text-primary hover:bg-primary hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                               >
-                                {generatingReport === r.email ? '⏳ Generando...' : '⚡ Generar informe AIQ'}
+                                {generatingReport === r.email ? '⏳ Procesando con IA (~1-2 min)...' : '⚡ Generar informe AIQ'}
                               </button>
                             </div>
 

@@ -9,6 +9,7 @@ const DIM_NAMES: Record<string, string> = { A: 'Experiencia Real', B: 'Criterio 
 
 const COACH_EMAIL_KEY = 'aipulse_coach_email';
 const COACH_TOKEN_KEY = 'aipulse_coach_token';
+const COACH_DEMO_KEY  = 'aipulse_coach_demo';
 
 interface Task { id: string; titulo: string; descripcion: string; dimension: string; completada: boolean; }
 interface Message { role: 'user' | 'assistant'; content: string; ts?: number; }
@@ -33,10 +34,31 @@ export default function CoachPage() {
   const [messages, setMessages]   = useState<Message[]>([]);
   const [inputMsg, setInputMsg]   = useState('');
   const [sending, setSending]     = useState(false);
+  const [isDemo, setIsDemo]       = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Restaurar sesión guardada
+  // Restaurar sesión — detecta modo demo primero
   useEffect(() => {
+    const demoRaw = sessionStorage.getItem(COACH_DEMO_KEY);
+    if (demoRaw) {
+      try {
+        const demo = JSON.parse(demoRaw);
+        const savedEmail = sessionStorage.getItem(COACH_EMAIL_KEY) || 'demo@aipulse.ai';
+        const savedToken = sessionStorage.getItem(COACH_TOKEN_KEY) || '';
+        setIsDemo(true);
+        setEmail(savedEmail);
+        setSessionToken(savedToken);
+        setProfile(demo.profile);
+        setTasks(demo.tasks || []);
+        setMessages(
+          (demo.chatHistory || []).map((m: any) => ({ role: m.role, content: m.content }))
+        );
+        setScreen('dashboard');
+        return;
+      } catch {}
+    }
+
+    // Sesión normal
     const savedEmail = sessionStorage.getItem(COACH_EMAIL_KEY);
     const savedToken = sessionStorage.getItem(COACH_TOKEN_KEY);
     if (savedEmail && savedToken) {
@@ -57,9 +79,9 @@ export default function CoachPage() {
   // Scroll al fondo del chat
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
-  // Cargar tareas al entrar al dashboard
+  // Cargar tareas al entrar al dashboard (solo modo real)
   useEffect(() => {
-    if (screen !== 'dashboard' || !sessionToken || !email) return;
+    if (screen !== 'dashboard' || !sessionToken || !email || isDemo) return;
     loadTasks();
   }, [screen, sessionToken]);
 
@@ -151,6 +173,8 @@ export default function CoachPage() {
   const handleToggleTask = async (taskId: string, current: boolean) => {
     const optimistic = tasks.map(t => t.id === taskId ? { ...t, completada: !current } : t);
     setTasks(optimistic);
+    // En demo solo actualizamos estado local — no hay BD
+    if (isDemo) return;
     try {
       const res = await fetch('/api/tasks-update', {
         method: 'POST',

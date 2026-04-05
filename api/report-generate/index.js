@@ -283,7 +283,7 @@ module.exports = async function (context, req) {
           { role: 'system', content: 'Eres el analista principal de AI Pulse. Generas análisis precisos, concretos y personalizados. Respondes SOLO con JSON válido, sin markdown.' },
           { role: 'user', content: prompt }
         ],
-        max_completion_tokens: 3000
+        max_completion_tokens: 2000
       })
     });
 
