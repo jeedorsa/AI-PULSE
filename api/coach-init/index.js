@@ -125,7 +125,7 @@ Responde SOLO con JSON válido:
           { role: "system", content: "Eres el coach de AI Pulse. Respondes SOLO con JSON válido, sin markdown." },
           { role: "user", content: prompt }
         ],
-        max_completion_tokens: 1200
+        max_completion_tokens: 20000
       })
     });
 

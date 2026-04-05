@@ -637,7 +637,7 @@ module.exports = async function (context, queueMessage) {
         { role: 'system', content: 'Eres el analista principal de AI Pulse. Respondes SOLO con JSON válido, sin markdown.' },
         { role: 'user', content: prompt }
       ],
-      max_completion_tokens: 2000
+      max_completion_tokens: 20000
     })
   });
 

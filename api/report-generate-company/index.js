@@ -788,17 +788,17 @@ module.exports = async function (context, req) {
 
     // ── Prompt 1: Consolidación ──────────────────────────────────────────
     context.log.info('Ejecutando Prompt 1 — Consolidación...');
-    const jsonEnterprise = await callOpenAI(openaiUrl, apiKey, systemMsg, buildPrompt1(empresa, participantes), 4000);
+    const jsonEnterprise = await callOpenAI(openaiUrl, apiKey, systemMsg, buildPrompt1(empresa, participantes), 20000);
     context.log.info('Prompt 1 completado');
 
     // ── Prompt 2: Análisis narrativo ─────────────────────────────────────
     context.log.info('Ejecutando Prompt 2 — Análisis narrativo...');
-    const jsonAnalisis = await callOpenAI(openaiUrl, apiKey, systemMsg, buildPrompt2(jsonEnterprise), 3000);
+    const jsonAnalisis = await callOpenAI(openaiUrl, apiKey, systemMsg, buildPrompt2(jsonEnterprise), 20000);
     context.log.info('Prompt 2 completado');
 
     // ── Prompt 3: Plan de acción ─────────────────────────────────────────
     context.log.info('Ejecutando Prompt 3 — Plan de acción...');
-    const jsonPlan = await callOpenAI(openaiUrl, apiKey, systemMsg, buildPrompt3(jsonEnterprise, jsonAnalisis), 2000);
+    const jsonPlan = await callOpenAI(openaiUrl, apiKey, systemMsg, buildPrompt3(jsonEnterprise, jsonAnalisis), 20000);
     context.log.info('Prompt 3 completado');
 
     // ── Generar HTML ─────────────────────────────────────────────────────

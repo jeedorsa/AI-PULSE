@@ -133,7 +133,7 @@ module.exports = async function (context, req) {
     const aiRes = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", "api-key": openaiKey },
-      body: JSON.stringify({ messages, max_completion_tokens: 800 })
+      body: JSON.stringify({ messages, max_completion_tokens: 20000 })
     });
 
     if (!aiRes.ok) throw new Error(`Azure OpenAI error ${aiRes.status}`);
