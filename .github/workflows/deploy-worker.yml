@@ -23,7 +23,7 @@ jobs:
           node-version: '22'
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --production
         working-directory: worker
 
       - name: Login to Azure
@@ -38,3 +38,5 @@ jobs:
         with:
           app-name: ai-pulse-worker
           package: worker
+          scm-do-build-during-deployment: false
+          enable-oryx-build: false
