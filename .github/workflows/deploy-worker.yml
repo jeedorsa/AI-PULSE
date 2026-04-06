@@ -7,14 +7,18 @@ on:
     paths:
       - 'worker/**'
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '22'
 
@@ -22,9 +26,15 @@ jobs:
         run: npm install
         working-directory: worker
 
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: cd895c00-7cd4-44c0-935d-e74656934b42
+          tenant-id: 497f2d6c-dcb5-4e39-b72e-3a85fbbd7812
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
       - name: Deploy to Azure Functions
         uses: Azure/functions-action@v1
         with:
           app-name: ai-pulse-worker
           package: worker
-          publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
