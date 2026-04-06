@@ -213,8 +213,8 @@ export default function AdminPage() {
       });
       if (res.status === 401) { handleUnauthorized(); return; }
       const data = await safeJsonFetch(res);
-      if (data.status === 'pending') {
-        alert('El informe se está generando en background.\nVuelve en 1-2 minutos e intenta de nuevo — será instantáneo.');
+      if (res.status === 202 || data.status === 'pending') {
+        alert(`⏳ ${data.message || 'El informe se está generando. Vuelve en 1-2 minutos e intenta de nuevo.'}`);
         return;
       }
       if (!res.ok || !data.html) throw new Error(data.error || `Error ${res.status}`);

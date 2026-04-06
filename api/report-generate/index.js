@@ -1,5 +1,6 @@
 const { TableClient } = require("@azure/data-tables");
 const { BlobServiceClient } = require("@azure/storage-blob");
+const { QueueServiceClient } = require("@azure/storage-queue");
 const { requireAdmin } = require("../shared/adminAuth");
 
 function blobNameForEmail(email) {
@@ -234,9 +235,25 @@ module.exports = async function (context, req) {
       return;
     }
   } catch (blobErr) {
-    context.log.warn("Blob check failed, generando inline:", blobErr.message);
+    context.log.warn("Blob check failed:", blobErr.message);
   }
 
+  // ── No existe blob → encolar generación en background ────────────
+  try {
+    const queueClient = QueueServiceClient
+      .fromConnectionString(connectionString)
+      .getQueueClient("report-generation");
+    await queueClient.createIfNotExists();
+    const msg = Buffer.from(JSON.stringify({ email })).toString("base64");
+    await queueClient.sendMessage(msg);
+    context.log.info(`Enqueued individual report for ${email}`);
+    context.res = { status: 202, headers, body: JSON.stringify({ status: "pending", message: "El informe se está generando. Vuelve en 1-2 minutos e intenta de nuevo." }) };
+  } catch (qErr) {
+    context.log.error("Queue enqueue failed:", qErr.message);
+    context.res = { status: 500, headers, body: JSON.stringify({ error: qErr.message }) };
+  }
+
+  if (false) { // dead code — procesado por worker/report-processor
   try {
     // 1. Obtener resultado del participante — filtrar por email directamente
     const resultsClient = TableClient.fromConnectionString(connectionString, "assessmentResults");
@@ -375,6 +392,7 @@ module.exports = async function (context, req) {
     context.log.error("report-generate error:", err);
     context.res = { status: 500, headers, body: JSON.stringify({ error: err.message }) };
   }
+  } // end if(false)
 };
 
 function generateHTML(participant, scores, answers, analysis, companyDist) {
