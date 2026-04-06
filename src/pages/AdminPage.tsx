@@ -239,6 +239,10 @@ export default function AdminPage() {
       });
       if (res.status === 401) { handleUnauthorized(); return; }
       const data = await safeJsonFetch(res);
+      if (res.status === 202 || data.status === 'pending') {
+        alert(`⏳ ${data.message || 'El informe se está generando en background. Vuelve en 5-10 minutos.'}`);
+        return;
+      }
       if (!res.ok || !data.html) throw new Error(data.error || 'El informe llegó vacío');
       const blob = new Blob([data.html], { type: 'text/html;charset=utf-8' });
       const url = URL.createObjectURL(blob);

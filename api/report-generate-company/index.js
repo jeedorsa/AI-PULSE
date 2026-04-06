@@ -1,5 +1,11 @@
 const { TableClient } = require("@azure/data-tables");
+const { BlobServiceClient } = require("@azure/storage-blob");
+const { QueueServiceClient } = require("@azure/storage-queue");
 const { requireAdmin } = require("../shared/adminAuth");
+
+function blobNameForEmpresa(empresa) {
+  return `company/${empresa.replace(/[^a-zA-Z0-9]/g, '_')}.html`;
+}
 
 /**
  * report-generate-company — Arquitectura de 3 prompts secuenciales
@@ -748,10 +754,43 @@ module.exports = async function (context, req) {
     return;
   }
 
+  // ── Intentar leer informe ya generado desde Blob Storage ─────────
+  try {
+    const blobName = blobNameForEmpresa(empresa);
+    const containerClient = BlobServiceClient.fromConnectionString(conn).getContainerClient("aiq-reports");
+    const blobClient = containerClient.getBlockBlobClient(blobName);
+    if (await blobClient.exists()) {
+      context.log.info(`Blob empresa encontrado: ${blobName}`);
+      const download = await blobClient.downloadToBuffer();
+      context.res = { status: 200, headers, body: JSON.stringify({ success: true, html: download.toString("utf-8"), cached: true }) };
+      return;
+    }
+  } catch (blobErr) {
+    context.log.warn("Blob check empresa failed:", blobErr.message);
+  }
+
+  // ── Encolar generación en background ─────────────────────────────
+  try {
+    const queueClient = QueueServiceClient.fromConnectionString(conn).getQueueClient("company-report-generation");
+    await queueClient.createIfNotExists();
+    const msg = Buffer.from(JSON.stringify({ empresa })).toString("base64");
+    await queueClient.sendMessage(msg);
+    context.log.info(`Enqueued company report for ${empresa}`);
+    context.res = { status: 202, headers, body: JSON.stringify({ status: "pending", message: `El informe de ${empresa} se está generando. Vuelve en 5-10 minutos.` }) };
+  } catch (qErr) {
+    context.log.error("Queue enqueue failed:", qErr.message);
+    context.res = { status: 500, headers, body: JSON.stringify({ error: qErr.message }) };
+  }
+
+  // ── (código de generación sincrónica eliminado — ahora va al worker) ──
+  if (false) {
+    return;
+  }
+
   const openaiUrl = `${apiEndpoint.replace(/\/$/, '')}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
   const systemMsg = 'Eres el analizador Enterprise de AI Pulse. Respondes SOLO con JSON válido, sin markdown ni texto extra.';
 
-  try {
+  try { // dead code block — procesado por worker
     const resultsClient = TableClient.fromConnectionString(conn, "assessmentResults");
 
     // Cargar todos los resultados de la empresa
@@ -812,6 +851,5 @@ module.exports = async function (context, req) {
 
   } catch (err) {
     context.log.error("report-generate-company error:", err.message);
-    context.res = { status: 500, headers, body: JSON.stringify({ error: err.message }) };
   }
 };

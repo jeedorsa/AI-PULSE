@@ -1,0 +1,11 @@
+{
+  "bindings": [
+    {
+      "type": "queueTrigger",
+      "direction": "in",
+      "name": "queueMessage",
+      "queueName": "company-report-generation",
+      "connection": "AZURE_STORAGE_CONNECTION_STRING"
+    }
+  ]
+}
