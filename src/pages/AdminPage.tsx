@@ -192,6 +192,37 @@ export default function AdminPage() {
   const [expandedResult, setExpandedResult] = useState<string | null>(null);
   const [generatingReport, setGeneratingReport] = useState<string | null>(null);
   const [generatingCompanyReport, setGeneratingCompanyReport] = useState(false);
+  const [reportProgressMsg, setReportProgressMsg] = useState('');
+  const [companyProgressMsg, setCompanyProgressMsg] = useState('');
+
+  function startProgressMessages(setter: (msg: string) => void, messages: string[], intervalMs = 12000) {
+    let i = 0;
+    setter(messages[0]);
+    const id = setInterval(() => {
+      i = Math.min(i + 1, messages.length - 1);
+      setter(messages[i]);
+    }, intervalMs);
+    return id;
+  }
+
+  const INDIVIDUAL_MSGS = [
+    'Leyendo respuestas del participante...',
+    'Analizando dimensiones AIQ...',
+    'Generando diagnóstico con IA...',
+    'Redactando fortalezas y brechas...',
+    'Preparando informe personalizado...',
+    'Casi listo, guardando informe...',
+  ];
+
+  const COMPANY_MSGS = [
+    'Cargando respuestas de todos los participantes...',
+    'Calculando métricas organizacionales...',
+    'Detectando arquetipo y brechas...',
+    'Generando análisis narrativo con IA...',
+    'Elaborando plan de acción 30/60/90 días...',
+    'Preparando informe enterprise...',
+    'Casi listo, guardando informe...',
+  ];
   const [filterEmpresa, setFilterEmpresa] = useState('');
   const [linkEmpresa, setLinkEmpresa] = useState('');
   const [linkDominio, setLinkDominio] = useState('');
@@ -205,6 +236,7 @@ export default function AdminPage() {
 
   const generateReport = async (email: string) => {
     setGeneratingReport(email);
+    const intervalId = startProgressMessages(setReportProgressMsg, INDIVIDUAL_MSGS, 14000);
     try {
       const res = await fetch('/api/report-generate', {
         method: 'POST',
@@ -225,12 +257,15 @@ export default function AdminPage() {
     } catch (err: any) {
       alert(`Error generando el informe: ${err.message}`);
     } finally {
+      clearInterval(intervalId);
       setGeneratingReport(null);
+      setReportProgressMsg('');
     }
   };
 
   const generateCompanyReport = async (empresa: string) => {
     setGeneratingCompanyReport(true);
+    const intervalId = startProgressMessages(setCompanyProgressMsg, COMPANY_MSGS, 18000);
     try {
       const res = await fetch('/api/report-generate-company', {
         method: 'POST',
@@ -250,7 +285,9 @@ export default function AdminPage() {
     } catch (err: any) {
       alert(`Error generando el informe de empresa: ${err.message}`);
     } finally {
+      clearInterval(intervalId);
       setGeneratingCompanyReport(false);
+      setCompanyProgressMsg('');
     }
   };
 
@@ -1063,13 +1100,18 @@ export default function AdminPage() {
                         </button>
                       )}
                       {filterEmpresa && filtered.length > 0 && (
-                        <button
-                          onClick={() => generateCompanyReport(filterEmpresa)}
-                          disabled={generatingCompanyReport}
-                          className="font-mono text-[9px] uppercase tracking-wider h-7 px-3 border border-[#111111] rounded-[2px] text-[#111111] hover:bg-[#111111] hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {generatingCompanyReport ? '⏳ Procesando (~2-3 min)...' : `⚡ Informe ${filterEmpresa}`}
-                        </button>
+                        <div className="flex flex-col items-end gap-1">
+                          <button
+                            onClick={() => generateCompanyReport(filterEmpresa)}
+                            disabled={generatingCompanyReport}
+                            className="font-mono text-[9px] uppercase tracking-wider h-7 px-3 border border-[#111111] rounded-[2px] text-[#111111] hover:bg-[#111111] hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {generatingCompanyReport ? '⏳ Generando (~4 min)...' : `⚡ Informe ${filterEmpresa}`}
+                          </button>
+                          {generatingCompanyReport && companyProgressMsg && (
+                            <p className="font-mono text-[8px] text-[#AAAAAA] tracking-wider animate-pulse">{companyProgressMsg}</p>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -1204,13 +1246,18 @@ export default function AdminPage() {
                               >
                                 ↓ Descargar respuestas completas
                               </button>
-                              <button
-                                onClick={() => generateReport(r.email)}
-                                disabled={generatingReport === r.email}
-                                className="font-mono text-[9px] uppercase tracking-wider px-3 py-1.5 border border-primary rounded-[2px] text-primary hover:bg-primary hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                {generatingReport === r.email ? '⏳ Procesando con IA (~1-2 min)...' : '⚡ Generar informe AIQ'}
-                              </button>
+                              <div className="flex flex-col items-end gap-1">
+                                <button
+                                  onClick={() => generateReport(r.email)}
+                                  disabled={generatingReport === r.email}
+                                  className="font-mono text-[9px] uppercase tracking-wider px-3 py-1.5 border border-primary rounded-[2px] text-primary hover:bg-primary hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  {generatingReport === r.email ? '⏳ Generando (~4 min)...' : '⚡ Generar informe AIQ'}
+                                </button>
+                                {generatingReport === r.email && reportProgressMsg && (
+                                  <p className="font-mono text-[8px] text-[#AAAAAA] tracking-wider animate-pulse">{reportProgressMsg}</p>
+                                )}
+                              </div>
                             </div>
 
                             {/* Info personal */}
