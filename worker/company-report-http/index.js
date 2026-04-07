@@ -1,21 +1,18 @@
+/**
+ * company-report-http — HTTP-triggered Azure Function (worker)
+ *
+ * Llamado desde api/report-generate-company (fire-and-forget).
+ * Timeout 10 minutos. Protegido por function key (?code=).
+ * Prompts y HTML idénticos a api/report-generate-company.
+ */
+
 const { TableClient } = require("@azure/data-tables");
 const { BlobServiceClient } = require("@azure/storage-blob");
-const { requireAdmin } = require("../shared/adminAuth");
 
 function blobNameForEmpresa(empresa) {
   return `company/${empresa.replace(/[^a-zA-Z0-9]/g, '_')}.html`;
 }
 
-/**
- * report-generate-company — Arquitectura de 3 prompts secuenciales
- *
- * PROMPT 1: Consolidación de datos → JSON Enterprise
- * PROMPT 2: Análisis narrativo    → Textos por sección
- * PROMPT 3: Plan de acción        → 30/60/90 días
- * HTML:     Renderiza el reporte completo
- */
-
-// ─── Mapas para resolver respuestas cerradas ───────────────────────────────
 const V2_OPT = { 1: 'Colaborador individual', 2: 'Manager o Líder de equipo', 3: 'Director', 4: 'VP o C-Suite' };
 const NIVEL_CODIGO = {
   'VP o C-Suite': 'EJE',
@@ -24,8 +21,6 @@ const NIVEL_CODIGO = {
   'Supervisor': 'SPV',
   'Colaborador individual': 'COL'
 };
-const NIVEL_NOMBRES = { L1: 'Novato', L2: 'Experimentador', L3: 'Practicante', L4T: 'Amplificador Técnico', L4L: 'Amplificador Estratégico' };
-const NIVELES = ['L1', 'L2', 'L3', 'L4T', 'L4L'];
 
 function assembleAnswers(entity) {
   if (entity.answersV || entity.answersA) {
@@ -40,14 +35,8 @@ function assembleAnswers(entity) {
 }
 
 function safeNum(v) { return typeof v === 'number' && !isNaN(v) ? v : 0; }
-function avg(arr) { return arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : 0; }
-function stdDev(arr) {
-  if (arr.length < 2) return 0;
-  const m = avg(arr);
-  return Math.sqrt(arr.reduce((s, v) => s + Math.pow(v - m, 2), 0) / arr.length);
-}
 
-// ─── PROMPT 1 — Consolidación ────────────────────────────────────────────
+// ─── PROMPT 1 — Consolidación ─────────────────────────────────────────────
 function buildPrompt1(empresa, participantes) {
   const jsons = participantes.map(p => ({
     nombre: p.nombre,
@@ -61,7 +50,6 @@ function buildPrompt1(empresa, participantes) {
     seccion_c: safeNum(p.sectionC),
     challenge_profile: p.challengeProfile,
     alerts: p.alerts || [],
-    // Datos D relevantes para brechas
     b2_score: p.b2_raw,
     d3_herramientas: p.answers?.D3?.selected || [],
     d5_espacios: p.answers?.D5?.choice || '',
@@ -182,7 +170,7 @@ OUTPUT JSON EXACTO:
 }`;
 }
 
-// ─── PROMPT 2 — Análisis Narrativo ────────────────────────────────────────
+// ─── PROMPT 2 — Análisis Narrativo ───────────────────────────────────────
 function buildPrompt2(jsonEnterprise) {
   return `Eres el analista de AI Pulse. Recibes el JSON Enterprise consolidado de una evaluación AIQ
 organizacional y produces el análisis narrativo para el reporte de dirección.
@@ -240,10 +228,10 @@ OUTPUT JSON EXACTO:
 function buildPrompt3(jsonEnterprise, jsonAnalisis) {
   const aiqActual = jsonEnterprise.metricas_globales?.aiq_promedio || 0;
   let objetivo = aiqActual;
-  if (aiqActual < 2.0)      objetivo = aiqActual + 0.30;
-  else if (aiqActual < 3.0) objetivo = aiqActual + 0.35;
+  if (aiqActual < 2.0)       objetivo = aiqActual + 0.30;
+  else if (aiqActual < 3.0)  objetivo = aiqActual + 0.35;
   else if (aiqActual <= 3.5) objetivo = aiqActual + 0.25;
-  else                       objetivo = aiqActual + 0.20;
+  else                        objetivo = aiqActual + 0.20;
   objetivo = Math.round(objetivo * 100) / 100;
 
   return `Eres el estratega de adopción de IA de AI Pulse. Recibes el JSON Enterprise consolidado
@@ -279,7 +267,7 @@ OUTPUT JSON EXACTO:
 }
 
 // ─── Llamada a Azure OpenAI ───────────────────────────────────────────────
-async function callOpenAI(url, key, systemMsg, userMsg, maxTokens = 3000) {
+async function callOpenAI(url, key, systemMsg, userMsg) {
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'api-key': key },
@@ -288,16 +276,19 @@ async function callOpenAI(url, key, systemMsg, userMsg, maxTokens = 3000) {
         { role: 'system', content: systemMsg },
         { role: 'user',   content: userMsg }
       ],
-      max_completion_tokens: maxTokens
+      max_completion_tokens: 20000
     })
   });
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`Azure OpenAI ${res.status}: ${err.slice(0, 200)}`);
+    throw new Error(`Azure OpenAI ${res.status}: ${err.slice(0, 300)}`);
   }
   const data = await res.json();
   const raw  = data?.choices?.[0]?.message?.content || '';
-  if (!raw) throw new Error('Azure OpenAI devolvió respuesta vacía');
+  if (!raw) {
+    const reason = data?.choices?.[0]?.finish_reason;
+    throw new Error(`OpenAI respuesta vacía. finish_reason=${reason} reasoning_tokens=${data?.usage?.completion_tokens_details?.reasoning_tokens}`);
+  }
   return JSON.parse(raw.replace(/```json|```/g, '').trim());
 }
 
@@ -306,20 +297,19 @@ function generateHTML(empresa, enterprise, analisis, plan, participantes) {
   const m    = enterprise.metricas_globales || {};
   const dist = enterprise.distribucion_niveles || {};
   const jer  = enterprise.por_jerarquia || {};
-  const brec = enterprise.brechas || {};
-  const fort = enterprise.fortalezas || {};
 
   const fecha = enterprise.metadata?.fecha_reporte || new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' });
 
-  // Distribución de niveles
   const distRows = [
-    { label: 'Novato',                codigo: 'L1',  n: dist.n_l1  || 0, pct: dist.pct_l1  || 0 },
-    { label: 'Experimentador',        codigo: 'L2',  n: dist.n_l2  || 0, pct: dist.pct_l2  || 0 },
-    { label: 'Practicante',           codigo: 'L3',  n: dist.n_l3  || 0, pct: dist.pct_l3  || 0 },
-    { label: 'Amplificador Técnico',  codigo: 'L4T', n: dist.n_l4t || 0, pct: dist.pct_l4t || 0 },
+    { label: 'Novato',                   codigo: 'L1',  n: dist.n_l1  || 0, pct: dist.pct_l1  || 0 },
+    { label: 'Experimentador',           codigo: 'L2',  n: dist.n_l2  || 0, pct: dist.pct_l2  || 0 },
+    { label: 'Practicante',              codigo: 'L3',  n: dist.n_l3  || 0, pct: dist.pct_l3  || 0 },
+    { label: 'Amplificador Técnico',     codigo: 'L4T', n: dist.n_l4t || 0, pct: dist.pct_l4t || 0 },
     { label: 'Amplificador Estratégico', codigo: 'L4L', n: dist.n_l4l || 0, pct: dist.pct_l4l || 0 },
   ];
   const nivelOrg = enterprise.metricas_globales?.nivel_organizacional || 'L2';
+  const nivelCol = ['L4L','L4T'].includes(nivelOrg) ? '#00AA55' : nivelOrg === 'L3' ? '#CC8800' : '#E63946';
+
   const distHTML = distRows.map(r => {
     const isOrg = r.codigo === nivelOrg;
     return `<div class="dist-row${isOrg ? ' dist-row--active' : ''}">
@@ -335,7 +325,6 @@ function generateHTML(empresa, enterprise, analisis, plan, participantes) {
     </div>`;
   }).join('');
 
-  // Mapa de calor jerárquico
   const jerarquias = ['EJE','DIR','MGR','SPV','COL'];
   const jerLabels  = { EJE: 'Ejecutivos', DIR: 'Directores', MGR: 'Managers', SPV: 'Supervisores', COL: 'Colaboradores' };
   const heatHTML = jerarquias.filter(j => jer[j]?.n > 0).map(j => {
@@ -351,7 +340,6 @@ function generateHTML(empresa, enterprise, analisis, plan, participantes) {
     </div>`;
   }).join('');
 
-  // Brechas activas
   const brechasActivasHTML = (analisis.brechas_activas || []).map(b => `
     <div class="brecha-card brecha-card--active">
       <div class="brecha-header">
@@ -363,7 +351,6 @@ function generateHTML(empresa, enterprise, analisis, plan, participantes) {
       <div class="brecha-dato">Dato clave: <strong>${b.dato_clave}</strong></div>
     </div>`).join('');
 
-  // Brechas inactivas
   const brechasInactivasHTML = (analisis.brechas_inactivas || []).map(b => `
     <div class="brecha-card brecha-card--inactive">
       <div class="brecha-header">
@@ -373,14 +360,12 @@ function generateHTML(empresa, enterprise, analisis, plan, participantes) {
       <p class="brecha-desc">${b.por_que_no_aplica}</p>
     </div>`).join('');
 
-  // Fortalezas
   const fortalezasHTML = (analisis.fortalezas || []).map(f => `
     <div class="fort-card">
       <div class="fort-titulo">${f.titulo}</div>
       <p class="fort-desc">${f.descripcion}</p>
     </div>`).join('');
 
-  // Plan 30/60/90
   const planHTML = (plan.plan || []).map(h => `
     <div class="plan-card">
       <div class="plan-header">
@@ -393,7 +378,6 @@ function generateHTML(empresa, enterprise, analisis, plan, participantes) {
       <div class="plan-kpi">KPI: ${h.kpi}</div>
     </div>`).join('');
 
-  // Tabla de participantes
   const tablaHTML = participantes.map(p => {
     const col = ['L4L','L4T'].includes(p.aiqLevel) ? '#00AA55' : p.aiqLevel === 'L3' ? '#CC8800' : '#AAAAAA';
     return `<tr>
@@ -408,8 +392,6 @@ function generateHTML(empresa, enterprise, analisis, plan, participantes) {
     </tr>`;
   }).join('');
 
-  const nivelCol = ['L4L','L4T'].includes(nivelOrg) ? '#00AA55' : nivelOrg === 'L3' ? '#CC8800' : '#E63946';
-
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -422,8 +404,6 @@ function generateHTML(empresa, enterprise, analisis, plan, participantes) {
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'DM Sans',sans-serif;color:var(--g1);background:#fff;font-size:14px;line-height:1.6;}
 .page{max-width:960px;margin:0 auto;padding:56px 48px;}
-
-/* Header */
 .hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid var(--g1);padding-bottom:28px;margin-bottom:56px;}
 .hdr-left .logo{font-family:'DM Serif Display',serif;font-size:36px;color:var(--p);line-height:1;}
 .hdr-left .tagline{font-family:'DM Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.2em;color:var(--g4);margin-top:4px;}
@@ -431,29 +411,18 @@ body{font-family:'DM Sans',sans-serif;color:var(--g1);background:#fff;font-size:
 .hdr-empresa{font-family:'DM Serif Display',serif;font-size:22px;color:var(--g1);}
 .hdr-meta{font-family:'DM Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.15em;color:var(--g4);margin-top:4px;}
 .hdr-conf{color:var(--p);}
-
-/* Secciones */
 .section{margin-bottom:64px;}
 .sec-num{font-family:'DM Mono',monospace;font-size:9px;color:var(--p);letter-spacing:.3em;text-transform:uppercase;margin-bottom:6px;}
 .sec-title{font-family:'DM Serif Display',serif;font-size:26px;color:var(--g1);margin-bottom:20px;}
-.sec-subtitle{font-family:'DM Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.15em;color:var(--g4);margin-bottom:10px;}
-
-/* Resumen ejecutivo */
 .resumen{background:var(--g5);border-left:4px solid var(--p);padding:24px 28px;font-size:14px;line-height:1.8;}
-
-/* KPIs */
 .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px;}
 .kpi{border:1px solid var(--bd);padding:20px 16px;text-align:center;}
 .kpi-val{font-family:'DM Serif Display',serif;font-size:36px;line-height:1;}
 .kpi-sub{font-family:'DM Mono',monospace;font-size:8px;text-transform:uppercase;letter-spacing:.15em;color:var(--g4);margin-top:6px;}
-
-/* Arquetipo */
 .arquetipo-card{background:var(--g1);color:#fff;padding:28px 32px;margin-bottom:28px;display:flex;justify-content:space-between;align-items:center;gap:24px;}
 .arq-label{font-family:'DM Mono',monospace;font-size:8px;text-transform:uppercase;letter-spacing:.2em;color:var(--g4);margin-bottom:6px;}
 .arq-nombre{font-family:'DM Serif Display',serif;font-size:24px;color:#fff;}
 .arq-desc{font-size:13px;color:#CCC;line-height:1.6;max-width:480px;}
-
-/* Dimensiones */
 .dim-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;}
 .dim{border:1px solid var(--bd);padding:20px;}
 .dim-name{font-family:'DM Mono',monospace;font-size:8px;text-transform:uppercase;letter-spacing:.15em;color:var(--g4);margin-bottom:8px;}
@@ -461,8 +430,6 @@ body{font-family:'DM Sans',sans-serif;color:var(--g1);background:#fff;font-size:
 .dim-bar{height:3px;background:var(--bd);margin-top:10px;margin-bottom:10px;}
 .dim-bar-fill{height:100%;background:var(--p);}
 .dim-interp{font-size:12px;color:var(--g3);line-height:1.55;}
-
-/* Distribución */
 .dist-row{display:flex;align-items:center;gap:12px;margin-bottom:12px;padding:8px 0;}
 .dist-row--active{border-left:3px solid var(--p);padding-left:12px;}
 .dist-meta{display:flex;align-items:center;gap:8px;width:220px;flex-shrink:0;}
@@ -474,17 +441,13 @@ body{font-family:'DM Sans',sans-serif;color:var(--g1);background:#fff;font-size:
 .dist-nums{display:flex;gap:8px;min-width:70px;justify-content:flex-end;}
 .dist-n{font-family:'DM Mono',monospace;font-size:12px;font-weight:600;}
 .dist-pct{font-family:'DM Mono',monospace;font-size:11px;color:var(--g4);}
-
-/* Mapa de calor jerárquico */
 .heat-row{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
 .heat-label{font-family:'DM Sans',sans-serif;font-size:12px;width:130px;flex-shrink:0;}
 .heat-bar-wrap{flex:1;height:10px;background:var(--bd);border-radius:5px;overflow:hidden;}
-.heat-bar{height:100%;border-radius:5px;transition:width .5s;}
+.heat-bar{height:100%;border-radius:5px;}
 .heat-score{font-family:'DM Mono',monospace;font-size:13px;font-weight:600;min-width:36px;text-align:right;}
 .heat-nivel{font-family:'DM Mono',monospace;font-size:9px;color:var(--g4);min-width:32px;}
 .heat-n{font-family:'DM Mono',monospace;font-size:9px;color:var(--g4);min-width:50px;text-align:right;}
-
-/* Brechas */
 .brechas-grid{display:grid;gap:12px;}
 .brecha-card{border:1px solid var(--bd);padding:20px;}
 .brecha-card--active{border-left:3px solid var(--p);}
@@ -500,17 +463,11 @@ body{font-family:'DM Sans',sans-serif;color:var(--g1);background:#fff;font-size:
 .brecha-desc{font-size:13px;color:var(--g3);margin-bottom:8px;}
 .brecha-vacío{font-size:12px;color:var(--g3);border-left:2px solid var(--bd);padding-left:10px;margin-bottom:8px;line-height:1.6;}
 .brecha-dato{font-family:'DM Mono',monospace;font-size:10px;color:var(--g4);}
-
-/* Fortalezas */
 .fort-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;}
 .fort-card{border:1px solid var(--green);padding:20px;}
 .fort-titulo{font-family:'DM Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.15em;color:var(--green);margin-bottom:6px;}
 .fort-desc{font-size:13px;color:var(--g3);line-height:1.6;}
-
-/* Patrón jerárquico */
 .patron-strip{background:var(--g5);padding:20px 24px;border-left:3px solid var(--g1);margin-bottom:24px;font-size:13px;color:var(--g3);line-height:1.7;}
-
-/* Plan 30/60/90 */
 .plan-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;}
 .plan-card{border:1px solid var(--bd);padding:20px;}
 .plan-header{margin-bottom:12px;}
@@ -520,16 +477,12 @@ body{font-family:'DM Sans',sans-serif;color:var(--g1);background:#fff;font-size:
 .plan-acciones li{font-size:12px;color:var(--g3);padding:4px 0;border-bottom:1px solid var(--bd);line-height:1.5;}
 .plan-acciones li:last-child{border-bottom:none;}
 .plan-kpi{font-family:'DM Mono',monospace;font-size:9px;color:var(--g4);border-top:1px solid var(--bd);padding-top:8px;}
-
-/* Objetivo re-evaluación */
 .objetivo-card{display:flex;gap:24px;align-items:center;background:var(--g1);color:#fff;padding:24px 28px;}
 .obj-bloque{text-align:center;}
 .obj-val{font-family:'DM Serif Display',serif;font-size:40px;color:#fff;}
 .obj-label{font-family:'DM Mono',monospace;font-size:8px;text-transform:uppercase;letter-spacing:.15em;color:var(--g4);margin-top:4px;}
 .obj-arrow{font-size:28px;color:var(--green);}
 .obj-delta{font-family:'DM Mono',monospace;font-size:12px;color:var(--green);margin-top:6px;}
-
-/* Tabla */
 .tabla-wrap{overflow-x:auto;}
 table{width:100%;border-collapse:collapse;font-size:12px;}
 th{font-family:'DM Mono',monospace;font-size:8px;text-transform:uppercase;letter-spacing:.1em;color:var(--g4);padding:8px 10px;border-bottom:2px solid var(--g1);text-align:left;}
@@ -537,24 +490,15 @@ td{padding:10px;border-bottom:1px solid var(--bd);}
 tr:hover td{background:var(--g5);}
 .td-n{font-weight:500;}
 .td-c,.td-d{color:var(--g3);}
-
-/* Footer */
 .footer{display:flex;justify-content:space-between;align-items:flex-end;border-top:1px solid var(--bd);padding-top:24px;margin-top:56px;}
 .footer-brand{font-family:'DM Serif Display',serif;font-size:20px;color:var(--p);}
 .footer-meta{font-family:'DM Mono',monospace;font-size:9px;color:var(--g4);text-align:right;line-height:1.8;}
-
-/* Cierre */
-.cierre{background:var(--g1);color:#fff;padding:40px;text-align:center;margin-top:56px;}
-.cierre-label{font-family:'DM Mono',monospace;font-size:8px;text-transform:uppercase;letter-spacing:.2em;color:var(--g4);margin-bottom:12px;}
-.cierre-frase{font-family:'DM Serif Display',serif;font-size:22px;line-height:1.45;}
-
 @media print{.page{padding:24px;}body{font-size:12px;}}
 </style>
 </head>
 <body>
 <div class="page">
 
-<!-- Header -->
 <div class="hdr">
   <div class="hdr-left">
     <div class="logo">AIQ</div>
@@ -567,14 +511,12 @@ tr:hover td{background:var(--g5);}
   </div>
 </div>
 
-<!-- 01 Resumen ejecutivo -->
 <div class="section">
   <div class="sec-num">01</div>
   <div class="sec-title">Resumen ejecutivo</div>
   <div class="resumen">${analisis.resumen_ejecutivo || ''}</div>
 </div>
 
-<!-- 02 Resultado organizacional -->
 <div class="section">
   <div class="sec-num">02</div>
   <div class="sec-title">Resultado organizacional</div>
@@ -596,7 +538,6 @@ tr:hover td{background:var(--g5);}
       <div class="kpi-sub">Nivel L4 (amplificadores)</div>
     </div>
   </div>
-
   <div class="arquetipo-card">
     <div>
       <div class="arq-label">Arquetipo organizacional</div>
@@ -606,7 +547,6 @@ tr:hover td{background:var(--g5);}
   </div>
 </div>
 
-<!-- 03 Desempeño por dimensión -->
 <div class="section">
   <div class="sec-num">03</div>
   <div class="sec-title">Desempeño por dimensión</div>
@@ -632,14 +572,12 @@ tr:hover td{background:var(--g5);}
   </div>
 </div>
 
-<!-- 04 Distribución de niveles -->
 <div class="section">
   <div class="sec-num">04</div>
   <div class="sec-title">Distribución de niveles</div>
   ${distHTML}
 </div>
 
-<!-- 05 Mapa jerárquico -->
 ${heatHTML ? `<div class="section">
   <div class="sec-num">05</div>
   <div class="sec-title">Mapa de madurez por jerarquía</div>
@@ -647,7 +585,6 @@ ${heatHTML ? `<div class="section">
   ${heatHTML}
 </div>` : ''}
 
-<!-- 06 Brechas organizacionales -->
 <div class="section">
   <div class="sec-num">06</div>
   <div class="sec-title">Brechas organizacionales</div>
@@ -657,14 +594,12 @@ ${heatHTML ? `<div class="section">
   </div>
 </div>
 
-<!-- 07 Fortalezas -->
 ${(analisis.fortalezas||[]).length > 0 ? `<div class="section">
   <div class="sec-num">07</div>
   <div class="sec-title">Fortalezas detectadas</div>
   <div class="fort-grid">${fortalezasHTML}</div>
 </div>` : ''}
 
-<!-- 08 Plan de acción 30/60/90 -->
 <div class="section">
   <div class="sec-num">08</div>
   <div class="sec-title">Plan de acción recomendado</div>
@@ -690,7 +625,6 @@ ${(analisis.fortalezas||[]).length > 0 ? `<div class="section">
   </div>
 </div>
 
-<!-- 09 Detalle por participante -->
 <div class="section">
   <div class="sec-num">09</div>
   <div class="sec-title">Detalle individual</div>
@@ -707,7 +641,6 @@ ${(analisis.fortalezas||[]).length > 0 ? `<div class="section">
   </div>
 </div>
 
-<!-- Footer -->
 <div class="footer">
   <div class="footer-brand">AI Pulse</div>
   <div class="footer-meta">
@@ -727,57 +660,88 @@ module.exports = async function (context, req) {
   const headers = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Admin-Token",
+    "Access-Control-Allow-Headers": "Content-Type",
     "Content-Type": "application/json"
   };
 
   if (req.method === "OPTIONS") { context.res = { status: 200, headers, body: "" }; return; }
-  if (!requireAdmin(context, req)) return;
 
   const body    = typeof req.body === "string" ? JSON.parse(req.body) : req.body || {};
   const empresa = (body.empresa || "").trim();
-
-  if (!empresa) {
-    context.res = { status: 400, headers, body: JSON.stringify({ error: "Falta el nombre de empresa" }) };
-    return;
-  }
+  if (!empresa) { context.res = { status: 400, headers, body: JSON.stringify({ error: "Falta empresa" }) }; return; }
 
   const conn        = process.env.AZURE_STORAGE_CONNECTION_STRING;
   const apiEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
   const apiKey      = process.env.AZURE_OPENAI_API_KEY;
   const deployment  = process.env.AZURE_OPENAI_DEPLOYMENT;
-  const apiVersion  = process.env.AZURE_OPENAI_API_VERSION || "2024-12-01-preview";
+  const apiVersion  = process.env.AZURE_OPENAI_API_VERSION || "2025-04-01-preview";
+  const openaiUrl   = `${apiEndpoint.replace(/\/$/, '')}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
+  const systemMsg   = 'Eres el analizador Enterprise de AI Pulse. Respondes SOLO con JSON válido, sin markdown ni texto extra.';
 
-  if (!conn || !apiKey) {
-    context.res = { status: 500, headers, body: JSON.stringify({ error: "Configuración incompleta" }) };
-    return;
-  }
-
-  // ── Intentar leer informe ya generado desde Blob Storage ─────────
   try {
-    const blobName = blobNameForEmpresa(empresa);
-    const containerClient = BlobServiceClient.fromConnectionString(conn).getContainerClient("aiq-reports");
-    const blobClient = containerClient.getBlockBlobClient(blobName);
-    if (await blobClient.exists()) {
-      context.log.info(`Blob empresa encontrado: ${blobName}`);
-      const download = await blobClient.downloadToBuffer();
-      context.res = { status: 200, headers, body: JSON.stringify({ success: true, html: download.toString("utf-8"), cached: true }) };
+    const resultsClient = TableClient.fromConnectionString(conn, "assessmentResults");
+    const participantes = [];
+
+    for await (const entity of resultsClient.listEntities({
+      queryOptions: { filter: `PartitionKey eq '${empresa}'` }
+    })) {
+      const answers = assembleAnswers(entity);
+      const v2val  = answers?.V2?.value;
+      const v2text = V2_OPT[v2val] || '';
+      let alerts = [];
+      try { alerts = Array.isArray(entity.alerts) ? entity.alerts : JSON.parse(entity.alerts || '[]'); } catch {}
+      participantes.push({
+        nombre: entity.nombre || '',
+        posicion: entity.posicion || '',
+        departamento: entity.departamento || '',
+        aiqScore: safeNum(entity.aiqScore),
+        aiqLevel: entity.aiqLevel || 'L2',
+        sectionA: safeNum(entity.sectionA),
+        sectionB: safeNum(entity.sectionB),
+        sectionC: safeNum(entity.sectionC),
+        challengeProfile: entity.challengeProfile || '',
+        alerts,
+        nivelCodigo: NIVEL_CODIGO[v2text] || NIVEL_CODIGO[entity.posicion] || 'COL',
+        b2_raw: answers?.B2 || '',
+        answers,
+      });
+    }
+
+    if (participantes.length === 0) {
+      context.res = { status: 404, headers, body: JSON.stringify({ error: `No hay participantes para ${empresa}` }) };
       return;
     }
-  } catch (blobErr) {
-    context.log.warn("Blob check empresa failed:", blobErr.message);
+
+    context.log.info(`[company-report-http] ${participantes.length} participantes — ejecutando 3 prompts`);
+
+    const jsonEnterprise = await callOpenAI(openaiUrl, apiKey, systemMsg, buildPrompt1(empresa, participantes));
+    context.log.info('[company-report-http] Prompt 1 OK');
+
+    const jsonAnalisis = await callOpenAI(openaiUrl, apiKey, systemMsg, buildPrompt2(jsonEnterprise));
+    context.log.info('[company-report-http] Prompt 2 OK');
+
+    const jsonPlan = await callOpenAI(openaiUrl, apiKey, systemMsg, buildPrompt3(jsonEnterprise, jsonAnalisis));
+    context.log.info('[company-report-http] Prompt 3 OK');
+
+    const html = generateHTML(empresa, jsonEnterprise, jsonAnalisis, jsonPlan, participantes);
+
+    try {
+      const blobName = blobNameForEmpresa(empresa);
+      const containerClient = BlobServiceClient.fromConnectionString(conn).getContainerClient("aiq-reports");
+      await containerClient.createIfNotExists();
+      const buf = Buffer.from(html, "utf-8");
+      await containerClient.getBlockBlobClient(blobName).upload(buf, buf.length, {
+        blobHTTPHeaders: { blobContentType: "text/html; charset=utf-8" }, overwrite: true
+      });
+      context.log.info(`[company-report-http] Blob guardado: ${blobName}`);
+    } catch (blobErr) {
+      context.log.warn("Blob save failed:", blobErr.message);
+    }
+
+    context.res = { status: 200, headers, body: JSON.stringify({ success: true, html }) };
+
+  } catch (err) {
+    context.log.error("company-report-http error:", err.message);
+    context.res = { status: 500, headers, body: JSON.stringify({ error: err.message }) };
   }
-
-  // ── No existe blob → disparar generación en worker (fire-and-forget) ─
-  const workerKey  = process.env.WORKER_FUNCTION_KEY;
-  const workerBase = 'https://ai-pulse-worker-fsafhygmb6grbqg3.northcentralus-01.azurewebsites.net/api';
-  fetch(`${workerBase}/company-report-http?code=${workerKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ empresa })
-  }).catch(err => context.log.warn("Worker trigger failed:", err.message));
-
-  context.log.info(`Worker triggered (fire-and-forget) para empresa ${empresa}`);
-  context.res = { status: 202, headers, body: JSON.stringify({ status: "pending", message: `El informe de ${empresa} se está generando. Vuelve en 1-2 minutos e intenta de nuevo.` }) };
-
 };

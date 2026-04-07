@@ -1,6 +1,5 @@
 const { TableClient } = require("@azure/data-tables");
 const { BlobServiceClient } = require("@azure/storage-blob");
-const { QueueServiceClient } = require("@azure/storage-queue");
 const { requireAdmin } = require("../shared/adminAuth");
 
 function blobNameForEmail(email) {
@@ -238,20 +237,17 @@ module.exports = async function (context, req) {
     context.log.warn("Blob check failed:", blobErr.message);
   }
 
-  // ── No existe blob → encolar generación en background ────────────
-  try {
-    const queueClient = QueueServiceClient
-      .fromConnectionString(connectionString)
-      .getQueueClient("report-generation");
-    await queueClient.createIfNotExists();
-    const msg = Buffer.from(JSON.stringify({ email })).toString("base64");
-    await queueClient.sendMessage(msg);
-    context.log.info(`Enqueued individual report for ${email}`);
-    context.res = { status: 202, headers, body: JSON.stringify({ status: "pending", message: "El informe se está generando. Vuelve en 1-2 minutos e intenta de nuevo." }) };
-  } catch (qErr) {
-    context.log.error("Queue enqueue failed:", qErr.message);
-    context.res = { status: 500, headers, body: JSON.stringify({ error: qErr.message }) };
-  }
+  // ── No existe blob → disparar generación en worker (fire-and-forget) ─
+  const workerKey  = process.env.WORKER_FUNCTION_KEY;
+  const workerBase = 'https://ai-pulse-worker-fsafhygmb6grbqg3.northcentralus-01.azurewebsites.net/api';
+  fetch(`${workerBase}/report-http?code=${workerKey}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email })
+  }).catch(err => context.log.warn("Worker trigger failed:", err.message));
+
+  context.log.info(`Worker triggered (fire-and-forget) for ${email}`);
+  context.res = { status: 202, headers, body: JSON.stringify({ status: "pending", message: "El informe se está generando. Vuelve en 1-2 minutos e intenta de nuevo." }) };
 
   if (false) { // dead code — procesado por worker/report-processor
   try {
