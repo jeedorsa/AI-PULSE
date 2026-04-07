@@ -768,16 +768,25 @@ module.exports = async function (context, req) {
     context.log.warn("Blob check empresa failed:", blobErr.message);
   }
 
-  // ── No existe blob → disparar generación en worker (fire-and-forget) ─
+  // ── No existe blob → llamar worker y esperar resultado ──────────────
   const workerKey  = process.env.WORKER_FUNCTION_KEY;
   const workerBase = 'https://ai-pulse-worker-fsafhygmb6grbqg3.northcentralus-01.azurewebsites.net/api';
-  fetch(`${workerBase}/company-report-http?code=${workerKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ empresa })
-  }).catch(err => context.log.warn("Worker trigger failed:", err.message));
-
-  context.log.info(`Worker triggered (fire-and-forget) para empresa ${empresa}`);
-  context.res = { status: 202, headers, body: JSON.stringify({ status: "pending", message: `El informe de ${empresa} se está generando. Vuelve en 1-2 minutos e intenta de nuevo.` }) };
+  try {
+    context.log.info(`Llamando worker company-report-http para ${empresa}`);
+    const workerRes = await fetch(`${workerBase}/company-report-http?code=${workerKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ empresa })
+    });
+    const workerData = await workerRes.json();
+    if (!workerRes.ok || !workerData.html) {
+      throw new Error(workerData.error || `Worker respondió ${workerRes.status}`);
+    }
+    context.log.info(`Worker completado para empresa ${empresa}`);
+    context.res = { status: 200, headers, body: JSON.stringify({ success: true, html: workerData.html }) };
+  } catch (workerErr) {
+    context.log.error("Worker call failed:", workerErr.message);
+    context.res = { status: 500, headers, body: JSON.stringify({ error: workerErr.message }) };
+  }
 
 };
