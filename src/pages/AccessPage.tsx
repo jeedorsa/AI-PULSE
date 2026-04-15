@@ -31,7 +31,9 @@ export default function AccessPage() {
   const [status, setStatus] = useState<Status>('idle');
   const [nombre, setNombre] = useState('');
 
-  const emailHint = dominio ? `tu@${dominio}` : 'tu@empresa.com';
+  const dominios = dominio ? dominio.split(',').map(d => d.trim()).filter(Boolean) : [];
+  const emailHint = dominios.length > 0 ? `tu@${dominios[0]}` : 'tu@empresa.com';
+  const dominiosLabel = dominios.map(d => `@${d}`).join(' o ');
 
   const handleSubmit = async () => {
     const trimmed = email.trim().toLowerCase();
@@ -136,7 +138,7 @@ export default function AccessPage() {
 
               <p className="font-body text-[14px] font-light text-[#555555] leading-[1.6] mb-8">
                 {isDomainMode
-                  ? `Usa tu correo corporativo @${dominio} para acceder al diagnóstico.`
+                  ? `Usa tu correo corporativo ${dominiosLabel} para acceder al diagnóstico.`
                   : 'Usa el correo con el que fuiste registrado en esta evaluación.'}
               </p>
 
@@ -235,7 +237,7 @@ export default function AccessPage() {
               </div>
               <h2 className="font-display text-[28px] text-[#111111] mb-3">Correo no válido</h2>
               <p className="font-body text-[14px] font-light text-[#555555] leading-[1.6] mb-6">
-                Este enlace es exclusivo para correos <strong className="text-[#111111] font-semibold">@{dominio}</strong>. Usa tu correo corporativo para continuar.
+                Este enlace es exclusivo para correos <strong className="text-[#111111] font-semibold">{dominiosLabel}</strong>. Usa tu correo corporativo para continuar.
               </p>
               <button
                 onClick={() => setStatus('idle')}

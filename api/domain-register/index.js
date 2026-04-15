@@ -34,15 +34,21 @@ module.exports = async function (context, req) {
     return;
   }
 
-  // ── Verificar dominio autorizado ─────────────────────────────────────────
-  if (dominio && !email.endsWith(`@${dominio}`)) {
-    context.res = {
-      status: 403, headers,
-      body: JSON.stringify({
-        error: `Este enlace es exclusivo para personas con correo @${dominio}. Verifica que estés usando tu email corporativo.`
-      })
-    };
-    return;
+  // ── Verificar dominio(s) autorizado(s) ──────────────────────────────────
+  // dominio puede ser uno o varios separados por coma: "acme.com,acme.cl"
+  if (dominio) {
+    const dominiosPermitidos = dominio.split(',').map(d => d.trim().toLowerCase()).filter(Boolean);
+    const dominioValido = dominiosPermitidos.some(d => email.endsWith(`@${d}`));
+    if (!dominioValido) {
+      const lista = dominiosPermitidos.map(d => `@${d}`).join(' o ');
+      context.res = {
+        status: 403, headers,
+        body: JSON.stringify({
+          error: `Este enlace es exclusivo para correos ${lista}. Verifica que estés usando tu email corporativo.`
+        })
+      };
+      return;
+    }
   }
 
   const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;

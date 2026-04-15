@@ -951,14 +951,15 @@ export default function AdminPage() {
                     />
                   </div>
                   <div>
-                    <label className="font-mono text-[8px] uppercase tracking-wider text-[#AAAAAA] block mb-1">Dominio de correo</label>
+                    <label className="font-mono text-[8px] uppercase tracking-wider text-[#AAAAAA] block mb-1">Dominio(s) de correo</label>
                     <input
                       type="text"
                       value={linkDominio}
                       onChange={e => setLinkDominio(e.target.value.toLowerCase().replace(/\s/g, ''))}
-                      placeholder="ej: inchskape.com"
+                      placeholder="ej: acme.com,acme.cl,acme.com.mx"
                       className="w-full bg-white border border-[#CCCCCC] rounded-[2px] px-3 py-2 font-body text-[13px] text-[#111111] placeholder-[#AAAAAA] focus:outline-none focus:border-primary/60 transition-colors"
                     />
+                    <p className="font-mono text-[8px] text-[#AAAAAA] mt-1">Para múltiples dominios, sepáralos con coma</p>
                   </div>
                 </div>
 
@@ -982,7 +983,7 @@ export default function AdminPage() {
                       </button>
                     </div>
                     <p className="font-mono text-[9px] text-[#AAAAAA]">
-                      Solo personas con correo @{linkDominio.trim()} podrán acceder. Los demás verán un mensaje de error.
+                      Solo personas con correo {linkDominio.trim().split(',').map((d: string) => `@${d.trim()}`).join(' o ')} podrán acceder.
                     </p>
                   </div>
                 )}
