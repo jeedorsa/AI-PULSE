@@ -108,7 +108,7 @@ Responde SOLO con JSON válido, sin markdown:
   "gaps": [{"titulo": "...", "accion": "..."}],
   "frase_cierre": "1 frase final."
 }
-Mínimo 2 fortalezas, mínimo 2 oportunidades, exactamente 3 gaps. Tono consultor senior.`;
+Mínimo 2 fortalezas, mínimo 2 oportunidades, exactamente 3 gaps. Tono consultor senior. IMPORTANTE: usa siempre tuteo (tú/tu/tus/te) — nunca usted/su/sus.`;
 }
 
 function generateHTML(participant, scores, answers, analysis, companyDist) {
@@ -375,7 +375,7 @@ module.exports = async function (context, req) {
       headers: { 'Content-Type': 'application/json', 'api-key': openaiKey },
       body: JSON.stringify({
         messages: [
-          { role: 'system', content: 'Eres el analista principal de AI Pulse. Respondes SOLO con JSON válido, sin markdown.' },
+          { role: 'system', content: 'Eres el analista principal de AI Pulse. Respondes SOLO con JSON válido, sin markdown. Usa siempre tuteo (tú/tu/tus/te) — nunca usted/su/sus.' },
           { role: 'user', content: prompt }
         ],
         max_completion_tokens: 20000

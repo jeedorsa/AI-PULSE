@@ -181,6 +181,7 @@ Tu análisis debe ser:
 - Sin mencionar personas específicas — solo patrones, porcentajes y niveles jerárquicos
 - En español, tono profesional, párrafos cortos
 - Máximo 3 oraciones por campo salvo indicación contraria
+- IMPORTANTE: usa siempre tuteo (tú/tu/tus/te) cuando te dirijas a la organización o al lector — nunca usted/su/sus
 
 JSON ENTERPRISE:
 ${JSON.stringify(jsonEnterprise, null, 2)}
@@ -245,6 +246,7 @@ REGLAS:
 - Si brecha_comunicacion.activa = true → aparece en 60 días
 - Si brecha_habilitacion.activa = true → aparece en 90 días
 - El KPI de cada horizonte debe ser verificable en la re-evaluación de 90 días
+- IMPORTANTE: usa siempre tuteo (tú/tu/tus/te) — nunca usted/su/sus
 - aiq_actual = ${aiqActual.toFixed(2)}, aiq_objetivo_90_dias = ${objetivo.toFixed(2)}
 
 JSON ENTERPRISE:
@@ -676,7 +678,7 @@ module.exports = async function (context, req) {
   const deployment  = process.env.AZURE_OPENAI_DEPLOYMENT;
   const apiVersion  = process.env.AZURE_OPENAI_API_VERSION || "2025-04-01-preview";
   const openaiUrl   = `${apiEndpoint.replace(/\/$/, '')}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
-  const systemMsg   = 'Eres el analizador Enterprise de AI Pulse. Respondes SOLO con JSON válido, sin markdown ni texto extra.';
+  const systemMsg   = 'Eres el analizador Enterprise de AI Pulse. Respondes SOLO con JSON válido, sin markdown ni texto extra. Usa siempre tuteo (tú/tu/tus/te) — nunca usted/su/sus.';
 
   try {
     const resultsClient = TableClient.fromConnectionString(conn, "assessmentResults");
