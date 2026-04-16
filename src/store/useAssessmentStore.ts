@@ -206,14 +206,11 @@ export const useAssessmentStore = create<AssessmentState>()(
         set({ gradingStatus: 'loading' });
         const { answers } = get();
 
-        // Preguntas que puntúan individualmente
-        const scoredIds = ['E2','E3','E4','E5','B1','B2','B4','B5','B6','C1','C2','C3'];
+        // Preguntas que puntúan individualmente (Inchcape v1.0 — scoring ajustado próxima semana)
+        const scoredIds = ['E2','E3','E5','B1','B2','B4','C1','C2','C3'];
 
-        // Detectar perfil_con_automatizacion desde B3 y B5 (para peso de B6)
-        const b3Selected: string[] = answers['B3']?.selected || [];
-        const b5Score = localScore(answers['B5'], 'B5');
-        const perfilConAutomatizacion = b5Score >= 3 ||
-          b3Selected.some((s: string) => ['Automatización de tareas', 'Programación / código'].includes(s));
+        // TODO: ajustar perfil_con_automatizacion para v1.0 (B3/B5 eliminados)
+        const perfilConAutomatizacion = false;
 
         try {
           // Grading en paralelo de todas las preguntas scored
@@ -280,10 +277,8 @@ export const useAssessmentStore = create<AssessmentState>()(
         Object.values(aiFlags).forEach(flags => allFlags.push(...flags));
 
         // Detectar perfil_con_automatizacion
-        const b3Selected: string[] = answers['B3']?.selected || [];
-        const b5Score = aiScores['B5'] ?? localScore(answers['B5'], 'B5');
-        const perfilConAutomatizacion = b5Score >= 3 ||
-          b3Selected.some((s: string) => ['Automatización de tareas', 'Programación / código'].includes(s));
+        // TODO: ajustar pesos de fórmulas para Inchcape v1.0 la próxima semana
+        const perfilConAutomatizacion = false; // B3/B5 eliminados
 
         // Obtener score final por pregunta (API tiene prioridad sobre local)
         const getScore = (id: string): number => {
@@ -291,27 +286,15 @@ export const useAssessmentStore = create<AssessmentState>()(
           return localScore(answers[id], id);
         };
 
-        // ── Sección A (peso total: 0.30) ────────────────────────────────────
-        const A = (getScore('E2') * 0.35) +
-                  (getScore('E3') * 0.20) +
-                  (getScore('E4') * 0.15) +
-                  (getScore('E5') * 0.30);
+        // ── Sección A (peso total: 0.30) — temporal hasta ajuste v1.0 ────────
+        const A = (getScore('E2') * 0.40) +
+                  (getScore('E3') * 0.25) +
+                  (getScore('E5') * 0.35);
 
-        // ── Sección B (peso total: 0.30) — dinámico según perfil ────────────
-        let B: number;
-        if (perfilConAutomatizacion) {
-          B = (getScore('B1') * 0.15) +
-              (getScore('B2') * 0.25) +
-              (getScore('B4') * 0.15) +
-              (getScore('B5') * 0.25) +
-              (getScore('B6') * 0.20);
-        } else {
-          B = (getScore('B1') * 0.165) +
-              (getScore('B2') * 0.275) +
-              (getScore('B4') * 0.165) +
-              (getScore('B5') * 0.275) +
-              (getScore('B6') * 0.10);
-        }
+        // ── Sección B (peso total: 0.30) — temporal hasta ajuste v1.0 ────────
+        const B = (getScore('B1') * 0.30) +
+                  (getScore('B2') * 0.40) +
+                  (getScore('B4') * 0.30);
 
         // ── Sección C (peso total: 0.40) ────────────────────────────────────
         const C = (getScore('C1') * 0.30) +

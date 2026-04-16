@@ -10,11 +10,16 @@ export const MixedMultiQuestion: React.FC<MixedMultiProps> = ({ question, value,
   const selected = value?.selected || [];
   const currentText = value?.text || '';
 
+  const max = question.max ?? null;
+
   const toggleOption = (option: string) => {
-    const newSelected = selected.includes(option)
-      ? selected.filter((s: string) => s !== option)
-      : [...selected, option];
-    onChange({ ...value, selected: newSelected });
+    if (selected.includes(option)) {
+      const newSelected = selected.filter((s: string) => s !== option);
+      onChange({ ...value, selected: newSelected });
+    } else {
+      if (max !== null && selected.length >= max) return;
+      onChange({ ...value, selected: [...selected, option] });
+    }
   };
 
   const handleTextChange = (text: string) => {

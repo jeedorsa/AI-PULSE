@@ -148,29 +148,6 @@ export const PromptingIDE: React.FC<PromptingIDEProps> = ({ question, value, onC
         )}
       </div>
 
-      {/* Guidance Chips */}
-      <div className="flex flex-wrap gap-[6px] mb-3">
-        {[
-          { id: 'rol', label: '💡 Rol asignado' },
-          { id: 'contexto', label: '💡 Contexto específico' },
-          { id: 'formato', label: '💡 Formato esperado' },
-          { id: 'restricciones', label: '💡 Restricciones' }
-        ].map(chip => (
-          <div
-            key={chip.id}
-            className={`
-              font-mono text-[8.5px] px-2 py-[3px] rounded-[2px] border transition-all duration-200
-              ${chips[chip.id as keyof typeof chips]
-                ? 'bg-[rgba(0,200,100,0.06)] border-[rgba(0,200,100,0.15)] text-[#00CC66]'
-                : 'bg-[#EFEFEF] border-[#E0E0E0] text-[#AAAAAA]'
-              }
-            `}
-          >
-            {chip.label}
-          </div>
-        ))}
-      </div>
-
       {/* IDE Input */}
       <div className={`
         bg-[#050505] border rounded-[2px] p-4 relative transition-colors duration-200

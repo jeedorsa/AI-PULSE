@@ -11,7 +11,7 @@ export const ProgressSidebar: React.FC = () => {
   const minutesRemaining = Math.max(1, Math.round(12 * (1 - currentQuestion / totalQuestions)));
 
   const sections = [
-    { id: 'V', name: 'Sobre Ti y Tu Rol',              total: questions.filter(q => q.section === 'V').length, weight: 0 },
+    { id: 'V', name: 'Tu punto de partida',              total: questions.filter(q => q.section === 'V').length, weight: 0 },
     { id: 'A', name: 'Tu Experiencia Real con IA',      total: questions.filter(q => q.section === 'A').length, weight: 30 },
     { id: 'B', name: 'Criterio y Capacidades Técnicas', total: questions.filter(q => q.section === 'B').length, weight: 30 },
     { id: 'C', name: 'Laboratorio de Ejecución',        total: questions.filter(q => q.section === 'C').length, weight: 40 },

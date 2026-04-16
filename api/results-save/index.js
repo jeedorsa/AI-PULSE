@@ -60,38 +60,34 @@ module.exports = async function (context, req) {
     const sectionC = safeNumber(aiqResult.sectionScores?.C?.avg, 0);
     const durationMinutes = metadata.durationMinutes != null ? safeNumber(metadata.durationMinutes, null) : null;
 
-    // ESTRUCTURA DEL TEXTO PARA EMBEDDING — v2.0 (25 preguntas)
+    // ESTRUCTURA DEL TEXTO PARA EMBEDDING — Inchcape v1.0
     const textToEmbed = `
-      Área: ${answers.V1 || ""}
-      Nivel jerárquico: ${answers.V2?.value || ""}
-      Años en rol: ${answers.V3?.value || ""}
-      Herramientas usadas: ${(answers.V4?.selected || []).join(", ")}
+      Autopercepción IA: ${answers.V1?.value || ""}
+      Herramientas exploradas: ${(answers.V2?.selected || []).join(", ")}
+      Barreras para usar IA: ${(answers.V3?.selected || []).join(", ")}
+      Superpoderes elegidos: ${(answers.V4?.selected || []).join(", ")}
       Posición: ${participant.posicion}
       Empresa: ${participant.empresa}
       Departamento: ${participant.departamento}
 
       [E2 - Último entregable] ${answers.E2 || ""}
-      [E3 - Reacción a error IA] ${answers.E3?.value || ""}
-      [E4 - IA ante tema desconocido] ${answers.E4?.value || ""}
-      [E5 - Enseñanza sobre IA] ${answers.E5 || ""}
+      [E3 - Reacción a resultado incorrecto] ${answers.E3 || ""}
+      [E5 - Compartió sobre IA] ${answers.E5 || ""}
 
-      [B1 - Verificación datos] ${answers.B1?.value || ""}
-      [B2 - Seguridad datos] ${answers.B2 || ""}
-      [B3 - Casos de uso este mes] ${(answers.B3?.selected || []).join(", ")}
-      [B4 - Archivos analizados] ${(answers.B4?.selected || []).join(", ")} — ${answers.B4?.text || ""}
-      [B5 - Automatización] ${answers.B5 || ""}
-      [B6 - IA con info empresa] ${answers.B6 || ""}
+      [B1 - Cómo verifica datos IA] ${answers.B1?.value || ""}
+      [B2 - Info que no compartiría con IA] ${answers.B2 || ""}
+      [B4 - Uso multimodal] ${answers.B4 || ""}
 
-      [C1 - Prompt email cliente] ${answers.C1?.text || ""}
+      [C1 - Prompt vehículo con retraso] ${answers.C1?.text || ""}
       [C2 - Mejora de prompt] ${answers.C2?.text || ""}
-      [C3 - Prompt razonamiento] ${answers.C3?.text || ""}
+      [C3 - Prompt con razonamiento] ${answers.C3?.text || ""}
 
-      [D1 - Apoyo empresa] ${answers.D1?.value || ""} — ${answers.D1?.text || ""}
-      [D2 - IA mal vista] ${answers.D2 || ""}
-      [D3 - Herramientas] ${(answers.D3?.selected || []).join(", ")}
+      [D1 - Apoyo jefe directo] ${answers.D1?.value || ""}
+      [D1b - Apoyo Inchcape como empresa] ${answers.D1b?.value || ""}
+      [D2 - IA generó desconfianza] ${answers.D2 || ""}
       [D4 - Herramienta que necesita] ${answers.D4 || ""}
-      [D5 - Espacios compartir IA] ${answers.D5?.choice || ""} — ${answers.D5?.text || ""}
-      [D6 - Políticas uso responsable] ${answers.D6 || ""}
+      [D5 - Espacios compartir IA en Inchcape] ${answers.D5?.choice || ""} — ${answers.D5?.text || ""}
+      [D6 - Conoce política oficial de IA] ${answers.D6?.value || ""}
       [D7 - No usar IA por ética] ${answers.D7 || ""}
       [D9 - Futuro del rol] ${answers.D9?.value || ""}
     `.replace(/\s+/g, ' ').trim();
@@ -142,10 +138,10 @@ module.exports = async function (context, req) {
     // Persistencia en Table Storage
     // Partir answers en bloques para evitar el límite de 32KB de Azure Table Storage
     const answersV = JSON.stringify({ V1: answers.V1, V2: answers.V2, V3: answers.V3, V4: answers.V4 });
-    const answersA = JSON.stringify({ E2: answers.E2, E3: answers.E3, E4: answers.E4, E5: answers.E5 });
-    const answersB = JSON.stringify({ B1: answers.B1, B2: answers.B2, B3: answers.B3, B4: answers.B4, B5: answers.B5, B6: answers.B6 });
+    const answersA = JSON.stringify({ E2: answers.E2, E3: answers.E3, E5: answers.E5 });
+    const answersB = JSON.stringify({ B1: answers.B1, B2: answers.B2, B4: answers.B4 });
     const answersC = JSON.stringify({ C1: answers.C1, C2: answers.C2, C3: answers.C3 });
-    const answersD = JSON.stringify({ D1: answers.D1, D2: answers.D2, D3: answers.D3, D4: answers.D4, D5: answers.D5, D6: answers.D6, D7: answers.D7, D9: answers.D9 });
+    const answersD = JSON.stringify({ D1: answers.D1, D1b: answers.D1b, D2: answers.D2, D4: answers.D4, D5: answers.D5, D6: answers.D6, D7: answers.D7, D9: answers.D9 });
 
     await resultsClient.upsertEntity({
       partitionKey: (participant.empresa || "General").trim(),

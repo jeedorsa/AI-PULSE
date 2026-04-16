@@ -7,14 +7,12 @@ function blobNameForEmail(email) {
 }
 
 // ── Mapas de opciones cerradas ────────────────────────────────────
-const V2_OPT = { 1: 'Colaborador individual', 2: 'Manager o Líder de equipo', 3: 'Director', 4: 'VP o C-Suite' };
-const V3_OPT = { 1: 'Menos de 1 año', 2: '1 a 3 años', 3: '3 a 5 años', 4: 'Más de 5 años' };
-const E3_OPT = { 1: 'No lo noto', 2: 'Repito la pregunta igual', 3: 'Ajusto el prompt manualmente', 4: 'Aplico un proceso sistemático de corrección', 5: 'Comparto la lección con mi equipo' };
-const E4_OPT = { 1: 'No la uso', 2: 'Busco definiciones rápidas', 3: 'Pido analogías y explicaciones adaptadas a mi contexto', 4: 'Diseño un plan de estudio y genero casos prácticos con la IA' };
-const B1_OPT = { 1: 'Confío si suena bien', 2: 'Búsqueda rápida en Google', 3: 'Método sistemático de verificación cruzada' };
-const D1_OPT = { 1: 'Nunca ha habido incentivo', 2: 'Menciones generales sin acciones', 3: 'He recibido recursos o tiempo específico', 4: 'Existe una estrategia clara con liderazgo' };
-const D9_OPT = { 1: 'Me genera incertidumbre', 2: 'Tengo curiosidad pero no sé cómo afectará', 3: 'Lo veo como oportunidad de crecimiento', 4: 'La IA ya es central en mi desarrollo profesional' };
-const E5_OPT = { 1: 'No', 2: 'Comparto prompts puntuales', 3: 'Enseño técnicas y resuelvo dudas', 4: 'Lidero la adopción y creo recursos compartidos' };
+const V1_OPT = { 1: 'Aún no la he usado ni explorado', 2: 'La he probado pero no le he encontrado utilidad real en mi trabajo', 3: 'La uso de vez en cuando para tareas puntuales', 4: 'La uso regularmente y forma parte de cómo trabajo' };
+const B1_OPT = { 1: 'La acepto si suena lógica o coherente con lo que sé', 2: 'La busco en Google u otra fuente que tengo a mano', 3: 'Verifico cuando voy a usarlo para tomar una decisión o compartirlo', 4: 'La contrasto siempre con una fuente confiable antes de usarla', 5: 'Generalmente la uso sin verificar, no siempre sé cómo hacerlo' };
+const D1_OPT = { 1: 'Nunca lo ha mencionado ni promovido', 2: 'Lo menciona ocasionalmente pero sin acciones concretas', 3: 'Me ha dado espacio o recursos para explorarlo', 4: 'Lo promueve activamente y da el ejemplo' };
+const D1B_OPT = { 1: 'No he visto ninguna iniciativa o comunicación al respecto', 2: 'He escuchado menciones generales pero sin acciones concretas', 3: 'Hay herramientas disponibles pero no hay formación ni seguimiento', 4: 'Existe una estrategia clara con formación, seguimiento y liderazgo visible' };
+const D6_OPT = { 1: 'Sí, la conozco y sé lo que dice', 2: 'Sí, sé que existe pero no la he leído', 3: 'No sé si existe alguna política al respecto', 4: 'No sé qué es una política de uso de IA' };
+const D9_OPT = { 1: 'Me genera dudas — no sé bien qué significa para mi trabajo', 2: 'Tengo curiosidad pero todavía no sé cómo me va a afectar', 3: 'Lo veo como una oportunidad clara para crecer en mi rol', 4: 'Ya la incorporé como parte natural de cómo trabajo' };
 
 const NIVEL_NOMBRES = { L1: 'Novato', L2: 'Experimentador', L3: 'Practicante', L4T: 'Amplificador Técnico', L4L: 'Amplificador Estratégico' };
 const NIVEL_SIGUIENTE = { L1: 'L2', L2: 'L3', L3: 'L4T', L4T: 'L4L', L4L: 'L4L' };
@@ -22,34 +20,26 @@ const NIVEL_SIGUIENTE = { L1: 'L2', L2: 'L3', L3: 'L4T', L4T: 'L4L', L4L: 'L4L' 
 function resolveAnswer(id, raw) {
   if (raw === undefined || raw === null) return '(no respondida)';
   switch (id) {
-    case 'V1': return typeof raw === 'string' ? raw : '';
-    case 'V2': return V2_OPT[raw?.value] || '';
-    case 'V3': return V3_OPT[raw?.value] || '';
+    case 'V1': return V1_OPT[raw?.value] || '';
+    case 'V2': return (raw?.selected || []).join(', ');
+    case 'V3': return (raw?.selected || []).join(', ');
     case 'V4': return (raw?.selected || []).join(', ');
     case 'E2': return typeof raw === 'string' ? raw : raw?.text || '';
-    case 'E3': return E3_OPT[raw?.value] || '';
-    case 'E4': return E4_OPT[raw?.value] || '';
-    case 'E5': return typeof raw === 'string' ? raw : (E5_OPT[raw?.value] || '');
+    case 'E3': return typeof raw === 'string' ? raw : raw?.text || '';
+    case 'E5': return typeof raw === 'string' ? raw : raw?.text || '';
     case 'B1': return B1_OPT[raw?.value] || '';
     case 'B2': return typeof raw === 'string' ? raw : raw?.text || '';
-    case 'B3': return (raw?.selected || []).join(', ');
-    case 'B4': return [(raw?.selected || []).join(', '), raw?.text || ''].filter(Boolean).join(' — ');
-    case 'B5': return typeof raw === 'string' ? raw : raw?.text || '';
-    case 'B6': return typeof raw === 'string' ? raw : raw?.text || '';
+    case 'B4': return typeof raw === 'string' ? raw : raw?.text || '';
     case 'C1': return raw?.text || '';
     case 'C2': return raw?.text || '';
     case 'C3': return raw?.text || '';
-    case 'D1': return [D1_OPT[raw?.value] || '', raw?.text || ''].filter(Boolean).join(' — ');
-    case 'D2': return typeof raw === 'string' ? raw : '';
-    case 'D3': {
-      const sel = raw?.selected || [];
-      const ori = raw?.origins || {};
-      return sel.map(t => ori[t] ? `${t} (${ori[t]})` : t).join(', ');
-    }
-    case 'D4': return typeof raw === 'string' ? raw : '';
+    case 'D1': return D1_OPT[raw?.value] || '';
+    case 'D1b': return D1B_OPT[raw?.value] || '';
+    case 'D2': return typeof raw === 'string' ? raw : raw?.text || '';
+    case 'D4': return typeof raw === 'string' ? raw : raw?.text || '';
     case 'D5': return [raw?.choice || '', raw?.text || ''].filter(Boolean).join(' — ');
-    case 'D6': return typeof raw === 'string' ? raw : '';
-    case 'D7': return typeof raw === 'string' ? raw : '';
+    case 'D6': return D6_OPT[raw?.value] || '';
+    case 'D7': return typeof raw === 'string' ? raw : raw?.text || '';
     case 'D9': return D9_OPT[raw?.value] || '';
     default: return typeof raw === 'string' ? raw : JSON.stringify(raw);
   }
@@ -69,10 +59,10 @@ DATOS DEL PARTICIPANTE:
 - Empresa: ${participant.empresa}
 - Posición: ${participant.posicion}
 - Departamento: ${participant.departamento}
-- Área declarada: ${ans('V1')}
-- Nivel jerárquico: ${ans('V2')}
-- Años en el rol: ${ans('V3')}
-- Herramientas IA que usa: ${ans('V4')}
+- Autopercepción IA: ${ans('V1')}
+- Herramientas exploradas: ${ans('V2')}
+- Barreras para usar IA: ${ans('V3')}
+- Superpoderes elegidos: ${ans('V4')}
 
 RESULTADO AIQ:
 - Nivel: ${nivel} — ${nivelNombre}
@@ -84,70 +74,58 @@ RESULTADO AIQ:
 RESPUESTAS COMPLETAS DEL PARTICIPANTE:
 
 [BLOQUE A — EXPERIENCIA REAL CON IA]
-E2 — Último entregable con IA:
+E2 — Último entregable con IA (reporte, diagnóstico, cotización, plan, presentación):
 "${ans('E2')}"
 
-E3 — Reacción ante resultado incorrecto de la IA:
+E3 — Qué hace cuando la IA da un resultado incorrecto o inesperado:
 "${ans('E3')}"
 
-E4 — Cómo usa la IA ante un tema desconocido:
-"${ans('E4')}"
-
-E5 — Qué ha enseñado o compartido sobre IA:
+E5 — Qué ha compartido sobre IA con compañeros o equipo:
 "${ans('E5')}"
 
 [BLOQUE B — CRITERIO Y CAPACIDADES TÉCNICAS]
-B1 — Cómo verifica datos de la IA:
+B1 — Cómo decide si puede confiar en un dato que le dio la IA:
 "${ans('B1')}"
 
-B2 — Información corporativa que evita compartir:
+B2 — Información de su trabajo que NO compartiría con una herramienta de IA:
 "${ans('B2')}"
 
-B3 — Usos de IA este mes:
-"${ans('B3')}"
-
-B4 — Tipos de archivos analizados con IA:
+B4 — Si ha usado IA con algo más allá de texto (imagen, audio, documento, foto):
 "${ans('B4')}"
 
-B5 — Tarea repetitiva delegada a la IA:
-"${ans('B5')}"
-
-B6 — IA con información específica de la empresa:
-"${ans('B6')}"
-
 [BLOQUE C — LABORATORIO DE EJECUCIÓN]
-C1 — Prompt email cliente VIP con retraso:
+C1 — Prompt para comunicar retraso de vehículo a cliente importante:
 "${ans('C1')}"
 
-C2 — Mejora de prompt:
+C2 — Mejora de prompt deficiente:
 "${ans('C2')}"
 
-C3 — Prompt con razonamiento paso a paso:
+C3 — Prompt con razonamiento paso a paso (decisión de descuento):
 "${ans('C3')}"
 
 [BLOQUE D — CULTURA Y FUTURO]
-D1 — Apoyo de la empresa al uso de IA:
+D1 — Apoyo del jefe directo al uso de IA:
 "${ans('D1')}"
 
-D2 — IA mal vista en el equipo:
+D1b — Apoyo de Inchcape como empresa al uso de IA:
+"${ans('D1b')}"
+
+D2 — Si ha sentido que usar IA generaba desconfianza o incomodidad:
 "${ans('D2')}"
 
-D3 — Herramientas que usa (empresa vs. propias):
-"${ans('D3')}"
-
-D4 — Herramienta que necesita y no tiene:
+D4 — Herramienta de IA que necesitaría y no tiene acceso:
 "${ans('D4')}"
 
-D5 — Espacios para compartir IA en la empresa:
+D5 — Espacios en Inchcape para compartir IA entre compañeros:
 "${ans('D5')}"
 
-D6 — Políticas de uso responsable que conoce:
+D6 — Si sabe si Inchcape tiene una política oficial sobre el uso de IA:
 "${ans('D6')}"
 
-D7 — Decisión de NO usar IA por razones éticas:
+D7 — Decisión de NO usar IA por razones éticas o principios propios:
 "${ans('D7')}"
 
-D9 — Cómo ve el futuro de su rol con la IA:
+D9 — Cómo ve el futuro de su rol con la llegada de la IA:
 "${ans('D9')}"
 
 INSTRUCCIONES:
@@ -191,7 +169,7 @@ REGLAS CRÍTICAS:
 - Cada observación debe poder rastrearse directamente a una respuesta específica del participante.
 - Si una respuesta es vaga o corta, señálalo — eso también es información.
 - El tono es el de un consultor senior que habla claro, no el de un coach motivacional.
-- Adapta el lenguaje al nivel jerárquico: habla diferente a un C-Suite que a un colaborador.`;
+- Adapta el lenguaje según el perfil declarado del participante (posición, autopercepción de IA, barreras identificadas).`;
 }
 
 module.exports = async function (context, req) {

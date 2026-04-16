@@ -13,7 +13,6 @@ function blobNameForEmpresa(empresa) {
   return `company/${empresa.replace(/[^a-zA-Z0-9]/g, '_')}.html`;
 }
 
-const V2_OPT = { 1: 'Colaborador individual', 2: 'Manager o Líder de equipo', 3: 'Director', 4: 'VP o C-Suite' };
 const NIVEL_CODIGO = {
   'VP o C-Suite': 'EJE',
   'Director': 'DIR',
@@ -51,10 +50,10 @@ function buildPrompt1(empresa, participantes) {
     challenge_profile: p.challengeProfile,
     alerts: p.alerts || [],
     b2_score: p.b2_raw,
-    d3_herramientas: p.answers?.D3?.selected || [],
     d5_espacios: p.answers?.D5?.choice || '',
-    d6_politicas: p.answers?.D6 || '',
-    d1_apoyo: p.answers?.D1?.value || 0,
+    d6_politica_conoce: p.answers?.D6?.value || 0,
+    d1_apoyo_jefe: p.answers?.D1?.value || 0,
+    d1b_apoyo_empresa: p.answers?.D1b?.value || 0,
   }));
 
   return `Eres el analizador Enterprise del AIQ Framework de AI Pulse.
@@ -106,16 +105,16 @@ brecha_gobernanza:
   activa: true si > 40% encuestados tienen b2_score = 1 O b2_score vacío/vago
   severidad: "critica" si >50% | "importante" si 25-50% | "leve" si <25%
   n_afectados, pct_afectados
-  politicas_existen: true si al menos 1 tiene d6_politicas con contenido distinto de vacío
+  politicas_existen: true si al menos 1 tiene d6_politica_conoce = 1 o 2
 
 brecha_comunicacion:
-  activa: true si >60% tienen d5_espacios = "nunca" o vacío
+  activa: true si >60% tienen d5_espacios = "no" o vacío
   severidad: "total" si 100% | "alta" si >60% | "media" si 30-60%
   n_sin_espacios
 
 brecha_habilitacion:
-  activa: true si algún participante tiene "pagada_por_empleado" en d3_herramientas o la mención de pago propio
-  n_afectados
+  activa: true si el promedio de d1b_apoyo_empresa < 2.5 (empresa no apoya activamente)
+  n_afectados: número con d1b_apoyo_empresa <= 2
 
 brecha_liderazgo:
   activa: true si colaboradores_adelante = true
@@ -688,8 +687,6 @@ module.exports = async function (context, req) {
       queryOptions: { filter: `PartitionKey eq '${empresa}'` }
     })) {
       const answers = assembleAnswers(entity);
-      const v2val  = answers?.V2?.value;
-      const v2text = V2_OPT[v2val] || '';
       let alerts = [];
       try { alerts = Array.isArray(entity.alerts) ? entity.alerts : JSON.parse(entity.alerts || '[]'); } catch {}
       participantes.push({
@@ -703,7 +700,7 @@ module.exports = async function (context, req) {
         sectionC: safeNum(entity.sectionC),
         challengeProfile: entity.challengeProfile || '',
         alerts,
-        nivelCodigo: NIVEL_CODIGO[v2text] || NIVEL_CODIGO[entity.posicion] || 'COL',
+        nivelCodigo: NIVEL_CODIGO[entity.posicion] || 'COL',
         b2_raw: answers?.B2 || '',
         answers,
       });

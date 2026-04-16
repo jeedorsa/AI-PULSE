@@ -117,7 +117,7 @@ export default function AssessmentPage() {
 
   // Section Name Map
   const sectionNames: Record<string, string> = {
-    'V': 'Sobre Ti y Tu Rol',
+    'V': 'Tu punto de partida',
     'A': 'Tu Experiencia Real con IA',
     'B': 'Criterio y Capacidades Técnicas',
     'C': 'Laboratorio de Ejecución',
