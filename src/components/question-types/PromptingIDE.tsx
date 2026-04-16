@@ -127,11 +127,7 @@ export const PromptingIDE: React.FC<PromptingIDEProps> = ({ question, value, onC
   return (
     <div className="w-full">
       {/* Scenario Card */}
-      <div className={`
-        bg-[#E5E5E5] border border-[#CCCCCC] border-l-[3px] border-l-primary 
-        px-5 py-4 rounded-[2px] mb-5 transition-opacity duration-250
-        ${isFocused ? 'md:opacity-100 opacity-10' : 'opacity-100'}
-      `}>
+      <div className="bg-[#E5E5E5] border border-[#CCCCCC] border-l-[3px] border-l-primary px-5 py-4 rounded-[2px] mb-5">
         <div className="font-mono text-[8px] uppercase text-primary tracking-[0.2em] mb-2">
           Escenario {question.id}
         </div>
@@ -153,10 +149,7 @@ export const PromptingIDE: React.FC<PromptingIDEProps> = ({ question, value, onC
       </div>
 
       {/* Guidance Chips */}
-      <div className={`
-        flex flex-wrap gap-[6px] mb-3 transition-opacity duration-250
-        ${isFocused ? 'md:opacity-100 opacity-10' : 'opacity-100'}
-      `}>
+      <div className="flex flex-wrap gap-[6px] mb-3">
         {[
           { id: 'rol', label: '💡 Rol asignado' },
           { id: 'contexto', label: '💡 Contexto específico' },
@@ -193,36 +186,20 @@ export const PromptingIDE: React.FC<PromptingIDEProps> = ({ question, value, onC
               onFocus={handleFocus}
               onBlur={handleBlur}
               placeholder="Escribe tu prompt aquí..."
-              className="w-full bg-transparent border-none outline-none resize-none font-mono text-[11.5px] text-[#555555] leading-[1.75] min-h-[120px] placeholder-[#2a2a2a]"
+              className="w-full bg-transparent border-none outline-none resize-none font-mono text-[13px] md:text-[11.5px] text-[#CCCCCC] leading-[1.75] min-h-[140px] placeholder-[#555555]"
             />
-            {/* Cursor visible if focused OR empty */}
-            {(isFocused || !text) && (
-               <span className="absolute pointer-events-none" style={{ 
-                 left: text ? 'auto' : '0', // Simple positioning for empty state
-                 top: text ? 'auto' : '0',
-                 display: text && !isFocused ? 'none' : 'inline-block' // Hide if has text and not focused
-               }}>
-                 {/* 
-                    Note: Positioning the cursor exactly at the end of text in a textarea is hard without a mirror div.
-                    For this requirement "PromptCursor visible when textarea is in focus or empty",
-                    we can just show it at the end if we had a mirror, or just rely on native cursor + custom block cursor at start?
-                    The prompt says "PromptCursor... visible cuando el textarea está en focus o vacío".
-                    Let's simplify: Show it only when empty as a placeholder cursor, or append it?
-                    Actually, a blinking block cursor usually replaces the native caret. 
-                    Since we can't easily replace native caret in textarea, let's just show it when empty.
-                 */}
-                 {!text && <PromptCursor />}
-               </span>
-            )}
           </div>
         </div>
 
         {/* Footer */}
-        <div className="flex justify-between items-center mt-2 pt-2 border-t border-[#E0E0E0]">
-          <span className="font-mono text-[9px] text-[#AAAAAA]">
+        <div className="flex justify-between items-center mt-2 pt-2 border-t border-[#222222] gap-2">
+          <span className="font-mono text-[9px] text-[#555555] hidden md:block">
             Incluye: rol · contexto · formato · restricciones
           </span>
-          <span className="font-mono text-[10px] text-[#AAAAAA]">
+          <span className="font-mono text-[9px] text-[#555555] md:hidden">
+            rol · contexto · formato · restricciones
+          </span>
+          <span className="font-mono text-[10px] text-[#555555] shrink-0">
             ⏱ {formatTime(elapsedTime)}
           </span>
         </div>
