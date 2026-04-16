@@ -133,6 +133,11 @@ export const useAssessmentStore = create<AssessmentState>()(
           userRole: positionToRole(participant.posicion),
           startTime: Date.now(),
           isEnterprise: true,
+          // Reset siempre al identificar un nuevo participante.
+          // Si hay progreso guardado en API, restoreProgress() lo sobrescribe después.
+          currentQuestion: 0,
+          answers: {},
+          aiqResult: null,
         });
       },
 
