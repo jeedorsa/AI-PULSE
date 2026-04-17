@@ -106,13 +106,13 @@ export default function ThankYouPage() {
             className="w-full bg-[#F7F7F7] border border-[#E0E0E0] rounded-[2px] p-6 mb-6"
           >
             <div className="flex items-start gap-3">
-              <span className="text-primary text-[18px] mt-0.5">i</span>
+              <span className="text-primary text-[18px] mt-0.5 leading-none">→</span>
               <div className="text-left">
                 <p className="font-body text-[13px] font-semibold text-[#111111] mb-1">
-                  Que sigue?
+                  ¿Qué sigue?
                 </p>
                 <p className="font-body text-[12px] font-light text-[#666666] leading-[1.6]">
-                  El equipo de AI Pulse analizara todas las respuestas del diagnostico y te compartira los resultados una vez que el proceso haya concluido. Ya puedes cerrar esta ventana.
+                  El equipo de AI Pulse analizará todas las respuestas del diagnóstico y te compartirá los resultados una vez que el proceso haya concluido. Ya puedes cerrar esta ventana.
                 </p>
               </div>
             </div>
