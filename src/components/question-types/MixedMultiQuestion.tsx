@@ -42,10 +42,14 @@ export const MixedMultiQuestion: React.FC<MixedMultiProps> = ({ question, value,
               }`}
             >
               <div className="flex items-center gap-3">
-                <div className={`w-5 h-5 rounded border flex items-center justify-center ${
-                   selected.includes(opt) ? 'border-primary bg-primary' : 'border-g3'
+                <div className={`w-5 h-5 flex-shrink-0 rounded-[3px] border-2 flex items-center justify-center ${
+                   selected.includes(opt) ? 'border-primary bg-primary' : 'border-[#CCCCCC] bg-white'
                 }`}>
-                  {selected.includes(opt) && <div className="w-2 h-2 bg-white rounded-sm" />}
+                  {selected.includes(opt) && (
+                    <svg className="w-3 h-3 text-white" viewBox="0 0 12 12" fill="none">
+                      <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  )}
                 </div>
                 <span className="font-body">{opt}</span>
               </div>

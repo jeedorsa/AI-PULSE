@@ -262,9 +262,7 @@ export const questions = [
       { value: 'yes_inactive', label: 'Sí, existe pero no está activo o no lo uso' },
       { value: 'no', label: 'No existe nada parecido' },
       { value: 'unknown', label: 'No sé si existe' }
-    ],
-    conditionalText: 'Descríbeme cómo es ese espacio y qué tipo de contenido encuentras ahí.',
-    conditionalIf: ['yes_active', 'yes_inactive']
+    ]
   },
 
   {
