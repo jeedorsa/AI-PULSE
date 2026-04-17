@@ -1,6 +1,7 @@
 const { TableClient, odata } = require("@azure/data-tables");
 const { AzureOpenAI } = require("openai");
 const { SearchClient, AzureKeyCredential } = require("@azure/search-documents");
+const { EmailClient } = require("@azure/communication-email");
 const { v4: uuidv4 } = require("uuid");
 
 module.exports = async function (context, req) {
@@ -173,6 +174,31 @@ module.exports = async function (context, req) {
     pEntity.completedAt = completedAt;
 
     await participantsClient.updateEntity(pEntity, "Merge");
+
+    // NOTIFICACIÓN DE EMAIL AL ADMIN (non-blocking)
+    try {
+      const emailConnStr = process.env.AZURE_COMMUNICATION_CONNECTION_STRING;
+      const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL;
+      const senderAddress = process.env.EMAIL_SENDER_ADDRESS || "DoNotReply@aipulse.com";
+
+      if (emailConnStr && adminEmail) {
+        const emailClient = new EmailClient(emailConnStr);
+        const aiqLevelLabel = aiqResult.level || "N/A";
+        const scoreStr = aiqScore.toFixed ? aiqScore.toFixed(2) : aiqScore;
+        await emailClient.beginSend({
+          senderAddress,
+          recipients: { to: [{ address: adminEmail }] },
+          content: {
+            subject: `AI Pulse — Nueva encuesta completada: ${participant.nombre || participant.email}`,
+            plainText: `Una nueva encuesta ha sido completada.\n\nParticipante: ${participant.nombre || ""}\nEmail: ${participant.email || ""}\nEmpresa: ${participant.empresa || ""}\nPosición: ${participant.posicion || ""}\nDepartamento: ${participant.departamento || ""}\n\nAIQ Score: ${scoreStr}\nNivel AIQ: ${aiqLevelLabel}\n\nCompletado el: ${completedAt}`,
+            html: `<p>Una nueva encuesta ha sido completada.</p><table style="font-family:sans-serif;font-size:14px;border-collapse:collapse"><tr><td style="padding:4px 12px 4px 0;color:#666">Participante</td><td style="padding:4px 0"><strong>${participant.nombre || ""}</strong></td></tr><tr><td style="padding:4px 12px 4px 0;color:#666">Email</td><td style="padding:4px 0">${participant.email || ""}</td></tr><tr><td style="padding:4px 12px 4px 0;color:#666">Empresa</td><td style="padding:4px 0">${participant.empresa || ""}</td></tr><tr><td style="padding:4px 12px 4px 0;color:#666">Posición</td><td style="padding:4px 0">${participant.posicion || ""}</td></tr><tr><td style="padding:4px 12px 4px 0;color:#666">Departamento</td><td style="padding:4px 0">${participant.departamento || ""}</td></tr><tr><td style="padding:4px 12px 4px 0;color:#666">AIQ Score</td><td style="padding:4px 0"><strong style="color:#FE3C1C">${scoreStr}</strong></td></tr><tr><td style="padding:4px 12px 4px 0;color:#666">Nivel AIQ</td><td style="padding:4px 0">${aiqLevelLabel}</td></tr><tr><td style="padding:4px 12px 4px 0;color:#666">Completado</td><td style="padding:4px 0">${new Date(completedAt).toLocaleString("es-CL")}</td></tr></table>`
+          }
+        });
+        context.log.info(`Admin notification sent to ${adminEmail} for ${participant.email}`);
+      }
+    } catch (emailErr) {
+      context.log.warn("Admin email notification failed (non-blocking):", emailErr.message);
+    }
 
     // ENCOLAR GENERACIÓN DE INFORME (non-blocking)
     try {

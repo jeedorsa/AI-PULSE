@@ -642,7 +642,7 @@ export default function AdminPage() {
                 onClick={() => {
                   setActiveTab(tab.id);
                   if (tab.id === 'participants') fetchParticipants();
-                  if (tab.id === 'reporteria') fetchResults();
+                  if (tab.id === 'reporteria') { fetchResults(); fetchParticipants(); }
                 }}
                 className={`
                   px-5 py-3 font-mono text-[10px] uppercase tracking-wider transition-all
