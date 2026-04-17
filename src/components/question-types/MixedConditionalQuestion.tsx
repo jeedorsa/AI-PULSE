@@ -18,7 +18,7 @@ export const MixedConditionalQuestion: React.FC<MixedConditionalProps> = ({ ques
     onChange({ ...value, text });
   };
 
-  const showConditional = question.conditionalIf.includes(currentChoice);
+  const showConditional = question.conditionalIf ? question.conditionalIf.includes(currentChoice) : false;
 
   return (
     <div className="w-full space-y-8">
