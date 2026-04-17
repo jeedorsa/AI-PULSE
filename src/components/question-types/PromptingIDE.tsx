@@ -163,7 +163,7 @@ export const PromptingIDE: React.FC<PromptingIDEProps> = ({ question, value, onC
               onFocus={handleFocus}
               onBlur={handleBlur}
               placeholder="Escribe tu prompt aquí..."
-              className="w-full bg-transparent border-none outline-none resize-none font-mono text-[13px] md:text-[11.5px] text-[#CCCCCC] leading-[1.75] min-h-[140px] placeholder-[#555555]"
+              className="w-full bg-transparent border-none outline-none resize-none font-mono text-base md:text-[11.5px] text-[#CCCCCC] leading-[1.75] min-h-[140px] placeholder-[#555555]"
             />
           </div>
         </div>

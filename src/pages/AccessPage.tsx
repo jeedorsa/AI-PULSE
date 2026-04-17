@@ -150,7 +150,7 @@ export default function AccessPage() {
                 placeholder={emailHint}
                 disabled={status === 'loading'}
                 autoFocus
-                className="w-full bg-white border border-[#CCCCCC] rounded-[2px] px-4 py-3 font-body text-[14px] text-[#111111] placeholder:text-[#AAAAAA] focus:outline-none focus:border-primary transition-colors disabled:bg-[#F7F7F7] disabled:text-[#AAAAAA] mb-4"
+                className="w-full bg-white border border-[#CCCCCC] rounded-[2px] px-4 py-3 font-body text-base md:text-[14px] text-[#111111] placeholder:text-[#AAAAAA] focus:outline-none focus:border-primary transition-colors disabled:bg-[#F7F7F7] disabled:text-[#AAAAAA] mb-4"
               />
 
               <Button

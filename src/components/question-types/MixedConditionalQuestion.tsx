@@ -52,7 +52,7 @@ export const MixedConditionalQuestion: React.FC<MixedConditionalProps> = ({ ques
         <div className="space-y-2 animate-in fade-in slide-in-from-top-4 duration-300">
           <p className="font-display text-xl text-g2">{question.conditionalText}</p>
           <textarea
-            className="w-full h-32 bg-d2 border border-d3 rounded-xl p-4 text-[#111111] focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all resize-none font-body"
+            className="w-full h-32 bg-d2 border border-d3 rounded-xl p-4 text-base text-[#111111] focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all resize-none font-body"
             placeholder="Escribe aquí..."
             value={currentText}
             onChange={(e) => handleTextChange(e.target.value)}
