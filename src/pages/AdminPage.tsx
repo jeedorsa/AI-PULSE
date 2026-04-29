@@ -111,58 +111,12 @@ function resolveAnswer(id: string, raw: any): string {
   }
 }
 
-function downloadCSV(results: any[]) {
-  const questionIds = Object.keys(QUESTION_MAP);
-  const metaHeaders = ['Nombre', 'Email', 'Empresa', 'Posición', 'Departamento', 'AIQ Score', 'Nivel AIQ', 'Bloque A', 'Bloque B', 'Bloque C', 'Completado'];
-  const questionHeaders = questionIds.map(id => `[${id}] ${QUESTION_MAP[id]}`);
-  const allHeaders = [...metaHeaders, ...questionHeaders];
-
-  const rows = results.map(r => {
-    const meta = [
-      r.nombre, r.email, r.empresa, r.posicion, r.departamento,
-      r.aiqScore?.toFixed(2), r.aiqLevel,
-      r.sectionA?.toFixed(2), r.sectionB?.toFixed(2), r.sectionC?.toFixed(2),
-      r.completedAt ? new Date(r.completedAt).toLocaleString('es-CL') : ''
-    ];
-    const answers = questionIds.map(id => resolveAnswer(id, r.answers?.[id]));
-    return [...meta, ...answers];
-  });
-
-  const csv = [allHeaders, ...rows]
-    .map(row => row.map(v => `"${String(v || '').replace(/"/g, '""')}"`).join(','))
-    .join('\n');
-
-  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+function downloadJSON(data: any, filename: string) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `aipulse-respuestas-${new Date().toISOString().slice(0,10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function downloadIndividualCSV(r: any) {
-  const questionIds = Object.keys(QUESTION_MAP);
-  const rows = [
-    ['Campo', 'Valor'],
-    ['Nombre', r.nombre], ['Email', r.email], ['Empresa', r.empresa],
-    ['Posición', r.posicion], ['Departamento', r.departamento],
-    ['AIQ Score', r.aiqScore?.toFixed(2)], ['Nivel AIQ', r.aiqLevel],
-    ['Bloque A (Experiencia)', r.sectionA?.toFixed(2)],
-    ['Bloque B (Criterio)', r.sectionB?.toFixed(2)],
-    ['Bloque C (Laboratorio)', r.sectionC?.toFixed(2)],
-    ['Completado', r.completedAt ? new Date(r.completedAt).toLocaleString('es-CL') : ''],
-    ['', ''],
-    ['── RESPUESTAS COMPLETAS ──', ''],
-    ...questionIds.map(id => [QUESTION_MAP[id], resolveAnswer(id, r.answers?.[id])])
-  ];
-
-  const csv = rows.map(row => row.map(v => `"${String(v || '').replace(/"/g, '""')}"`).join(',')).join('\n');
-  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `aipulse-${r.nombre?.replace(/\s+/g, '-').toLowerCase() || r.email}-${new Date().toISOString().slice(0,10)}.csv`;
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -1094,10 +1048,10 @@ export default function AdminPage() {
                       </button>
                       {filtered.length > 0 && (
                         <button
-                          onClick={() => downloadCSV(filtered)}
+                          onClick={() => downloadJSON(filtered, `respuestas-${new Date().toISOString().slice(0,10)}.json`)}
                           className="font-mono text-[9px] uppercase tracking-wider h-7 px-3 border border-primary rounded-[2px] text-primary hover:bg-primary hover:text-white transition-colors"
                         >
-                          ↓ Exportar{filterEmpresa ? ` ${filterEmpresa}` : ' todo'} CSV
+                          ↓ Descargar{filterEmpresa ? ` ${filterEmpresa}` : ' todo'} JSON
                         </button>
                       )}
                       {filterEmpresa && filtered.length > 0 && (
@@ -1242,10 +1196,10 @@ export default function AdminPage() {
                             {/* Acciones */}
                             <div className="flex justify-end gap-2 pt-2 border-t border-[#EEEEEE]">
                               <button
-                                onClick={() => downloadIndividualCSV(r)}
+                                onClick={() => downloadJSON(r, `respuestas-${(r.nombre || r.email || 'participante').replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().slice(0,10)}.json`)}
                                 className="font-mono text-[9px] uppercase tracking-wider px-3 py-1.5 border border-[#CCCCCC] rounded-[2px] text-[#666666] hover:border-primary hover:text-primary transition-colors"
                               >
-                                ↓ Descargar respuestas completas
+                                ↓ Descargar respuestas JSON
                               </button>
                               <div className="flex flex-col items-end gap-1">
                                 <button
