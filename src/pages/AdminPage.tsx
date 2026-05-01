@@ -572,19 +572,39 @@ export default function AdminPage() {
                 Gestiona participantes, envia invitaciones y administra el diagnostico.
               </p>
             </div>
-            <div className="flex items-center gap-3 mt-2">
-              <button
-                onClick={handleOpenDemo}
-                className="font-mono text-[9px] uppercase tracking-wider px-3 py-2 border border-primary rounded-[2px] text-primary hover:bg-primary hover:text-white transition-colors"
-              >
-                ▶ Ver Coach Demo
-              </button>
-              <button
-                onClick={handleLogout}
-                className="font-mono text-[9px] uppercase tracking-wider text-[#AAAAAA] hover:text-[#FF3C3C] transition-colors px-3 py-2 border border-[#E0E0E0] hover:border-[rgba(255,60,60,0.3)] rounded-[2px]"
-              >
-                Cerrar sesion
-              </button>
+            <div className="flex flex-col items-end gap-3 mt-2">
+              {/* Tableros */}
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[8px] text-[#AAAAAA] uppercase tracking-widest mr-1">Tableros</span>
+                {[
+                  { tipo: 'adopcion', label: 'Adopción' },
+                  { tipo: 'diagnostico', label: 'Diagnóstico' },
+                  { tipo: 'participacion', label: 'Participación' },
+                ].map(({ tipo, label }) => (
+                  <button
+                    key={tipo}
+                    onClick={() => window.open(`/dashboard/${tipo}`, '_blank')}
+                    className="font-mono text-[9px] uppercase tracking-wider px-3 py-1.5 bg-[#111111] text-white rounded-[2px] hover:bg-primary transition-colors"
+                  >
+                    ⬡ {label}
+                  </button>
+                ))}
+              </div>
+              {/* Acciones */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleOpenDemo}
+                  className="font-mono text-[9px] uppercase tracking-wider px-3 py-2 border border-primary rounded-[2px] text-primary hover:bg-primary hover:text-white transition-colors"
+                >
+                  ▶ Ver Coach Demo
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="font-mono text-[9px] uppercase tracking-wider text-[#AAAAAA] hover:text-[#FF3C3C] transition-colors px-3 py-2 border border-[#E0E0E0] hover:border-[rgba(255,60,60,0.3)] rounded-[2px]"
+                >
+                  Cerrar sesion
+                </button>
+              </div>
             </div>
           </div>
 
