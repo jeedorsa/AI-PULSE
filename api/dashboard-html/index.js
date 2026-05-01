@@ -104,32 +104,34 @@ function toNivelData(results) {
 
 // ── Plantillas HTML ─────────────────────────────────────────────────────────
 
-function getTemplatePath(tipo) {
-  // Las plantillas viven en public/dashboards/ que en Azure SWA
-  // está en ../../public/dashboards/ relativo a api/dashboard-html/
+function getTemplatePath(tipo, context) {
   const candidates = [
     path.join(__dirname, "../../public/dashboards", `dashboard-${tipo}.html`),
     path.join(__dirname, "../../../public/dashboards", `dashboard-${tipo}.html`),
     path.join(process.cwd(), "public/dashboards", `dashboard-${tipo}.html`),
   ];
   for (const p of candidates) {
-    if (fs.existsSync(p)) return p;
+    if (fs.existsSync(p)) {
+      if (context) context.log.info(`Template encontrado: ${p}`);
+      return p;
+    }
   }
+  if (context) context.log.error(`Template dashboard-${tipo}.html no encontrado. Intentados: ${candidates.join(", ")}`);
   return null;
 }
 
 function injectData(html, tipo, data) {
-  const json = JSON.stringify(data);
-  switch (tipo) {
-    case "adopcion":
-      return html.replace("const PERSONAS = /*__PERSONAS__*/[];", `const PERSONAS = ${json};`);
-    case "diagnostico":
-      return html.replace("const RAW = /*__RAW__*/[];", `const RAW = ${json};`);
-    case "participacion":
-      return html.replace("var NIVEL_DATA = /*__NIVEL_DATA__*/{};", `var NIVEL_DATA = ${json};`);
-    default:
-      return html;
-  }
+  // Escapar </script> dentro del JSON para no romper el parser HTML
+  const json = JSON.stringify(data).replace(/<\/script>/gi, "<\\/script>");
+  const placeholders = {
+    adopcion:      ["const PERSONAS = /*__PERSONAS__*/[];",   `const PERSONAS = ${json};`],
+    diagnostico:   ["const RAW = /*__RAW__*/[];",             `const RAW = ${json};`],
+    participacion: ["var NIVEL_DATA = /*__NIVEL_DATA__*/{};", `var NIVEL_DATA = ${json};`],
+  };
+  const [placeholder, replacement] = placeholders[tipo] || [];
+  if (!placeholder) return html;
+  const result = html.replace(placeholder, replacement);
+  return result;
 }
 
 // ── Handler principal ───────────────────────────────────────────────────────
@@ -155,9 +157,9 @@ module.exports = async function (context, req) {
   }
 
   // Leer plantilla HTML
-  const templatePath = getTemplatePath(tipo);
+  const templatePath = getTemplatePath(tipo, context);
   if (!templatePath) {
-    context.res = { status: 404, headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ error: `Template ${tipo} no encontrado en ${templatePath}` }) };
+    context.res = { status: 404, headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ error: `Template dashboard-${tipo}.html no encontrado. Revisa que public/dashboards/ esté deployado.` }) };
     return;
   }
 
