@@ -220,6 +220,53 @@ export default function AdminPage() {
   const generateCompanyReport = async (empresa: string) => {
     setGeneratingCompanyReport(true);
     const intervalId = startProgressMessages(setCompanyProgressMsg, COMPANY_MSGS, 18000);
+
+    const openReport = (html: string) => {
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      window.open(URL.createObjectURL(blob), '_blank');
+    };
+
+    const pollForReport = (pollIntervalMs = 15000, maxAttempts = 24) => {
+      let attempts = 0;
+      const poll = async () => {
+        attempts++;
+        try {
+          const res = await fetch('/api/report-generate-company', {
+            method: 'POST',
+            headers: adminHeaders(),
+            body: JSON.stringify({ empresa }),
+          });
+          if (res.status === 401) { handleUnauthorized(); return; }
+          const data = await safeJsonFetch(res);
+          if (data.html) {
+            clearInterval(intervalId);
+            setGeneratingCompanyReport(false);
+            setCompanyProgressMsg('');
+            openReport(data.html);
+            return;
+          }
+          // Aún generando (202) — seguir esperando
+          if (attempts < maxAttempts) {
+            setTimeout(poll, pollIntervalMs);
+          } else {
+            clearInterval(intervalId);
+            setGeneratingCompanyReport(false);
+            setCompanyProgressMsg('');
+            alert(`El informe de ${empresa} está tardando más de lo esperado. Intenta abrir nuevamente en 2 minutos.`);
+          }
+        } catch {
+          // Error de red transitorio — seguir intentando si quedan intentos
+          if (attempts < maxAttempts) setTimeout(poll, pollIntervalMs);
+          else {
+            clearInterval(intervalId);
+            setGeneratingCompanyReport(false);
+            setCompanyProgressMsg('');
+          }
+        }
+      };
+      setTimeout(poll, pollIntervalMs);
+    };
+
     try {
       const res = await fetch('/api/report-generate-company', {
         method: 'POST',
@@ -228,20 +275,24 @@ export default function AdminPage() {
       });
       if (res.status === 401) { handleUnauthorized(); return; }
       const data = await safeJsonFetch(res);
-      if (res.status === 202 || data.status === 'pending') {
-        alert(`⏳ ${data.message || 'El informe se está generando en background. Vuelve en 5-10 minutos.'}`);
+
+      if (data.html) {
+        // Tenía caché — respuesta inmediata
+        openReport(data.html);
         return;
       }
-      if (!res.ok || !data.html) throw new Error(data.error || 'El informe llegó vacío');
-      const blob = new Blob([data.html], { type: 'text/html;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
+      if (res.status === 202 || data.status === 'generating') {
+        // Worker disparado — polling automático cada 15s, hasta 6 minutos
+        setCompanyProgressMsg('Generando informe... se abrirá automáticamente cuando esté listo');
+        pollForReport(15000, 24);
+        return;
+      }
+      throw new Error(data.error || 'Respuesta inesperada del servidor');
     } catch (err: any) {
-      alert(`Error generando el informe de empresa: ${err.message}`);
-    } finally {
       clearInterval(intervalId);
       setGeneratingCompanyReport(false);
       setCompanyProgressMsg('');
+      alert(`Error generando el informe de empresa: ${err.message}`);
     }
   };
 

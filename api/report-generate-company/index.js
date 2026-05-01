@@ -767,25 +767,31 @@ module.exports = async function (context, req) {
     context.log.warn("Blob check empresa failed:", blobErr.message);
   }
 
-  // ── No existe blob → llamar worker y esperar resultado ──────────────
+  // ── No existe blob → disparar worker en background y responder 202 ──────────
   const workerKey  = process.env.WORKER_FUNCTION_KEY;
   const workerBase = 'https://ai-pulse-worker-fsafhygmb6grbqg3.northcentralus-01.azurewebsites.net/api';
-  try {
-    context.log.info(`Llamando worker company-report-http para ${empresa}`);
-    const workerRes = await fetch(`${workerBase}/company-report-http?code=${workerKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ empresa })
-    });
-    const workerData = await workerRes.json();
-    if (!workerRes.ok || !workerData.html) {
-      throw new Error(workerData.error || `Worker respondió ${workerRes.status}`);
-    }
-    context.log.info(`Worker completado para empresa ${empresa}`);
-    context.res = { status: 200, headers, body: JSON.stringify({ success: true, html: workerData.html }) };
-  } catch (workerErr) {
-    context.log.error("Worker call failed:", workerErr.message);
-    context.res = { status: 500, headers, body: JSON.stringify({ error: workerErr.message }) };
-  }
+
+  // Fire-and-forget: no esperamos la respuesta del worker para no bloquear el HTTP request.
+  // El worker guarda el HTML en blob cuando termina; el frontend hace polling.
+  fetch(`${workerBase}/company-report-http?code=${workerKey}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ empresa })
+  }).then(async (r) => {
+    if (!r.ok) context.log.warn(`Worker respondió ${r.status} para ${empresa}`);
+    else context.log.info(`Worker completado para ${empresa}`);
+  }).catch(err => {
+    context.log.error(`Worker fire-and-forget error para ${empresa}:`, err.message);
+  });
+
+  context.log.info(`Worker disparado (background) para ${empresa} — respondiendo 202`);
+  context.res = {
+    status: 202,
+    headers,
+    body: JSON.stringify({
+      status: 'generating',
+      message: `El informe de ${empresa} se está generando. Se notificará automáticamente cuando esté listo.`
+    })
+  };
 
 };
