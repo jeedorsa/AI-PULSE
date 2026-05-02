@@ -1,7 +1,31 @@
 const { TableClient } = require("@azure/data-tables");
+const { BlobServiceClient } = require("@azure/storage-blob");
 const { requireAdmin } = require("../shared/adminAuth");
 const fs = require("fs");
 const path = require("path");
+
+// ── Carga de datos de enriquecimiento desde Blob ─────────────────────────────
+
+async function loadEnrichment(conn) {
+  const maestro = {};
+  const copilot = {};
+  try {
+    const container = BlobServiceClient
+      .fromConnectionString(conn)
+      .getContainerClient("company-data");
+
+    for (const tipo of ["maestro", "copilot"]) {
+      try {
+        const blob = container.getBlockBlobClient(`${tipo}.json`);
+        const buf = await blob.downloadToBuffer();
+        const parsed = JSON.parse(buf.toString("utf-8"));
+        if (tipo === "maestro") Object.assign(maestro, parsed.data || {});
+        if (tipo === "copilot") Object.assign(copilot, parsed.data || {});
+      } catch { /* archivo no subido aún — silencioso */ }
+    }
+  } catch { /* container no existe aún */ }
+  return { maestro, copilot };
+}
 
 // ── Helpers de extracción de respuestas ─────────────────────────────────────
 
@@ -39,64 +63,76 @@ function choiceVal(answer) {
 
 // ── Transformaciones por tipo de dashboard ──────────────────────────────────
 
-function toPersonas(results) {
-  return results.map(r => ({
-    email:            r.email,
-    nombre:           r.nombre,
-    cargo:            r.posicion,
-    empresa:          r.empresa,
-    area:             r.departamento,
-    sucursal:         "",         // enriquecido con maestro en el futuro
-    nivel:            "",         // enriquecido con maestro en el futuro
-    director_can:     false,      // enriquecido con maestro en el futuro
-    pulse_completed:  true,
-    p1:               numVal(r.answers.V1),
-    p3:               arrVal(r.answers.V3),
-    p4:               arrVal(r.answers.V4),
-    p9:               numVal(r.answers.B1),
-    p18:              numVal(r.answers.D1),
-    p18b:             numVal(r.answers.D1b),
-    p22:              choiceVal(r.answers.D5),
-    p23:              numVal(r.answers.D6),
-    p25:              numVal(r.answers.D9),
-    cop_interacciones: 0,         // enriquecido con copilot report en el futuro
-  }));
+function toPersonas(results, maestro, copilot) {
+  return results.map(r => {
+    const email = r.email.toLowerCase().trim();
+    const m = maestro[email] || {};
+    const c = copilot[email] || {};
+    return {
+      email,
+      nombre:           m.nombre      || r.nombre,
+      cargo:            m.cargo       || r.posicion,
+      empresa:          m.empresa     || r.empresa,
+      area:             m.area        || r.departamento,
+      sucursal:         m.sucursal    || "",
+      nivel:            m.nivel       || "",
+      director_can:     m.director_can || false,
+      pulse_completed:  true,
+      p1:               numVal(r.answers.V1),
+      p3:               arrVal(r.answers.V3),
+      p4:               arrVal(r.answers.V4),
+      p9:               numVal(r.answers.B1),
+      p18:              numVal(r.answers.D1),
+      p18b:             numVal(r.answers.D1b),
+      p22:              choiceVal(r.answers.D5),
+      p23:              numVal(r.answers.D6),
+      p25:              numVal(r.answers.D9),
+      cop_interacciones: c.count || 0,
+    };
+  });
 }
 
-function toRaw(results) {
-  return results.map(r => ({
-    empresa:          r.empresa,
-    area:             r.departamento,
-    sucursal:         "",
-    nivel:            "",
-    V1:               numVal(r.answers.V1),
-    V2:               arrVal(r.answers.V2),
-    V3:               arrVal(r.answers.V3),
-    V4:               arrVal(r.answers.V4),
-    B1:               numVal(r.answers.B1),
-    D1:               numVal(r.answers.D1),
-    D1b:              numVal(r.answers.D1b),
-    D5:               choiceVal(r.answers.D5),
-    D6:               numVal(r.answers.D6),
-    D9:               numVal(r.answers.D9),
-    cop_interacciones: 0,
-    cop_activo:       false,
-  }));
+function toRaw(results, maestro, copilot) {
+  return results.map(r => {
+    const email = r.email.toLowerCase().trim();
+    const m = maestro[email] || {};
+    const c = copilot[email] || {};
+    return {
+      empresa:          m.empresa     || r.empresa,
+      area:             m.area        || r.departamento,
+      sucursal:         m.sucursal    || "",
+      nivel:            m.nivel       || "",
+      V1:               numVal(r.answers.V1),
+      V2:               arrVal(r.answers.V2),
+      V3:               arrVal(r.answers.V3),
+      V4:               arrVal(r.answers.V4),
+      B1:               numVal(r.answers.B1),
+      D1:               numVal(r.answers.D1),
+      D1b:              numVal(r.answers.D1b),
+      D5:               choiceVal(r.answers.D5),
+      D6:               numVal(r.answers.D6),
+      D9:               numVal(r.answers.D9),
+      cop_interacciones: c.count  || 0,
+      cop_activo:        c.activo || false,
+    };
+  });
 }
 
-function toNivelData(results) {
+function toNivelData(results, maestro) {
   const out = {};
   for (const r of results) {
-    const nivel = r.nivel || "Sin nivel";
+    const email = r.email.toLowerCase().trim();
+    const m = maestro[email] || {};
+    const nivel = m.nivel || r.nivel || "Sin nivel";
     if (!out[nivel]) out[nivel] = [];
     out[nivel].push({
-      n:     r.nombre,
-      e:     r.email,
-      c:     r.empresa,
+      n:     m.nombre   || r.nombre,
+      e:     email,
+      c:     m.empresa  || r.empresa,
       s:     "completed",
       nv:    nivel,
-      cargo: r.posicion,
-      area:  r.departamento,
+      cargo: m.cargo    || r.posicion,
+      area:  m.area     || r.departamento,
     });
   }
   return out;
@@ -196,12 +232,16 @@ module.exports = async function (context, req) {
       });
     }
 
+    // Cargar datos de enriquecimiento (maestro + copilot) — opcionales
+    const { maestro, copilot } = await loadEnrichment(connectionString);
+    context.log.info(`Enriquecimiento: ${Object.keys(maestro).length} maestro, ${Object.keys(copilot).length} copilot`);
+
     // Transformar según el tipo de dashboard
     let data;
     switch (tipo) {
-      case "adopcion":     data = toPersonas(rawResults);  break;
-      case "diagnostico":  data = toRaw(rawResults);       break;
-      case "participacion": data = toNivelData(rawResults); break;
+      case "adopcion":      data = toPersonas(rawResults, maestro, copilot);  break;
+      case "diagnostico":   data = toRaw(rawResults, maestro, copilot);       break;
+      case "participacion": data = toNivelData(rawResults, maestro);          break;
     }
 
     // Inyectar en la plantilla

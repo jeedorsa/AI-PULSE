@@ -13,7 +13,7 @@ interface ParticipantRow {
   status?: string;
 }
 
-type AdminTab = 'upload' | 'participants' | 'invitations' | 'reporteria' | 'links';
+type AdminTab = 'upload' | 'participants' | 'invitations' | 'reporteria' | 'links' | 'archivos';
 
 const ADMIN_TOKEN_KEY = 'aipulse_admin_token';
 
@@ -148,6 +148,44 @@ export default function AdminPage() {
   const [generatingCompanyReport, setGeneratingCompanyReport] = useState(false);
   const [reportProgressMsg, setReportProgressMsg] = useState('');
   const [companyProgressMsg, setCompanyProgressMsg] = useState('');
+
+  // ── Archivos de enriquecimiento ──
+  type FileStatus = { exists: boolean; uploadedAt?: string; count?: number; users?: number; filename?: string; size?: number };
+  const [companyFiles, setCompanyFiles] = useState<Record<string, FileStatus>>({});
+  const [uploadingFile, setUploadingFile] = useState<string | null>(null);
+  const [uploadMsg, setUploadMsg] = useState<{ tipo: string; msg: string; ok: boolean } | null>(null);
+
+  const fetchCompanyFiles = async () => {
+    try {
+      const res = await fetch('/api/company-files-list', { headers: adminHeaders() });
+      if (res.status === 401) { handleUnauthorized(); return; }
+      const data = await res.json();
+      setCompanyFiles(data.files || {});
+    } catch {}
+  };
+
+  const handleCompanyFileUpload = async (tipo: string, file: File) => {
+    setUploadingFile(tipo);
+    setUploadMsg(null);
+    try {
+      const buffer = await file.arrayBuffer();
+      const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+      const res = await fetch('/api/company-upload', {
+        method: 'POST',
+        headers: { ...adminHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo, filename: file.name, data: base64 }),
+      });
+      if (res.status === 401) { handleUnauthorized(); return; }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error desconocido');
+      setUploadMsg({ tipo, msg: `✓ ${data.count?.toLocaleString()} registros cargados`, ok: true });
+      fetchCompanyFiles();
+    } catch (err: any) {
+      setUploadMsg({ tipo, msg: err.message, ok: false });
+    } finally {
+      setUploadingFile(null);
+    }
+  };
 
   function startProgressMessages(setter: (msg: string) => void, messages: string[], intervalMs = 12000) {
     let i = 0;
@@ -527,6 +565,7 @@ export default function AdminPage() {
     { id: 'invitations', label: 'Invitaciones' },
     { id: 'links', label: 'Links de Acceso' },
     { id: 'reporteria', label: 'Reportería' },
+    { id: 'archivos', label: 'Archivos' },
   ];
 
   // ── Login Screen ──
@@ -668,6 +707,7 @@ export default function AdminPage() {
                   setActiveTab(tab.id);
                   if (tab.id === 'participants') fetchParticipants();
                   if (tab.id === 'reporteria') { fetchResults(); fetchParticipants(); }
+                  if (tab.id === 'archivos') fetchCompanyFiles();
                 }}
                 className={`
                   px-5 py-3 font-mono text-[10px] uppercase tracking-wider transition-all
@@ -1012,6 +1052,83 @@ export default function AdminPage() {
                     </p>
                   </div>
                 )}
+              </div>
+            </motion.div>
+          )}
+
+          {/* ── ARCHIVOS TAB ─────────────────────────────────────────── */}
+          {activeTab === 'archivos' && (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+              <div className="mb-6">
+                <h2 className="font-display text-[22px] text-[#111111] mb-1">Archivos de enriquecimiento</h2>
+                <p className="font-body text-[13px] text-[#666666]">
+                  Sube el maestro de empleados y el reporte de uso de IA para enriquecer los tableros analíticos con datos de jerarquía y actividad Copilot.
+                </p>
+              </div>
+
+              {(['maestro', 'copilot', 'otro'] as const).map((tipo) => {
+                const labels: Record<string, { title: string; desc: string; hint: string }> = {
+                  maestro: { title: 'Maestro de empleados', desc: 'Listado completo con jerarquía, área, sucursal y nivel.', hint: 'Col. requeridas: Nombre, Correo, Empresa, Área, Sucursal, Cargo, Nivel, Director CAN' },
+                  copilot: { title: 'Datos de uso de IA', desc: 'Reporte de interacciones Copilot por usuario.', hint: 'Sheet "Data" con col. UserId — se agrupa por email y cuenta interacciones' },
+                  otro:    { title: 'Otro archivo', desc: 'Cualquier xlsx adicional de referencia.', hint: 'Se guarda tal cual como JSON genérico' },
+                };
+                const { title, desc, hint } = labels[tipo];
+                const status = companyFiles[tipo];
+                const isUploading = uploadingFile === tipo;
+                const msg = uploadMsg?.tipo === tipo ? uploadMsg : null;
+
+                return (
+                  <div key={tipo} className="border border-[#E0E0E0] rounded-[2px] p-6">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-1">
+                          <span className="font-body text-[14px] font-semibold text-[#111111]">{title}</span>
+                          {status?.exists
+                            ? <span className="font-mono text-[8px] uppercase tracking-wider px-2 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded-[2px]">✓ Subido</span>
+                            : <span className="font-mono text-[8px] uppercase tracking-wider px-2 py-0.5 bg-[#F5F5F5] text-[#AAAAAA] border border-[#E0E0E0] rounded-[2px]">No cargado</span>
+                          }
+                        </div>
+                        <p className="font-body text-[12px] text-[#666666] mb-1">{desc}</p>
+                        <p className="font-mono text-[9px] text-[#AAAAAA]">{hint}</p>
+                        {status?.exists && (
+                          <div className="mt-2 flex gap-4 font-mono text-[9px] text-[#666666]">
+                            {status.count && <span>{status.count.toLocaleString()} registros</span>}
+                            {status.users && <span>· {status.users.toLocaleString()} usuarios únicos</span>}
+                            {status.uploadedAt && <span>· {new Date(status.uploadedAt).toLocaleDateString('es-CL')}</span>}
+                            {status.filename && <span>· {status.filename}</span>}
+                          </div>
+                        )}
+                        {msg && (
+                          <p className={`mt-2 font-mono text-[10px] ${msg.ok ? 'text-green-600' : 'text-red-500'}`}>{msg.msg}</p>
+                        )}
+                      </div>
+                      <label className={`cursor-pointer font-mono text-[9px] uppercase tracking-wider px-4 py-2 border rounded-[2px] transition-colors whitespace-nowrap ${
+                        isUploading
+                          ? 'border-[#CCCCCC] text-[#AAAAAA] cursor-not-allowed'
+                          : 'border-primary text-primary hover:bg-primary hover:text-white'
+                      }`}>
+                        {isUploading ? '⏳ Subiendo...' : (status?.exists ? '↑ Reemplazar' : '↑ Subir xlsx')}
+                        <input
+                          type="file"
+                          accept=".xlsx,.xls"
+                          className="hidden"
+                          disabled={isUploading}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleCompanyFileUpload(tipo, file);
+                            e.target.value = '';
+                          }}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                );
+              })}
+
+              <div className="pt-2 border-t border-[#E0E0E0]">
+                <p className="font-mono text-[9px] text-[#AAAAAA] uppercase tracking-wider">
+                  Los archivos se usan para enriquecer los tableros analíticos. No afectan las encuestas ni los informes individuales.
+                </p>
               </div>
             </motion.div>
           )}
