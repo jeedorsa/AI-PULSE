@@ -229,29 +229,46 @@ export default function AdminPage() {
   const generateReport = async (email: string) => {
     setGeneratingReport(email);
     const intervalId = startProgressMessages(setReportProgressMsg, INDIVIDUAL_MSGS, 14000);
+
+    const openReport = (html: string) => {
+      window.open(URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' })), '_blank');
+    };
+
+    const pollForIndividual = (pollMs = 12000, maxAttempts = 15) => {
+      let attempts = 0;
+      const poll = async () => {
+        attempts++;
+        try {
+          const res = await fetch('/api/report-generate', { method: 'POST', headers: adminHeaders(), body: JSON.stringify({ email }) });
+          if (res.status === 401) { handleUnauthorized(); return; }
+          const data = await safeJsonFetch(res);
+          if (data.html) {
+            clearInterval(intervalId); setGeneratingReport(null); setReportProgressMsg('');
+            openReport(data.html); return;
+          }
+          if (attempts < maxAttempts) setTimeout(poll, pollMs);
+          else { clearInterval(intervalId); setGeneratingReport(null); setReportProgressMsg(''); alert('El informe está tardando más de lo esperado. Intenta de nuevo en 1 minuto.'); }
+        } catch {
+          if (attempts < maxAttempts) setTimeout(poll, pollMs);
+          else { clearInterval(intervalId); setGeneratingReport(null); setReportProgressMsg(''); }
+        }
+      };
+      setTimeout(poll, pollMs);
+    };
+
     try {
-      const res = await fetch('/api/report-generate', {
-        method: 'POST',
-        headers: adminHeaders(),
-        body: JSON.stringify({ email }),
-      });
+      const res = await fetch('/api/report-generate', { method: 'POST', headers: adminHeaders(), body: JSON.stringify({ email }) });
       if (res.status === 401) { handleUnauthorized(); return; }
       const data = await safeJsonFetch(res);
-      if (res.status === 202 || data.status === 'pending') {
-        alert(`⏳ ${data.message || 'El informe se está generando. Vuelve en 1-2 minutos e intenta de nuevo.'}`);
-        return;
+      if (data.html) { openReport(data.html); return; }
+      if (res.status === 202 || data.status === 'generating') {
+        setReportProgressMsg('Generando informe... se abrirá automáticamente');
+        pollForIndividual(12000, 15); return;
       }
-      if (!res.ok || !data.html) throw new Error(data.error || `Error ${res.status}`);
-
-      const blob = new Blob([data.html], { type: 'text/html;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
+      throw new Error(data.error || `Error ${res.status}`);
     } catch (err: any) {
+      clearInterval(intervalId); setGeneratingReport(null); setReportProgressMsg('');
       alert(`Error generando el informe: ${err.message}`);
-    } finally {
-      clearInterval(intervalId);
-      setGeneratingReport(null);
-      setReportProgressMsg('');
     }
   };
 
