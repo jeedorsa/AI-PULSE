@@ -698,9 +698,9 @@ export default function AdminPage() {
                   <button
                     key={tipo}
                     onClick={() => window.open(`/dashboard/${tipo}`, '_blank')}
-                    className="font-mono text-[9px] uppercase tracking-wider px-3 py-1.5 bg-[#111111] text-white rounded-[2px] hover:bg-primary transition-colors"
+                    className="font-mono text-[9px] uppercase tracking-wider px-3 py-1.5 border border-[#111111] text-[#111111] rounded-[2px] hover:bg-[#111111] hover:text-white transition-colors"
                   >
-                    ⬡ {label}
+                    {label}
                   </button>
                 ))}
               </div>

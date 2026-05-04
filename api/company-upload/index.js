@@ -49,30 +49,32 @@ function parseMaestro(workbook) {
 }
 
 function parseCopilot(workbook) {
-  // Sheet "Data" tiene: RecordId, CreationDate, Operation, UserId, Domain, ...
-  const sheetName = workbook.SheetNames.includes("Data") ? "Data" : workbook.SheetNames[0];
-  const ws = workbook.Sheets[sheetName];
+  // Sheet "Report" tiene datos pre-agregados: col B = UserId, col C = Count of accesses
+  // Fila 4 (índice 3) = headers, datos desde fila 5 (índice 4)
+  const ws = workbook.Sheets["Report"] || workbook.Sheets[workbook.SheetNames[0]];
   const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
 
-  const headers = rows[0];
-  const userIdx = headers.indexOf("UserId");
-  if (userIdx === -1) throw new Error("Columna UserId no encontrada en el archivo Copilot");
+  // Buscar fila de encabezados (contiene "UserId")
+  let dataStart = 4;
+  for (let i = 0; i < Math.min(10, rows.length); i++) {
+    if (rows[i] && rows[i].some(c => c && c.toString().toLowerCase().includes("userid"))) {
+      dataStart = i + 1;
+      break;
+    }
+  }
 
   const data = {};
-  let totalRows = 0;
-  for (let i = 1; i < rows.length; i++) {
+  let totalCount = 0;
+  for (let i = dataStart; i < rows.length; i++) {
     const r = rows[i];
-    const email = (r[userIdx] || "").toString().toLowerCase().trim();
+    if (!r) continue;
+    const email = (r[1] || "").toString().toLowerCase().trim();
+    const count = parseInt(r[2]) || 0;
     if (!email || !email.includes("@")) continue;
-    if (!data[email]) data[email] = { count: 0, activo: false };
-    data[email].count++;
-    totalRows++;
+    data[email] = { count, activo: count >= 5 };
+    totalCount += count;
   }
-  // Marcar como activo si tiene ≥ 5 interacciones
-  for (const e of Object.keys(data)) {
-    data[e].activo = data[e].count >= 5;
-  }
-  return { data, count: totalRows, users: Object.keys(data).length };
+  return { data, count: totalCount, users: Object.keys(data).length };
 }
 
 // ── Handler ─────────────────────────────────────────────────────────────────
