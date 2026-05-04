@@ -183,7 +183,9 @@ export default function AdminPage() {
         body: JSON.stringify({ tipo, filename: file.name, data: base64 }),
       });
       if (res.status === 401) { handleUnauthorized(); return; }
-      const data = await res.json();
+      const text = await res.text();
+      let data: any = {};
+      try { data = JSON.parse(text); } catch { throw new Error(`Error del servidor (${res.status})`); }
       if (!res.ok) throw new Error(data.error || 'Error desconocido');
       setUploadMsg({ tipo, msg: `✓ ${data.count?.toLocaleString()} registros cargados`, ok: true });
       fetchCompanyFiles();
@@ -1093,7 +1095,7 @@ export default function AdminPage() {
               {(['maestro', 'copilot', 'otro'] as const).map((tipo) => {
                 const labels: Record<string, { title: string; desc: string; hint: string }> = {
                   maestro: { title: 'Maestro de empleados', desc: 'Listado completo con jerarquía, área, sucursal y nivel.', hint: 'Col. requeridas: Nombre, Correo, Empresa, Área, Sucursal, Cargo, Nivel, Director CAN' },
-                  copilot: { title: 'Datos de uso de IA', desc: 'Reporte de interacciones Copilot por usuario.', hint: 'Sheet "Data" con col. UserId — se agrupa por email y cuenta interacciones' },
+                  copilot: { title: 'Datos de uso de IA', desc: 'Reporte de interacciones Copilot por usuario.', hint: 'Sheet "Report" — col. UserId y Count of accesses (pre-agregado por usuario)' },
                   otro:    { title: 'Otro archivo', desc: 'Cualquier xlsx adicional de referencia.', hint: 'Se guarda tal cual como JSON genérico' },
                 };
                 const { title, desc, hint } = labels[tipo];

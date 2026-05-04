@@ -112,8 +112,12 @@ module.exports = async function (context, req) {
 
   try {
     // Decodificar base64 → buffer → workbook
+    // Para copilot solo parsear la hoja "Report" (evita leer 242k filas de "Data")
     const buffer = Buffer.from(base64, "base64");
-    const workbook = XLSX.read(buffer, { type: "buffer" });
+    const xlsxOpts = tipo === "copilot"
+      ? { type: "buffer", sheets: "Report" }
+      : { type: "buffer" };
+    const workbook = XLSX.read(buffer, xlsxOpts);
 
     let parsed;
     switch (tipo) {
