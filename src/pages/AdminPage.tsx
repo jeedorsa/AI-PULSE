@@ -169,7 +169,14 @@ export default function AdminPage() {
     setUploadMsg(null);
     try {
       const buffer = await file.arrayBuffer();
-      const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+      // Chunked para no explotar el call stack con archivos grandes
+      const bytes = new Uint8Array(buffer);
+      let binary = '';
+      const CHUNK = 8192;
+      for (let i = 0; i < bytes.length; i += CHUNK) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+      }
+      const base64 = btoa(binary);
       const res = await fetch('/api/company-upload', {
         method: 'POST',
         headers: { ...adminHeaders(), 'Content-Type': 'application/json' },

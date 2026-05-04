@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:opsz,wght@9..40,100..1000&family=DM+Mono:ital,wght@0,300;0,400;0,500&display=swap" rel="stylesheet">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard de Adopción · Mockup · Inchcape CAN</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --dark-blue:#111111; --card:#0A2456; --card-2:#102D6B;
+  --eco:#FE3C1C; --green:#B6CD00; --yellow:#F2E400;
+  --warn:#F5A623; --danger:#E05252; --purple:#9E61A4;
+  --text:#F0F8FF; --muted:rgba(240,248,255,.55); --dim:rgba(240,248,255,.35);
+  --border:rgba(24,189,230,.18); --border-strong:rgba(24,189,230,.35);
+  --tlg:#848A8C; --jc:#FE3C1C;
+  --bg-card:rgba(255,255,255,.03); --bg-soft:rgba(24,189,230,.05);
+  --sh:0 4px 20px rgba(0,0,0,.25);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { background:var(--dark-blue); color:var(--text); font-family:'Barlow',sans-serif; font-size:14px; min-height:100vh; }
+body::before { content:''; position:fixed; inset:0; background:radial-gradient(ellipse at top, rgba(24,189,230,.06) 0%, transparent 60%); pointer-events:none; z-index:0; }
+.shell { max-width:1480px; margin:0 auto; padding:0 24px 80px; position:relative; z-index:1; }
+
+/* ===== HEADER ===== */
+.top { display:flex; justify-content:space-between; align-items:flex-end; padding:32px 0 20px; border-bottom:1px solid var(--border); }
+.top-l h1 { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:34px; line-height:1; letter-spacing:-.5px; }
+.top-l h1 .accent { color:var(--green); }
+.top-l .sub { color:var(--muted); font-size:13px; margin-top:6px; letter-spacing:.3px; }
+.top-r { display:flex; align-items:center; gap:14px; }
+.fase-badge { background:var(--green); color:var(--dark-blue); font-family:'Barlow Condensed',sans-serif; font-weight:800; font-size:11px; letter-spacing:1.5px; padding:5px 12px; border-radius:4px; text-transform:uppercase; }
+.mock-badge { background:rgba(254,60,28,.12); color:var(--jc); font-family:'Barlow Condensed',sans-serif; font-weight:800; font-size:10px; letter-spacing:1.5px; padding:4px 10px; border-radius:4px; text-transform:uppercase; border:1px solid rgba(254,60,28,.3); }
+
+/* ===== FILTROS GLOBALES ===== */
+.filters { position:sticky; top:0; z-index:50; background:rgba(0,26,65,.94); backdrop-filter:blur(12px); border-bottom:1px solid var(--border); margin:0 -24px; padding:14px 24px; display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+.f-grp { display:flex; flex-direction:column; gap:3px; }
+.f-grp label { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:9px; letter-spacing:1.2px; color:var(--muted); text-transform:uppercase; }
+.f-sel, .f-input { appearance:none; background:rgba(24,189,230,.05); border:1px solid var(--border); color:var(--text); padding:7px 28px 7px 10px; font-family:'Barlow',sans-serif; font-size:12px; border-radius:6px; cursor:pointer; min-width:140px; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='7' viewBox='0 0 10 7'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2318BDE6' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 9px center; transition:border-color .2s; }
+.f-sel:hover, .f-input:hover { border-color:var(--border-strong); }
+.f-input { background-image:none; padding:7px 10px; min-width:200px; }
+.f-toggle { display:flex; align-items:center; gap:6px; padding:7px 10px; font-size:11px; cursor:pointer; background:rgba(24,189,230,.05); border:1px solid var(--border); border-radius:6px; }
+.f-toggle input { accent-color:var(--green); }
+.f-reset { padding:7px 14px; background:transparent; border:1px solid var(--border); color:var(--muted); font-size:11px; font-weight:600; border-radius:6px; cursor:pointer; transition:all .2s; }
+.f-reset:hover { color:var(--jc); border-color:rgba(254,60,28,.5); }
+.f-counter { margin-left:auto; display:flex; flex-direction:column; align-items:flex-end; }
+.f-counter .n { font-family:'Barlow Condensed',sans-serif; font-weight:800; font-size:28px; color:var(--eco); line-height:1; }
+.f-counter .lbl { font-size:10px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; margin-top:2px; }
+
+/* Active filter chips */
+.f-chips { display:flex; gap:8px; flex-wrap:wrap; padding:0 24px 8px; margin:0 -24px; border-bottom:1px solid var(--border); }
+.f-chips:empty { display:none; }
+.f-chip { background:rgba(24,189,230,.12); color:var(--eco); font-size:11px; padding:4px 10px; border-radius:20px; display:inline-flex; gap:8px; align-items:center; cursor:pointer; border:1px solid var(--border); }
+.f-chip:hover { background:rgba(24,189,230,.2); }
+.f-chip .x { font-weight:700; font-size:13px; line-height:.8; opacity:.7; }
+
+/* ===== SECTIONS ===== */
+.section { margin:48px 0; }
+.eyebrow { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:10px; text-transform:uppercase; letter-spacing:2.5px; color:var(--muted); margin-bottom:6px; display:flex; align-items:center; gap:10px; }
+.eyebrow .num { background:var(--green); color:var(--dark-blue); padding:2px 8px; border-radius:3px; font-weight:800; }
+.section-title { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:28px; line-height:1.1; margin-bottom:18px; letter-spacing:-.3px; }
+.section-rule { border-top:2px solid var(--green); margin-bottom:20px; opacity:.4; }
+
+/* ===== KPI CARDS ===== */
+.kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; margin-bottom:24px; }
+.kpi { background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:18px 20px; transition:all .2s; }
+.kpi:hover { border-color:var(--border-strong); }
+.kpi .lbl { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:10px; letter-spacing:1.5px; color:var(--muted); text-transform:uppercase; }
+.kpi .val { font-family:'Barlow Condensed',sans-serif; font-weight:800; font-size:38px; line-height:1; margin:8px 0 4px; color:var(--eco); }
+.kpi.ok .val { color:var(--green); }
+.kpi.warn .val { color:var(--warn); }
+.kpi.danger .val { color:var(--danger); }
+.kpi .meta { font-size:11px; color:var(--muted); }
+
+/* ===== CARDS GENERIC ===== */
+.card { background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:20px; margin-bottom:14px; }
+.card h3 { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:16px; margin-bottom:12px; letter-spacing:.2px; }
+.card .desc { font-size:12px; color:var(--muted); margin-bottom:14px; }
+.cards-2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.cards-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+@media (max-width:900px) { .cards-2, .cards-3 { grid-template-columns:1fr; } }
+
+/* ===== § 1 · DRILL DOWN ===== */
+.drilldown table { width:100%; border-collapse:collapse; font-size:12px; }
+.drilldown th { text-align:left; font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:10px; letter-spacing:1.2px; text-transform:uppercase; color:var(--muted); padding:10px 8px; border-bottom:1px solid var(--border); }
+.drilldown td { padding:9px 8px; border-bottom:1px solid rgba(255,255,255,.04); }
+.drilldown tr:hover td { background:rgba(24,189,230,.05); cursor:pointer; }
+.drilldown td.unit { font-weight:600; }
+.drilldown td.num { text-align:right; font-variant-numeric:tabular-nums; }
+.drilldown .progress { width:120px; height:6px; background:rgba(255,255,255,.08); border-radius:3px; overflow:hidden; display:inline-block; vertical-align:middle; }
+.drilldown .progress > div { height:100%; }
+.semaforo { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; vertical-align:middle; }
+.sem-green { background:var(--green); box-shadow:0 0 8px rgba(182,205,0,.4); }
+.sem-yellow { background:var(--warn); box-shadow:0 0 8px rgba(245,166,35,.4); }
+.sem-red { background:var(--danger); box-shadow:0 0 8px rgba(224,82,82,.4); }
+.sem-grey { background:var(--tlg); }
+
+/* ===== DIRECTORS SCORECARD ===== */
+.dir-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:10px; }
+.dir-card { background:rgba(255,255,255,.02); border:1px solid var(--border); border-radius:8px; padding:12px 14px; }
+.dir-card.completed { border-color:rgba(182,205,0,.4); background:rgba(182,205,0,.05); }
+.dir-card.pending { border-color:rgba(224,82,82,.3); }
+.dir-name { font-weight:600; font-size:12px; margin-bottom:2px; }
+.dir-cargo { font-size:10px; color:var(--muted); margin-bottom:6px; }
+.dir-status { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:10px; letter-spacing:1px; text-transform:uppercase; }
+.dir-status.ok { color:var(--green); }
+.dir-status.pe { color:var(--danger); }
+
+/* ===== § 2 · BUILDER ===== */
+.builder-controls { background:linear-gradient(135deg, rgba(24,189,230,.06), rgba(182,205,0,.04)); border:1px solid var(--border-strong); border-radius:12px; padding:20px 22px; margin-bottom:18px; }
+.formula-display { font-family:'Roboto Mono','Courier New',monospace; font-size:12px; color:var(--eco); padding:10px 14px; background:rgba(0,0,0,.25); border-radius:6px; margin-bottom:14px; border:1px solid var(--border); }
+.formula-display .factor { color:var(--text); }
+.formula-display .weight { color:var(--green); font-weight:700; }
+.presets { display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap; align-items:center; }
+.presets-label { font-size:11px; color:var(--muted); margin-right:6px; }
+.preset-chip { padding:6px 12px; background:rgba(24,189,230,.08); border:1px solid var(--border); border-radius:20px; font-size:11px; cursor:pointer; transition:all .2s; }
+.preset-chip:hover { background:rgba(24,189,230,.15); border-color:var(--border-strong); }
+.preset-chip.active { background:var(--green); color:var(--dark-blue); border-color:var(--green); font-weight:600; }
+.reset-btn { margin-left:auto; padding:6px 12px; background:transparent; border:1px solid var(--border); color:var(--muted); border-radius:6px; font-size:11px; cursor:pointer; }
+.reset-btn:hover { color:var(--jc); border-color:rgba(254,60,28,.5); }
+.sliders { display:grid; grid-template-columns:repeat(3, 1fr); gap:18px; }
+@media (max-width:900px) { .sliders { grid-template-columns:1fr 1fr; } }
+.slider-row { display:flex; flex-direction:column; gap:6px; }
+.slider-head { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+.slider-name { font-size:12px; font-weight:600; line-height:1.2; }
+.slider-name .pn { color:var(--eco); font-weight:700; margin-right:4px; }
+.slider-val { font-family:'Barlow Condensed',sans-serif; font-weight:800; font-size:18px; color:var(--green); }
+.slider-row input[type=range] { width:100%; appearance:none; height:6px; background:rgba(255,255,255,.08); border-radius:3px; outline:none; cursor:pointer; }
+.slider-row input[type=range]::-webkit-slider-thumb { appearance:none; width:18px; height:18px; background:var(--eco); border-radius:50%; cursor:pointer; box-shadow:0 0 0 4px rgba(24,189,230,.15); }
+.slider-row input[type=range]::-moz-range-thumb { width:18px; height:18px; background:var(--eco); border-radius:50%; cursor:pointer; border:none; box-shadow:0 0 0 4px rgba(24,189,230,.15); }
+.slider-desc { font-size:10px; color:var(--muted); }
+
+/* Local filters above table */
+.local-filters { display:flex; gap:12px; align-items:center; flex-wrap:wrap; padding:12px 16px; background:var(--bg-card); border:1px solid var(--border); border-radius:8px 8px 0 0; }
+.score-min { display:flex; align-items:center; gap:10px; font-size:11px; color:var(--muted); }
+.score-min input[type=range] { width:120px; }
+.signal-chips { display:flex; gap:6px; }
+.signal-chip { padding:5px 10px; background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:20px; font-size:10px; cursor:pointer; transition:all .15s; }
+.signal-chip.active { background:var(--eco); color:var(--dark-blue); border-color:var(--eco); font-weight:600; }
+.export-btn { margin-left:auto; padding:6px 14px; background:var(--green); color:var(--dark-blue); border:none; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; letter-spacing:.5px; }
+.export-btn:hover { background:#a3b800; }
+
+/* Builder table */
+.builder-tbl-wrap { background:var(--bg-card); border:1px solid var(--border); border-top:none; border-radius:0 0 8px 8px; max-height:680px; overflow:auto; }
+.builder-tbl { width:100%; border-collapse:collapse; font-size:12px; }
+.builder-tbl thead th { position:sticky; top:0; background:var(--card); z-index:5; padding:11px 10px; text-align:left; font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:10px; letter-spacing:1.2px; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--border); }
+.builder-tbl tbody td { padding:9px 10px; border-bottom:1px solid rgba(255,255,255,.04); vertical-align:middle; }
+.builder-tbl tbody tr:hover td { background:rgba(24,189,230,.04); }
+.builder-tbl .rank { font-family:'Barlow Condensed',sans-serif; font-weight:800; font-size:14px; color:var(--muted); width:36px; }
+.builder-tbl .rank.top { color:var(--eco); }
+.builder-tbl .name { font-weight:600; }
+.builder-tbl .email { font-size:10px; color:var(--muted); }
+.area-tag { display:inline-block; padding:2px 8px; background:rgba(24,189,230,.1); border:1px solid var(--border); border-radius:3px; font-size:10px; }
+.score-cell { display:flex; align-items:center; gap:8px; min-width:140px; }
+.score-bar-tr { flex:1; height:6px; background:rgba(255,255,255,.08); border-radius:3px; overflow:hidden; }
+.score-bar-fl { height:100%; background:linear-gradient(90deg, var(--eco), var(--green)); }
+.score-num { font-family:'Barlow Condensed',sans-serif; font-weight:800; font-size:13px; color:var(--green); min-width:32px; text-align:right; }
+.cop-int { font-variant-numeric:tabular-nums; }
+.badges-cell { display:flex; gap:4px; flex-wrap:wrap; }
+.b-pulse { background:rgba(182,205,0,.18); color:var(--green); padding:2px 6px; border-radius:3px; font-size:9px; font-weight:700; cursor:help; }
+.b-cop { background:rgba(245,166,35,.15); color:var(--warn); padding:2px 6px; border-radius:3px; font-size:9px; font-weight:700; cursor:help; }
+.b-top { background:rgba(24,189,230,.18); color:var(--eco); padding:2px 6px; border-radius:3px; font-size:9px; font-weight:700; cursor:help; }
+.b-king { background:rgba(254,60,28,.15); color:var(--jc); padding:2px 6px; border-radius:3px; font-size:9px; font-weight:700; cursor:help; border:1px solid rgba(254,60,28,.3); }
+
+/* Legend */
+.badges-legend { display:flex; gap:14px; flex-wrap:wrap; padding:10px 16px; background:rgba(0,0,0,.15); border:1px solid var(--border); border-top:none; font-size:10px; color:var(--muted); align-items:center; }
+.badges-legend strong { color:var(--text); font-size:10px; letter-spacing:.5px; }
+.badges-legend .lg-item { display:inline-flex; align-items:center; gap:6px; }
+
+/* ===== § 3 · TABS ===== */
+.tabs { display:flex; gap:0; margin-bottom:14px; border-bottom:1px solid var(--border); }
+.tab { padding:10px 20px; border:none; background:transparent; color:var(--muted); cursor:pointer; font-family:'Barlow',sans-serif; font-size:12px; font-weight:600; border-bottom:2px solid transparent; }
+.tab.active { color:var(--eco); border-bottom-color:var(--eco); }
+.tab:hover:not(.active) { color:var(--text); }
+.tab-panel { display:none; }
+.tab-panel.active { display:block; animation:fadein .2s ease; }
+@keyframes fadein { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+
+/* Heatmap */
+.heatmap-wrap { overflow-x:auto; }
+.heatmap { width:100%; border-collapse:collapse; font-size:11px; min-width:600px; }
+.heatmap th { padding:8px 6px; font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:10px; letter-spacing:.5px; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--border); writing-mode:vertical-rl; transform:rotate(180deg); white-space:nowrap; vertical-align:bottom; height:140px; }
+.heatmap th.row-h { writing-mode:horizontal-tb; transform:none; text-align:left; height:auto; padding:8px 12px; }
+.heatmap td { padding:0; border:1px solid rgba(0,0,0,.3); height:36px; min-width:48px; text-align:center; font-weight:600; font-size:11px; cursor:pointer; transition:all .15s; }
+.heatmap td:hover { outline:2px solid var(--eco); outline-offset:-2px; z-index:2; position:relative; }
+.heatmap td.row-l { font-family:'Barlow Condensed',sans-serif; font-weight:600; font-size:11px; text-align:left; padding:6px 10px; background:transparent; border:none; color:var(--text); white-space:nowrap; min-width:280px; }
+
+/* Quadrants */
+.quads { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.quad { padding:18px; border:1px solid; border-radius:10px; cursor:pointer; transition:all .2s; }
+.quad:hover { transform:translateY(-2px); box-shadow:var(--sh); }
+.quad.q-blocked { background:rgba(224,82,82,.06); border-color:rgba(224,82,82,.3); }
+.quad.q-false   { background:rgba(245,166,35,.06); border-color:rgba(245,166,35,.3); }
+.quad.q-noact   { background:rgba(245,166,35,.04); border-color:rgba(245,166,35,.2); }
+.quad.q-active  { background:rgba(182,205,0,.06); border-color:rgba(182,205,0,.3); }
+.quad-title { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:13px; margin-bottom:8px; letter-spacing:.5px; }
+.quad-count { font-family:'Barlow Condensed',sans-serif; font-weight:800; font-size:36px; line-height:1; margin:6px 0; }
+.quad-pct { font-size:11px; color:var(--muted); margin-bottom:12px; }
+.quad-int { font-size:11px; padding:8px 10px; background:rgba(0,0,0,.25); border-radius:6px; color:var(--text); border-left:3px solid; }
+.quad.q-blocked .quad-int { border-left-color:var(--danger); }
+.quad.q-false   .quad-int { border-left-color:var(--warn); }
+.quad.q-noact   .quad-int { border-left-color:var(--warn); }
+.quad.q-active  .quad-int { border-left-color:var(--green); }
+
+/* Critical barrier list */
+.crit-list { max-height:520px; overflow-y:auto; }
+.crit-row { display:grid; grid-template-columns:200px 1fr 80px 100px; gap:14px; padding:12px 8px; border-bottom:1px solid rgba(255,255,255,.04); align-items:center; font-size:12px; }
+.crit-row:hover { background:rgba(24,189,230,.04); }
+.crit-name { font-weight:600; font-size:11px; }
+.crit-name .meta { font-size:10px; color:var(--muted); font-weight:400; margin-top:2px; }
+.crit-barriers { display:flex; gap:4px; flex-wrap:wrap; }
+.crit-bar { padding:2px 6px; background:rgba(224,82,82,.12); border:1px solid rgba(224,82,82,.3); color:#f49595; border-radius:3px; font-size:10px; }
+.crit-cop { font-variant-numeric:tabular-nums; font-size:11px; text-align:center; }
+.crit-action { padding:5px 10px; background:rgba(24,189,230,.1); border:1px solid var(--border); border-radius:4px; font-size:10px; cursor:pointer; }
+
+/* ===== § 4 · PATTERNS ===== */
+.bar-list { display:flex; flex-direction:column; gap:10px; margin-top:14px; }
+.bar-item { display:grid; grid-template-columns:160px 1fr 80px; gap:14px; align-items:center; font-size:12px; }
+.bar-track { height:14px; background:rgba(255,255,255,.06); border-radius:7px; overflow:hidden; position:relative; }
+.bar-fill { height:100%; background:linear-gradient(90deg, var(--eco), var(--green)); border-radius:7px; }
+.bar-num { font-family:'Barlow Condensed',sans-serif; font-weight:800; font-size:13px; text-align:right; }
+.super-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; margin-top:18px; }
+.super-card { background:rgba(255,255,255,.02); border:1px solid var(--border); border-radius:8px; padding:14px; }
+.super-card h4 { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:12px; letter-spacing:.5px; margin-bottom:8px; color:var(--eco); }
+.super-card .nat { font-size:11px; padding:6px 0; border-bottom:1px solid rgba(255,255,255,.05); }
+.super-card .nat:last-child { border-bottom:none; }
+.super-card .nat-name { font-weight:600; }
+.super-card .nat-meta { color:var(--muted); font-size:10px; }
+
+/* ===== § 5 · PERCEPCION ===== */
+.matrix-tbl { width:100%; border-collapse:collapse; font-size:12px; margin-top:8px; }
+.matrix-tbl th { text-align:left; padding:10px 8px; font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:10px; letter-spacing:1.2px; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--border); }
+.matrix-tbl td { padding:11px 8px; border-bottom:1px solid rgba(255,255,255,.04); }
+.matrix-tbl td.num { text-align:right; font-variant-numeric:tabular-nums; }
+.callout { padding:14px 18px; background:rgba(245,166,35,.1); border:1px solid rgba(245,166,35,.3); border-radius:8px; margin-top:14px; font-size:13px; }
+.callout strong { color:var(--warn); }
+
+/* ===== UMBRALES § 1 ===== */
+.umbrales-box { display:flex; gap:24px; align-items:center; padding:14px 18px; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; margin-bottom:14px; flex-wrap:wrap; }
+.umbral-grp { display:flex; flex-direction:column; gap:5px; min-width:180px; }
+.umbral-grp label { font-size:11px; color:var(--muted); }
+.umbral-grp .val-display { font-family:'Barlow Condensed',sans-serif; font-weight:800; font-size:14px; }
+.umbral-grp.green .val-display { color:var(--green); }
+.umbral-grp.red .val-display { color:var(--danger); }
+
+/* Footer */
+.footer { margin-top:64px; padding:24px 0; border-top:1px solid var(--border); display:flex; justify-content:space-between; flex-wrap:wrap; gap:16px; font-size:11px; color:var(--muted); }
+.footer .jc { color:var(--jc); font-weight:700; }
+.footer .tlg { color:var(--tlg); font-weight:700; }
+.footer-l strong { color:var(--text); }
+
+/* Note */
+.note-box { padding:12px 16px; background:rgba(24,189,230,.06); border:1px solid var(--border); border-radius:6px; font-size:12px; color:var(--muted); margin-top:12px; }
+.note-box strong { color:var(--text); }
+
+.hint { font-size:11px; color:var(--muted); font-style:italic; }
+.hl { color:var(--eco); font-weight:600; }
+.hl-g { color:var(--green); font-weight:600; }
+.hl-r { color:var(--danger); font-weight:600; }
+</style>
+<style id="aipulse-brand">
+  :root {
+    --brand-primary: #FE3C1C;
+    --brand-dark: #111111;
+    --brand-mid: #2A2A2A;
+    --brand-surface: #1A1A1A;
+    --brand-border: rgba(255,255,255,0.10);
+    --brand-text: #FFFFFF;
+    --brand-muted: #AAAAAA;
+    --brand-green: #22C55E;
+    --brand-orange: #F5A623;
+  }
+  body, html { font-family: 'DM Sans', sans-serif !important; }
+  h1, h2, h3, .title, .heading, [class*="title"], [class*="heading"] {
+    font-family: 'Bebas Neue', sans-serif !important;
+    letter-spacing: 0.04em;
+  }
+  code, pre, .mono, [class*="mono"], [class*="code"] {
+    font-family: 'DM Mono', monospace !important;
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- HEADER -->
+<div class="top">
+  <div class="top-l">
+    <h1>Dashboard de <span class="accent">Adopción IA</span></h1>
+    <div class="sub">Inchcape Cluster Andino Norte · Seguimiento + Hallazgos · Corte 27 abr 2026</div>
+  </div>
+  <div class="top-r">
+    <span class="mock-badge">Mockup interactivo v1</span>
+    <span class="fase-badge">Fase 0 en curso</span>
+  </div>
+</div>
+
+<!-- FILTROS GLOBALES -->
+<div class="filters">
+  <div class="f-grp"><label>Empresa</label><select class="f-sel" id="f-empresa"><option value="">Todas</option></select></div>
+  <div class="f-grp"><label>Área</label><select class="f-sel" id="f-area"><option value="">Todas</option></select></div>
+  <div class="f-grp"><label>Sucursal</label><select class="f-sel" id="f-sucursal"><option value="">Todas</option></select></div>
+  <div class="f-grp"><label>Nivel</label><select class="f-sel" id="f-nivel"><option value="">Todos</option></select></div>
+  <div class="f-grp"><label>Pulse</label><select class="f-sel" id="f-pulse"><option value="">Ambos</option><option value="completed">Completado</option><option value="pending">Pendiente</option></select></div>
+  <div class="f-grp"><label>Copilot</label><select class="f-sel" id="f-copilot"><option value="">Ambos</option><option value="active">Activo</option><option value="inactive">No activo</option></select></div>
+  <div class="f-grp"><label>Buscar</label><input type="text" class="f-input" id="f-search" placeholder="Nombre o correo…"></div>
+  <label class="f-toggle"><input type="checkbox" id="f-director"> Solo directores CAN</label>
+  <button class="f-reset" onclick="resetFilters()">✕ Limpiar</button>
+  <div class="f-counter"><div class="n" id="f-n">1.193</div><div class="lbl">en filtro actual</div></div>
+</div>
+<div class="f-chips" id="f-chips"></div>
+
+<!-- ============== § 1 · PULSO ============== -->
+<div class="section" id="sec-1">
+  <div class="eyebrow"><span class="num">§ 1</span> PULSO DEL PROGRAMA</div>
+  <div class="section-title">¿Cómo va la participación?</div>
+  <div class="section-rule"></div>
+
+  <!-- KPIs -->
+  <div class="kpi-grid" id="s1-kpis"></div>
+
+  <!-- Umbrales (sliders) -->
+  <div class="umbrales-box">
+    <div class="umbral-grp green">
+      <label>🟢 Avanzando ≥ <span class="val-display" id="ug-val">15</span>%</label>
+      <input type="range" id="u-green" min="5" max="40" value="15">
+    </div>
+    <div class="umbral-grp red">
+      <label>🔴 Rezagado &lt; <span class="val-display" id="ur-val">5</span>%</label>
+      <input type="range" id="u-red" min="0" max="15" value="5">
+    </div>
+    <div class="hint">Mueve los sliders para ajustar los umbrales del semáforo en vivo</div>
+  </div>
+
+  <div class="cards-2">
+    <div class="card">
+      <h3>Drill-down jerárquico — por área</h3>
+      <div class="desc">Click en una fila para filtrar el dashboard a esa área</div>
+      <div class="drilldown" id="dd-area"></div>
+    </div>
+    <div class="card">
+      <h3>Por nivel jerárquico</h3>
+      <div class="desc">Distribución de completitud por seniority</div>
+      <div class="drilldown" id="dd-nivel"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Equipo Directivo CAN — <span id="dir-summary">3 de 12</span> han completado</h3>
+    <div class="desc">Los líderes del clúster. Su completitud es señal de adopción visible para sus equipos.</div>
+    <div class="dir-grid" id="dd-directors"></div>
+  </div>
+</div>
+
+<!-- ============== § 2 · BUILDER ============== -->
+<div class="section" id="sec-2">
+  <div class="eyebrow"><span class="num">§ 2</span> BUILDER DE EMBAJADORES · HERO</div>
+  <div class="section-title">¿Quiénes son mis embajadores para Fase 1?</div>
+  <div class="section-rule"></div>
+
+  <!-- Sliders + presets -->
+  <div class="builder-controls">
+    <div class="formula-display" id="formula-display"></div>
+    <div class="presets">
+      <span class="presets-label">Presets:</span>
+      <button class="preset-chip active" onclick="applyPreset('balanced')">🎯 Equilibrado</button>
+      <button class="preset-chip" onclick="applyPreset('use')">💻 Foco en uso real</button>
+      <button class="preset-chip" onclick="applyPreset('disposition')">🧠 Foco en disposición</button>
+      <button class="reset-btn" onclick="applyPreset('balanced')">↺ Reset</button>
+    </div>
+    <div class="sliders" id="weight-sliders"></div>
+  </div>
+
+  <!-- Local filters -->
+  <div class="local-filters">
+    <div class="score-min">
+      Score min: <strong id="sm-val" class="hl-g">0</strong>
+      <input type="range" id="sm" min="0" max="100" value="0">
+    </div>
+    <div class="signal-chips">
+      <button class="signal-chip active" data-signal="any" onclick="setSignalFilter('any')">Cualquiera</button>
+      <button class="signal-chip" data-signal="both" onclick="setSignalFilter('both')">Pulse + Copilot</button>
+      <button class="signal-chip" data-signal="cop_only" onclick="setSignalFilter('cop_only')">Solo Copilot</button>
+      <button class="signal-chip" data-signal="pulse_only" onclick="setSignalFilter('pulse_only')">Solo Pulse</button>
+    </div>
+    <button class="export-btn" onclick="exportCSV()">↓ Export CSV</button>
+  </div>
+
+  <div class="badges-legend">
+    <strong>LEYENDA</strong>
+    <span class="lg-item"><span class="b-pulse">PULSE</span> respondió la encuesta</span>
+    <span class="lg-item"><span class="b-cop">COP</span> activo en Copilot</span>
+    <span class="lg-item"><span class="b-top">TOP 10%</span> percentil 90+ del filtro</span>
+    <span class="lg-item"><span class="b-king">👑 DIR</span> Director del Cluster Andino Norte</span>
+  </div>
+
+  <div class="builder-tbl-wrap">
+    <table class="builder-tbl">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Persona</th>
+          <th>Área</th>
+          <th>Nivel</th>
+          <th>Score</th>
+          <th>Copilot</th>
+          <th>Señales</th>
+        </tr>
+      </thead>
+      <tbody id="builder-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ============== § 3 · BARRERAS ============== -->
+<div class="section" id="sec-3">
+  <div class="eyebrow"><span class="num">§ 3</span> BARRERAS Y ALERTAS</div>
+  <div class="section-title">¿Dónde y cómo intervenimos?</div>
+  <div class="section-rule"></div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="A">3A · Heatmap Área × Barrera</button>
+    <button class="tab" data-tab="B">3B · Cuadrantes Barrera × Copilot</button>
+    <button class="tab" data-tab="C">3C · Lista de barreras críticas</button>
+  </div>
+
+  <div class="tab-panel active" id="tp-A">
+    <div class="card">
+      <h3>Heatmap Área × Barrera (P3)</h3>
+      <div class="desc">% del área que reportó cada barrera. Click en celda para filtrar el dashboard a esa combinación.</div>
+      <div class="heatmap-wrap"><table class="heatmap" id="heatmap"></table></div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tp-B">
+    <div class="card">
+      <h3>Cuadrantes — Barrera reportada × Uso real de Copilot</h3>
+      <div class="desc">Cada cuadrante implica una intervención distinta. Click para ver la lista de personas en ese cuadrante.</div>
+      <div class="quads" id="quads"></div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tp-C">
+    <div class="card">
+      <h3>Lista de personas con barreras críticas</h3>
+      <div class="desc">Privacidad · Miedo a errores · Sin permiso. Estas barreras son resueltas mejor en conversación 1:1 que en taller masivo.</div>
+      <div class="crit-list" id="crit-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============== § 4 · PATRONES ============== -->
+<div class="section" id="sec-4">
+  <div class="eyebrow"><span class="num">§ 4</span> PATRONES Y SUPERPODERES</div>
+  <div class="section-title">¿Qué pide cada vertical y quién lo ejecuta?</div>
+  <div class="section-rule"></div>
+
+  <div class="card">
+    <h3>Distribución de superpoderes (P4) — global</h3>
+    <div class="desc">Insumo directo para el contenido de los talleres por área</div>
+    <div class="bar-list" id="super-bars"></div>
+  </div>
+
+  <div class="card">
+    <h3>Top 3 embajadores naturales por superpoder</h3>
+    <div class="desc">Personas que eligieron ese superpoder en P4 + tienen score alto. Candidatos a co-facilitar la sesión correspondiente.</div>
+    <div class="super-cards" id="super-cards"></div>
+  </div>
+</div>
+
+<!-- ============== § 5 · PERCEPCIÓN ============== -->
+<div class="section" id="sec-5">
+  <div class="eyebrow"><span class="num">§ 5</span> PERCEPCIÓN VS REALIDAD</div>
+  <div class="section-title">¿Quién dice una cosa y hace otra?</div>
+  <div class="section-rule"></div>
+
+  <div class="cards-2">
+    <div class="card">
+      <h3>Matriz P1 (autopercepción) × Copilot (uso real)</h3>
+      <div class="desc">Para cada nivel de P1, promedio y conteo de Copilot</div>
+      <table class="matrix-tbl">
+        <thead><tr><th>P1 — Relación con IA</th><th class="num">Personas</th><th class="num">Promedio Copilot</th><th class="num">% con 0 int.</th></tr></thead>
+        <tbody id="matrix-body"></tbody>
+      </table>
+      <div class="callout" id="callout-discrep"></div>
+    </div>
+
+    <div class="card">
+      <h3>Lista de discrepancias destacadas</h3>
+      <div class="desc">Personas que dijeron "uso regular" en Pulse pero no aparecen activos en Copilot</div>
+      <div id="disc-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+  <div class="footer-l">
+    <strong>Dashboard de Seguimiento y Hallazgos · Mockup v1</strong><br>
+    Inchcape · Cluster Andino Norte · Confidencial · Datos al 27 abr 2026
+  </div>
+  <div style="text-align:right">
+    powered by <span class="jc">Javier Cruz</span> · <span class="tlg">The Line Group</span>
+  </div>
+</div>
+
+</div><!-- /shell -->
+
+<script>
+// ============== DATA ==============
+const PERSONAS = /*__PERSONAS__*/[];
+const EMPRESAS = ["Derco Colombia", "Didacol (Inchcape)", "Inchcape Colombia", "Inchcape Ecuador", "Matrase"];
+const AREAS = ["Admin", "Aftersales", "Automotive", "DDC", "Digital", "Digital Marketing", "Distribution Logistics", "Ecuador", "F&I", "Finance", "Fuera de la Compañía", "Leadership (Support)", "Legal & Compliance", "Machinery", "Marketing & CEX", "People", "Sales", "Sin área", "Transformation"];
+const SUCURSALES = ["Almacen Wholesale Camiones", "Almacen Wholesale Vehiculos", "Americas", "Bella Suiza", "Bogota", "Calle 80", "Corporativa", "Ecuador", "Fontibon", "Itagui", "Mirolindo", "Morato", "Sin sucursal", "Soledad", "Yumbo"];
+const NIVELES = ["MD", "Director", "Manager", "Lead", "Specialist", "Analyst", "Operativo"];
+
+// ============== STATE ==============
+const STATE = {
+  filters: { empresa:'', area:'', sucursal:'', nivel:'', pulse:'', copilot:'', director:false, search:'' },
+  weights: { copilot:45, p1:15, p25:15, p3:5, p18:10, p22:10 },
+  thresholds: { green:15, red:5 },
+  scoreMin: 0,
+  signalFilter: 'any', // any | both | cop_only | pulse_only
+  activeQuad: null,
+  activeHeatCell: null,
+};
+
+const PRESETS = {
+  balanced:    { copilot:45, p1:15, p25:15, p3:5,  p18:10, p22:10 },
+  use:         { copilot:60, p1:10, p25:10, p3:5,  p18:8,  p22:7  },
+  disposition: { copilot:30, p1:20, p25:20, p3:8,  p18:12, p22:10 },
+};
+
+// Long labels for slider headers (visible on each slider)
+const FACTOR_LABELS = {
+  copilot: 'Copilot · uso real',
+  p1:      'P1 · Relación con IA',
+  p25:     'P25 · Futuro del rol',
+  p3:      'P3 · Barreras',
+  p18:     'P18 · Soporte del jefe',
+  p22:     'P22 · Espacios para compartir',
+};
+// Short labels for the formula display (kept compact)
+const FACTOR_SHORT = {
+  copilot: 'Copilot', p1: 'P1', p25: 'P25', p3: 'P3', p18: 'P18', p22: 'P22'
+};
+// Description = pregunta literal o lógica de puntuación
+const FACTOR_DESC = {
+  copilot:  'Interacciones reales en Copilot · marzo 2026 · escala logarítmica',
+  p1:       '"¿Cómo describirías tu relación con la IA hoy?" · 4 niveles',
+  p25:      '"¿Cómo ves el futuro de tu rol con la llegada de la IA?" · 4 niveles',
+  p3:       '"¿Qué te ha frenado para usar más la IA?" · bonus si "Nada me ha frenado"',
+  p18:      '"¿En qué medida tu jefe apoya activamente el uso de IA?" · 4 niveles',
+  p22:      '"¿Existen espacios para compartir prompts/aprendizajes?" · raro · diferenciador',
+};
+
+// ============== UTILS ==============
+const fmt = n => n.toLocaleString('es-CO');
+const pct = (n, d) => d === 0 ? 0 : Math.round(n / d * 1000) / 10;
+
+// Pulse value lookups (text from master → numeric value)
+const P1_VAL  = { 'Nunca usé IA':1, 'La probé sin utilidad':2, 'Uso ocasional':3, 'Uso regular':4 };
+const P25_VAL = { 'Me genera dudas':1, 'Curioso/a':2, 'Oportunidad':3, 'Ya la incorporé':4 };
+const P18_VAL = { 'Nunca lo menciona':1, 'Lo menciona sin acción':2, 'Me da espacio':3, 'Lo promueve activamente':4 };
+const P22_VAL = { 'No sabe':0, 'No existe':0, 'Sí, existe pero no usa':1, 'Sí, lo usa':2 };
+
+// ============== SCORE ==============
+function calcScore(p, w) {
+  let s = 0;
+  // Copilot — log scale
+  const MAX = 453;
+  if (p.cop_interacciones > 0) {
+    s += Math.min(w.copilot, Math.log(p.cop_interacciones+1)/Math.log(MAX+1) * w.copilot);
+  }
+  if (p.pulse_completed) {
+    // P1 (1-4 → 0..w)
+    const v1 = P1_VAL[p.p1] || 0;
+    if (v1) s += (v1-1)/3 * w.p1;
+    // P25
+    const v25 = P25_VAL[p.p25] || 0;
+    if (v25) s += (v25-1)/3 * w.p25;
+    // P3 — bonus si "Nada me ha frenado"
+    if (p.p3 && p.p3.includes('Nada me ha frenado')) s += w.p3;
+    // P18
+    const v18 = P18_VAL[p.p18] || 0;
+    if (v18) s += (v18-1)/3 * w.p18;
+    // P22
+    const v22 = P22_VAL[p.p22] || 0;
+    if (v22 === 2) s += w.p22;
+    else if (v22 === 1) s += w.p22 * 0.5;
+  }
+  return Math.round(s);
+}
+
+// ============== FILTERING ==============
+function applyFilters(persons) {
+  const f = STATE.filters;
+  return persons.filter(p => {
+    if (f.empresa && p.empresa !== f.empresa) return false;
+    if (f.area && p.area !== f.area) return false;
+    if (f.sucursal && p.sucursal !== f.sucursal) return false;
+    if (f.nivel && p.nivel !== f.nivel) return false;
+    if (f.pulse === 'completed' && !p.pulse_completed) return false;
+    if (f.pulse === 'pending' && p.pulse_completed) return false;
+    if (f.copilot === 'active' && p.cop_interacciones === 0) return false;
+    if (f.copilot === 'inactive' && p.cop_interacciones > 0) return false;
+    if (f.director && !p.director_can) return false;
+    if (f.search) {
+      const q = f.search.toLowerCase();
+      if (!(p.nombre||'').toLowerCase().includes(q) && !(p.email||'').toLowerCase().includes(q) && !(p.cargo||'').toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+// ============== INIT FILTERS ==============
+function fillSelect(id, opts, current='') {
+  const sel = document.getElementById(id);
+  sel.innerHTML = '<option value="">Todos</option>' + opts.map(o => `<option value="${o}" ${o===current?'selected':''}>${o}</option>`).join('');
+}
+
+function initFilters() {
+  fillSelect('f-empresa', EMPRESAS);
+  fillSelect('f-area', AREAS);
+  fillSelect('f-sucursal', SUCURSALES);
+  fillSelect('f-nivel', NIVELES);
+  ['f-empresa','f-area','f-sucursal','f-nivel','f-pulse','f-copilot'].forEach(id => {
+    document.getElementById(id).addEventListener('change', e => {
+      STATE.filters[id.replace('f-','')] = e.target.value;
+      renderAll();
+    });
+  });
+  document.getElementById('f-search').addEventListener('input', e => {
+    STATE.filters.search = e.target.value;
+    renderAll();
+  });
+  document.getElementById('f-director').addEventListener('change', e => {
+    STATE.filters.director = e.target.checked;
+    renderAll();
+  });
+}
+
+function resetFilters() {
+  STATE.filters = { empresa:'', area:'', sucursal:'', nivel:'', pulse:'', copilot:'', director:false, search:'' };
+  ['empresa','area','sucursal','nivel','pulse','copilot'].forEach(k => document.getElementById('f-'+k).value = '');
+  document.getElementById('f-search').value = '';
+  document.getElementById('f-director').checked = false;
+  STATE.activeQuad = null;
+  STATE.activeHeatCell = null;
+  renderAll();
+}
+
+function renderChips() {
+  const f = STATE.filters;
+  const chips = [];
+  if (f.empresa) chips.push(['Empresa', f.empresa, () => { STATE.filters.empresa=''; document.getElementById('f-empresa').value=''; }]);
+  if (f.area) chips.push(['Área', f.area, () => { STATE.filters.area=''; document.getElementById('f-area').value=''; }]);
+  if (f.sucursal) chips.push(['Sucursal', f.sucursal, () => { STATE.filters.sucursal=''; document.getElementById('f-sucursal').value=''; }]);
+  if (f.nivel) chips.push(['Nivel', f.nivel, () => { STATE.filters.nivel=''; document.getElementById('f-nivel').value=''; }]);
+  if (f.pulse) chips.push(['Pulse', f.pulse === 'completed' ? 'Completado' : 'Pendiente', () => { STATE.filters.pulse=''; document.getElementById('f-pulse').value=''; }]);
+  if (f.copilot) chips.push(['Copilot', f.copilot === 'active' ? 'Activo' : 'No activo', () => { STATE.filters.copilot=''; document.getElementById('f-copilot').value=''; }]);
+  if (f.director) chips.push(['Solo', 'Directores CAN', () => { STATE.filters.director=false; document.getElementById('f-director').checked=false; }]);
+  if (f.search) chips.push(['Buscar', f.search, () => { STATE.filters.search=''; document.getElementById('f-search').value=''; }]);
+
+  const el = document.getElementById('f-chips');
+  el.innerHTML = chips.map((c,i) => `<span class="f-chip" onclick="removeChip(${i})"><strong>${c[0]}:</strong> ${c[1]} <span class="x">×</span></span>`).join('');
+  STATE._chipFns = chips.map(c => c[2]);
+}
+function removeChip(i) { STATE._chipFns[i](); renderAll(); }
+
+// ============== § 1 ==============
+function semaforo(p) {
+  if (p === 0) return 'sem-grey';
+  if (p >= STATE.thresholds.green) return 'sem-green';
+  if (p < STATE.thresholds.red) return 'sem-red';
+  return 'sem-yellow';
+}
+function semColor(cls) {
+  return { 'sem-green':'var(--green)', 'sem-yellow':'var(--warn)', 'sem-red':'var(--danger)', 'sem-grey':'var(--tlg)' }[cls];
+}
+
+function renderS1() {
+  const filtered = applyFilters(PERSONAS);
+  const total = filtered.length;
+  const completed = filtered.filter(p => p.pulse_completed).length;
+  const pending = total - completed;
+  const pctComp = pct(completed, total);
+  const copActive = filtered.filter(p => p.cop_interacciones > 0).length;
+  const eitherSignal = filtered.filter(p => p.pulse_completed || p.cop_interacciones > 0).length;
+  const dirCanComp = filtered.filter(p => p.director_can && p.pulse_completed).length;
+  const dirCanTotal = filtered.filter(p => p.director_can).length;
+
+  // KPIs
+  const kpis = [
+    { lbl:'Total en filtro', val:fmt(total), meta:'personas', cls:'' },
+    { lbl:'Completados Pulse', val:fmt(completed), meta:`${pctComp}% del total`, cls:'ok' },
+    { lbl:'Pendientes', val:fmt(pending), meta:`${(100-pctComp).toFixed(1)}%`, cls:pctComp < STATE.thresholds.red ? 'danger' : '' },
+    { lbl:'Activos Copilot', val:fmt(copActive), meta:`${pct(copActive,total)}% del total`, cls:'' },
+    { lbl:'Cobertura combinada', val:fmt(eitherSignal), meta:`${pct(eitherSignal,total)}% con alguna señal`, cls:'' },
+    { lbl:'Directores CAN', val:`${dirCanComp}/${dirCanTotal}`, meta:'completados', cls: dirCanComp < dirCanTotal/2 ? 'danger' : 'ok' },
+  ];
+  document.getElementById('s1-kpis').innerHTML = kpis.map(k =>
+    `<div class="kpi ${k.cls}"><div class="lbl">${k.lbl}</div><div class="val">${k.val}</div><div class="meta">${k.meta}</div></div>`
+  ).join('');
+
+  // Drill-down por área
+  const byArea = {};
+  filtered.forEach(p => {
+    if (!byArea[p.area]) byArea[p.area] = { total:0, comp:0 };
+    byArea[p.area].total++;
+    if (p.pulse_completed) byArea[p.area].comp++;
+  });
+  const areaRows = Object.entries(byArea).sort((a,b) => b[1].total - a[1].total).filter(([a]) => a && a !== 'undefined');
+  let html = '<table><thead><tr><th>Área</th><th>Personas</th><th>% comp</th><th>Avance</th></tr></thead><tbody>';
+  areaRows.forEach(([a, d]) => {
+    const p = pct(d.comp, d.total);
+    const cls = semaforo(p);
+    html += `<tr onclick="filterByArea('${a.replace(/'/g,"\\'")}')"><td class="unit"><span class="semaforo ${cls}"></span>${a}</td><td class="num">${d.total}</td><td class="num">${p}%</td><td><div class="progress"><div style="width:${p}%;background:${semColor(cls)}"></div></div> <span class="num">${d.comp}/${d.total}</span></td></tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('dd-area').innerHTML = html;
+
+  // Drill-down por nivel
+  const byNivel = {};
+  filtered.forEach(p => {
+    if (!byNivel[p.nivel]) byNivel[p.nivel] = { total:0, comp:0 };
+    byNivel[p.nivel].total++;
+    if (p.pulse_completed) byNivel[p.nivel].comp++;
+  });
+  const nivOrder = ['MD','Director','Manager','Lead','Specialist','Analyst','Operativo'];
+  const nivRows = nivOrder.filter(n => byNivel[n]).map(n => [n, byNivel[n]]);
+  let nh = '<table><thead><tr><th>Nivel</th><th>Personas</th><th>% comp</th><th>Avance</th></tr></thead><tbody>';
+  nivRows.forEach(([n, d]) => {
+    const p = pct(d.comp, d.total);
+    const cls = semaforo(p);
+    nh += `<tr onclick="filterByNivel('${n}')"><td class="unit"><span class="semaforo ${cls}"></span>${n}</td><td class="num">${d.total}</td><td class="num">${p}%</td><td><div class="progress"><div style="width:${p}%;background:${semColor(cls)}"></div></div> <span class="num">${d.comp}/${d.total}</span></td></tr>`;
+  });
+  nh += '</tbody></table>';
+  document.getElementById('dd-nivel').innerHTML = nh;
+
+  // Director scorecard — always show full 12, even if filtered
+  const allDirs = PERSONAS.filter(p => p.director_can);
+  const compDirs = allDirs.filter(p => p.pulse_completed).length;
+  document.getElementById('dir-summary').textContent = `${compDirs} de ${allDirs.length}`;
+  document.getElementById('dd-directors').innerHTML = allDirs.map(d => {
+    const cls = d.pulse_completed ? 'completed' : 'pending';
+    const status = d.pulse_completed ? '<span class="dir-status ok">✅ Completado</span>' : '<span class="dir-status pe">⏳ Pendiente</span>';
+    return `<div class="dir-card ${cls}"><div class="dir-name">${d.nombre || d.email}</div><div class="dir-cargo">${d.cargo || ''} · ${d.empresa}</div>${status}</div>`;
+  }).join('');
+}
+
+function filterByArea(a) { STATE.filters.area = a; document.getElementById('f-area').value = a; renderAll(); window.scrollTo({top:0,behavior:'smooth'}); }
+function filterByNivel(n) { STATE.filters.nivel = n; document.getElementById('f-nivel').value = n; renderAll(); window.scrollTo({top:0,behavior:'smooth'}); }
+
+// ============== § 2 — BUILDER ==============
+function renderFormula() {
+  const w = STATE.weights;
+  const html = `<span class="factor">Score</span> = ${Object.entries(w).map(([k,v]) => `<span class="factor">${FACTOR_SHORT[k]}</span>·<span class="weight">${v}</span>`).join(' + ')} <span class="factor">= 100 pts</span>`;
+  document.getElementById('formula-display').innerHTML = html;
+}
+
+function renderSliders() {
+  const w = STATE.weights;
+  document.getElementById('weight-sliders').innerHTML = Object.entries(w).map(([k,v]) => {
+    // Wrap the P-number prefix (or "Copilot") in a colored span
+    const lbl = FACTOR_LABELS[k];
+    const m = lbl.match(/^(P\d+b?|Copilot)\s·\s(.+)$/);
+    const styled = m ? `<span class="pn">${m[1]}</span>${m[2]}` : lbl;
+    return `<div class="slider-row">
+      <div class="slider-head"><span class="slider-name">${styled}</span><span class="slider-val" id="sv-${k}">${v}</span></div>
+      <input type="range" min="0" max="100" value="${v}" oninput="updateWeight('${k}', this.value)">
+      <span class="slider-desc">${FACTOR_DESC[k]}</span>
+    </div>`;
+  }).join('');
+}
+
+function updateWeight(key, val) {
+  val = parseInt(val);
+  const w = STATE.weights;
+  const others = Object.keys(w).filter(k => k !== key);
+  const oldOtherSum = others.reduce((s,k) => s + w[k], 0);
+  const targetOtherSum = 100 - val;
+  w[key] = val;
+  if (oldOtherSum > 0) {
+    others.forEach(k => { w[k] = Math.max(0, Math.round(w[k] * targetOtherSum / oldOtherSum)); });
+  } else {
+    const eq = Math.floor(targetOtherSum / others.length);
+    others.forEach(k => w[k] = eq);
+  }
+  // round-off correction
+  const sum = Object.values(w).reduce((s,v) => s+v, 0);
+  if (sum !== 100) {
+    const largest = others.reduce((a,b) => w[a] >= w[b] ? a : b);
+    w[largest] += (100 - sum);
+  }
+  // sync UI
+  Object.entries(w).forEach(([k,v]) => {
+    document.getElementById('sv-'+k).textContent = v;
+    const inp = document.querySelectorAll(`#weight-sliders input[oninput*="'${k}'"]`)[0];
+    if (inp && k !== key) inp.value = v;
+  });
+  // un-active all presets except if matches one
+  document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+  for (const [name, p] of Object.entries(PRESETS)) {
+    if (Object.keys(p).every(k => p[k] === w[k])) {
+      const idx = ['balanced','use','disposition'].indexOf(name);
+      document.querySelectorAll('.preset-chip')[idx].classList.add('active');
+      break;
+    }
+  }
+  renderFormula();
+  renderS2();
+}
+
+function applyPreset(name) {
+  STATE.weights = {...PRESETS[name]};
+  document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+  const idx = ['balanced','use','disposition'].indexOf(name);
+  document.querySelectorAll('.preset-chip')[idx].classList.add('active');
+  renderFormula();
+  renderSliders();
+  renderS2();
+}
+
+function setSignalFilter(s) {
+  STATE.signalFilter = s;
+  document.querySelectorAll('.signal-chip').forEach(c => c.classList.remove('active'));
+  document.querySelector(`.signal-chip[data-signal="${s}"]`).classList.add('active');
+  renderS2();
+}
+
+function renderS2() {
+  const filtered = applyFilters(PERSONAS);
+  // Apply signal filter
+  let candidates = filtered.filter(p => {
+    if (STATE.signalFilter === 'both') return p.pulse_completed && p.cop_interacciones > 0;
+    if (STATE.signalFilter === 'cop_only') return p.cop_interacciones > 0 && !p.pulse_completed;
+    if (STATE.signalFilter === 'pulse_only') return p.pulse_completed && p.cop_interacciones === 0;
+    // 'any' — must have at least one signal to be a candidate
+    return p.pulse_completed || p.cop_interacciones > 0;
+  });
+  // Score
+  candidates = candidates.map(p => ({...p, score: calcScore(p, STATE.weights)}));
+  candidates = candidates.filter(p => p.score >= STATE.scoreMin);
+  candidates.sort((a,b) => b.score - a.score);
+
+  const top10pct = candidates.length > 0 ? candidates[Math.floor(candidates.length*.1)].score : 0;
+
+  const tbody = document.getElementById('builder-body');
+  if (candidates.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="padding:32px;text-align:center;color:var(--muted)">Sin candidatos con los filtros actuales.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = candidates.slice(0, 200).map((p, i) => {
+    const name = p.nombre || p.email.split('@')[0];
+    const badges = [];
+    if (p.pulse_completed) badges.push('<span class="b-pulse" title="Respondió la encuesta AI Pulse">PULSE</span>');
+    if (p.cop_interacciones > 0) badges.push('<span class="b-cop" title="Activo en Copilot · interacciones registradas en marzo 2026">COP</span>');
+    if (p.score >= top10pct && top10pct > 0) badges.push('<span class="b-top" title="Score en el percentil 90 o superior dentro del filtro actual">TOP 10%</span>');
+    if (p.director_can) badges.push('<span class="b-king" title="Director CAN · uno de los 12 líderes del Cluster Andino Norte">👑 DIR</span>');
+    return `<tr>
+      <td class="rank ${i < 10 ? 'top':''}">${i+1}</td>
+      <td><div class="name">${name}</div><div class="email">${p.email}</div></td>
+      <td><span class="area-tag">${p.area}</span></td>
+      <td style="font-size:11px;color:var(--muted)">${p.nivel}</td>
+      <td><div class="score-cell"><div class="score-bar-tr"><div class="score-bar-fl" style="width:${p.score}%"></div></div><div class="score-num">${p.score}</div></div></td>
+      <td class="cop-int">${p.cop_interacciones > 0 ? p.cop_interacciones : '—'}</td>
+      <td><div class="badges-cell">${badges.join('')}</div></td>
+    </tr>`;
+  }).join('');
+}
+
+function exportCSV() {
+  const filtered = applyFilters(PERSONAS);
+  let candidates = filtered.filter(p => {
+    if (STATE.signalFilter === 'both') return p.pulse_completed && p.cop_interacciones > 0;
+    if (STATE.signalFilter === 'cop_only') return p.cop_interacciones > 0 && !p.pulse_completed;
+    if (STATE.signalFilter === 'pulse_only') return p.pulse_completed && p.cop_interacciones === 0;
+    return p.pulse_completed || p.cop_interacciones > 0;
+  }).map(p => ({...p, score:calcScore(p, STATE.weights)}))
+    .filter(p => p.score >= STATE.scoreMin)
+    .sort((a,b) => b.score - a.score);
+
+  const head = ['Rank','Nombre','Email','Cargo','Empresa','Área','Sucursal','Nivel','Score','Copilot int','Pulse','Director CAN'];
+  const rows = candidates.map((p,i) => [
+    i+1, p.nombre||'', p.email, p.cargo||'', p.empresa, p.area, p.sucursal, p.nivel, p.score,
+    p.cop_interacciones, p.pulse_completed?'Sí':'No', p.director_can?'Sí':'No'
+  ]);
+  const csv = [head, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'embajadores_inchcape.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ============== § 3 — BARRERAS ==============
+const BARRERAS = [
+  'No sé por dónde empezar ni qué herramientas usar',
+  'La he probado pero no le veo una aplicación clara en lo que hago día a día',
+  'Me preocupa compartir información de la empresa o de clientes',
+  'Tengo miedo de cometer errores o de usarla mal',
+  'No he tenido el espacio ni el permiso para explorarla en el trabajo',
+  'En mi rol no creo que sea relevante todavía',
+  'Nada me ha frenado — ya la uso con regularidad',
+];
+const BARRERAS_SHORT = {
+  'No sé por dónde empezar ni qué herramientas usar': 'No sé empezar',
+  'La he probado pero no le veo una aplicación clara en lo que hago día a día': 'Sin aplicación clara',
+  'Me preocupa compartir información de la empresa o de clientes': 'Privacidad',
+  'Tengo miedo de cometer errores o de usarla mal': 'Miedo a errores',
+  'No he tenido el espacio ni el permiso para explorarla en el trabajo': 'Sin permiso',
+  'En mi rol no creo que sea relevante todavía': 'No relevante',
+  'Nada me ha frenado — ya la uso con regularidad': 'Sin barreras',
+};
+const CRIT_BARRIERS = [
+  'Me preocupa compartir información de la empresa o de clientes',
+  'Tengo miedo de cometer errores o de usarla mal',
+  'No he tenido el espacio ni el permiso para explorarla en el trabajo',
+];
+
+function parseBarrers(p) {
+  if (!p.p3) return [];
+  return p.p3.split('|').map(s => s.trim()).filter(Boolean);
+}
+
+function renderS3A() {
+  const filtered = applyFilters(PERSONAS).filter(p => p.pulse_completed);
+  const areasInScope = [...new Set(filtered.map(p => p.area))].filter(Boolean).sort();
+  // count by area x barrera
+  const counts = {};
+  const totals = {};
+  areasInScope.forEach(a => { counts[a] = {}; totals[a] = 0; });
+  filtered.forEach(p => {
+    totals[p.area] = (totals[p.area]||0)+1;
+    parseBarrers(p).forEach(b => {
+      if (!counts[p.area]) counts[p.area] = {};
+      counts[p.area][b] = (counts[p.area][b]||0)+1;
+    });
+  });
+  let html = '<thead><tr><th class="row-h"></th>';
+  areasInScope.forEach(a => html += `<th>${a}</th>`);
+  html += '</tr></thead><tbody>';
+  BARRERAS.forEach(b => {
+    html += `<tr><td class="row-l">${BARRERAS_SHORT[b] || b}</td>`;
+    areasInScope.forEach(a => {
+      const c = counts[a]?.[b] || 0;
+      const t = totals[a] || 1;
+      const p = c/t * 100;
+      let bg = '#0a2456';
+      if (b === 'Nada me ha frenado — ya la uso con regularidad') {
+        // green scale
+        const op = Math.min(p/40, 1);
+        bg = `rgba(182,205,0,${op*0.7+0.05})`;
+      } else {
+        const op = Math.min(p/60, 1);
+        bg = `rgba(224,82,82,${op*0.6+0.05})`;
+      }
+      html += `<td style="background:${bg}" onclick="filterByAreaAndBarrer('${a.replace(/'/g,"\\'")}', '${b.replace(/'/g,"\\'").replace(/—/g,'-')}')" title="${a} · ${BARRERAS_SHORT[b]}: ${c} de ${t} (${p.toFixed(0)}%)">${p>0 ? p.toFixed(0)+'%' : '—'}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody>';
+  document.getElementById('heatmap').innerHTML = html;
+}
+
+function filterByAreaAndBarrer(area, barrera) {
+  STATE.filters.area = area;
+  document.getElementById('f-area').value = area;
+  renderAll();
+}
+
+function renderS3B() {
+  const filtered = applyFilters(PERSONAS).filter(p => p.pulse_completed);
+  const total = filtered.length;
+  let blocked = 0, falseB = 0, noact = 0, active = 0;
+  filtered.forEach(p => {
+    const has = parseBarrers(p);
+    const noBarrers = has.includes('Nada me ha frenado — ya la uso con regularidad');
+    const cop = p.cop_interacciones > 0;
+    if (!noBarrers && !cop) blocked++;
+    else if (!noBarrers && cop) falseB++;
+    else if (noBarrers && !cop) noact++;
+    else if (noBarrers && cop) active++;
+  });
+  const quads = [
+    { cls:'q-blocked', title:'🔴 Bloqueados', n:blocked, intr:'Intervención formativa básica · talleres + mentoría' },
+    { cls:'q-false', title:'🟡 Falsa barrera', n:falseB, intr:'Intervención de gobernanza · revisar permisos y políticas' },
+    { cls:'q-noact', title:'🟠 Inactivos sin barrera', n:noact, intr:'Intervención motivacional · activación + casos de uso' },
+    { cls:'q-active', title:'🟢 Activos sin barrera', n:active, intr:'Candidatos directos a embajador' },
+  ];
+  document.getElementById('quads').innerHTML = quads.map(q =>
+    `<div class="quad ${q.cls}"><div class="quad-title">${q.title}</div><div class="quad-count">${q.n}</div><div class="quad-pct">${pct(q.n, total)}% del filtro · ${total} con Pulse completado</div><div class="quad-int">${q.intr}</div></div>`
+  ).join('');
+}
+
+function renderS3C() {
+  const filtered = applyFilters(PERSONAS).filter(p => p.pulse_completed);
+  const crits = filtered.filter(p => parseBarrers(p).some(b => CRIT_BARRIERS.includes(b)));
+  const list = document.getElementById('crit-list');
+  if (crits.length === 0) { list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted)">Sin barreras críticas en el filtro actual.</div>'; return; }
+  list.innerHTML = crits.slice(0, 80).map(p => {
+    const bars = parseBarrers(p).filter(b => CRIT_BARRIERS.includes(b));
+    return `<div class="crit-row">
+      <div class="crit-name">${p.nombre || p.email.split('@')[0]}<div class="meta">${p.area} · ${p.nivel}</div></div>
+      <div class="crit-barriers">${bars.map(b => `<span class="crit-bar">${BARRERAS_SHORT[b]}</span>`).join('')}</div>
+      <div class="crit-cop">${p.cop_interacciones > 0 ? p.cop_interacciones+' int' : '—'}</div>
+      <button class="crit-action">Conversar 1:1</button>
+    </div>`;
+  }).join('');
+  if (crits.length > 80) {
+    list.innerHTML += `<div style="padding:14px;text-align:center;color:var(--muted);font-size:11px">Mostrando 80 de ${crits.length} · refina filtros para ver más</div>`;
+  }
+}
+
+// ============== § 4 — PATTERNS ==============
+const SUPER_LABELS = ['CREATE','ANALYZE','STRATEGIZE','RESEARCH','AUTOMATE'];
+function parseSuper(p) {
+  if (!p.p4) return [];
+  return SUPER_LABELS.filter(s => p.p4.includes(s));
+}
+
+function renderS4() {
+  const filtered = applyFilters(PERSONAS).filter(p => p.pulse_completed);
+  const counts = {};
+  SUPER_LABELS.forEach(s => counts[s] = 0);
+  filtered.forEach(p => parseSuper(p).forEach(s => counts[s]++));
+  const max = Math.max(...Object.values(counts), 1);
+  document.getElementById('super-bars').innerHTML = SUPER_LABELS.map(s => {
+    const n = counts[s]; const w = n/max*100;
+    return `<div class="bar-item"><div>${s}</div><div class="bar-track"><div class="bar-fill" style="width:${w}%"></div></div><div class="bar-num">${n}</div></div>`;
+  }).join('');
+
+  // top 3 naturales por superpoder
+  const naturals = {};
+  SUPER_LABELS.forEach(s => {
+    naturals[s] = filtered
+      .filter(p => parseSuper(p).includes(s))
+      .map(p => ({...p, score: calcScore(p, STATE.weights)}))
+      .sort((a,b) => b.score - a.score)
+      .slice(0, 3);
+  });
+  document.getElementById('super-cards').innerHTML = SUPER_LABELS.map(s => {
+    const items = naturals[s];
+    return `<div class="super-card"><h4>${s}</h4>${items.length === 0 ? '<div class="nat" style="color:var(--muted)">Sin candidatos en filtro</div>' : items.map(p => `<div class="nat"><div class="nat-name">${p.nombre || p.email.split('@')[0]}</div><div class="nat-meta">${p.area} · score ${p.score} · ${p.cop_interacciones}int</div></div>`).join('')}</div>`;
+  }).join('');
+}
+
+// ============== § 5 — PERCEPCIÓN ==============
+function renderS5() {
+  const filtered = applyFilters(PERSONAS).filter(p => p.pulse_completed);
+  const groups = {};
+  Object.keys(P1_VAL).forEach(label => groups[label] = []);
+  filtered.forEach(p => { if (groups[p.p1]) groups[p.p1].push(p); });
+
+  let mh = '';
+  let exagCount = 0;
+  Object.entries(groups).forEach(([label, arr]) => {
+    if (arr.length === 0) {
+      mh += `<tr><td>${label}</td><td class="num">0</td><td class="num">—</td><td class="num">—</td></tr>`;
+      return;
+    }
+    const avgCop = arr.reduce((s,p) => s+p.cop_interacciones, 0) / arr.length;
+    const zeroCount = arr.filter(p => p.cop_interacciones === 0).length;
+    const zeroPct = pct(zeroCount, arr.length);
+    if (label === 'Uso regular' || label === 'Uso ocasional') {
+      exagCount += zeroCount;
+    }
+    mh += `<tr><td><strong>${label}</strong></td><td class="num">${arr.length}</td><td class="num">${avgCop.toFixed(1)} int</td><td class="num">${zeroPct}%</td></tr>`;
+  });
+  document.getElementById('matrix-body').innerHTML = mh;
+  document.getElementById('callout-discrep').innerHTML = `<strong>${exagCount} personas</strong> dijeron "uso regular" o "uso ocasional" pero registran 0 interacciones en Copilot. Posible uso de ChatGPT u otra herramienta — confirmar en conversación. <em>(También puede ser exageración.)</em>`;
+
+  // discrepancy list
+  const discrep = filtered.filter(p =>
+    (p.p1 === 'Uso regular' || p.p1 === 'Uso ocasional') && p.cop_interacciones === 0
+  ).slice(0, 50);
+  document.getElementById('disc-list').innerHTML = discrep.length === 0 ? '<div style="padding:14px;color:var(--muted);font-size:11px">Sin discrepancias en filtro.</div>' :
+    discrep.map(p => `<div class="crit-row" style="grid-template-columns:1fr 100px 80px"><div class="crit-name">${p.nombre || p.email.split('@')[0]}<div class="meta">${p.area} · ${p.nivel}</div></div><div style="font-size:11px;color:var(--warn)">"${p.p1}"</div><div class="crit-cop" style="color:var(--danger)">0 int</div></div>`).join('');
+}
+
+// ============== TABS ==============
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('tp-' + t.dataset.tab).classList.add('active');
+  });
+});
+
+// ============== UMBRALES ==============
+document.getElementById('u-green').addEventListener('input', e => {
+  STATE.thresholds.green = +e.target.value;
+  document.getElementById('ug-val').textContent = e.target.value;
+  if (STATE.thresholds.green < STATE.thresholds.red) {
+    STATE.thresholds.red = STATE.thresholds.green;
+    document.getElementById('u-red').value = STATE.thresholds.green;
+    document.getElementById('ur-val').textContent = STATE.thresholds.green;
+  }
+  renderS1();
+});
+document.getElementById('u-red').addEventListener('input', e => {
+  STATE.thresholds.red = +e.target.value;
+  document.getElementById('ur-val').textContent = e.target.value;
+  if (STATE.thresholds.red > STATE.thresholds.green) {
+    STATE.thresholds.green = STATE.thresholds.red;
+    document.getElementById('u-green').value = STATE.thresholds.red;
+    document.getElementById('ug-val').textContent = STATE.thresholds.red;
+  }
+  renderS1();
+});
+
+// ============== SCORE MIN ==============
+document.getElementById('sm').addEventListener('input', e => {
+  STATE.scoreMin = +e.target.value;
+  document.getElementById('sm-val').textContent = e.target.value;
+  renderS2();
+});
+
+// ============== MASTER RENDER ==============
+function renderAll() {
+  const filtered = applyFilters(PERSONAS);
+  document.getElementById('f-n').textContent = fmt(filtered.length);
+  renderChips();
+  renderS1();
+  renderS2();
+  renderS3A();
+  renderS3B();
+  renderS3C();
+  renderS4();
+  renderS5();
+}
+
+// ============== INIT ==============
+initFilters();
+renderFormula();
+renderSliders();
+renderAll();
+</script>
+</body>
+</html>

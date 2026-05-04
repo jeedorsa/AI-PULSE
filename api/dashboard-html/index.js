@@ -142,8 +142,10 @@ function toNivelData(results, maestro) {
 
 function getTemplatePath(tipo, context) {
   const candidates = [
+    // Primero buscar en api/dashboard-html/templates/ (funciona en Azure SWA)
+    path.join(__dirname, "templates", `dashboard-${tipo}.html`),
+    // Fallback local dev
     path.join(__dirname, "../../public/dashboards", `dashboard-${tipo}.html`),
-    path.join(__dirname, "../../../public/dashboards", `dashboard-${tipo}.html`),
     path.join(process.cwd(), "public/dashboards", `dashboard-${tipo}.html`),
   ];
   for (const p of candidates) {
