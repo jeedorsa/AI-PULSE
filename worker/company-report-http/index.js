@@ -267,30 +267,47 @@ OUTPUT JSON EXACTO:
 }`;
 }
 
-// ─── Llamada a Azure OpenAI ───────────────────────────────────────────────
-async function callOpenAI(url, key, systemMsg, userMsg) {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'api-key': key },
-    body: JSON.stringify({
-      messages: [
-        { role: 'system', content: systemMsg },
-        { role: 'user',   content: userMsg }
-      ],
-      max_completion_tokens: 20000
-    })
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Azure OpenAI ${res.status}: ${err.slice(0, 300)}`);
+// ─── Llamada a Azure OpenAI con retry ────────────────────────────────────
+async function callOpenAI(url, key, systemMsg, userMsg, attempt = 1) {
+  const MAX_ATTEMPTS = 3;
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'api-key': key },
+      body: JSON.stringify({
+        messages: [
+          { role: 'system', content: systemMsg },
+          { role: 'user',   content: userMsg }
+        ],
+        max_completion_tokens: 20000
+      })
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Azure OpenAI ${res.status}: ${err.slice(0, 300)}`);
+    }
+    const data = await res.json();
+    const raw  = data?.choices?.[0]?.message?.content || '';
+    if (!raw) {
+      const reason = data?.choices?.[0]?.finish_reason;
+      throw new Error(`OpenAI respuesta vacía. finish_reason=${reason}`);
+    }
+    // Limpiar bloques de código markdown que el modelo puede devolver
+    const cleaned = raw.replace(/^```json\s*/i, '').replace(/```\s*$/,'').trim();
+    try {
+      return JSON.parse(cleaned);
+    } catch (parseErr) {
+      // Si el JSON está truncado o malformado, intentar extraer lo que hay
+      throw new Error(`JSON parse error (attempt ${attempt}): ${parseErr.message.slice(0, 100)}`);
+    }
+  } catch (err) {
+    if (attempt < MAX_ATTEMPTS) {
+      const delay = attempt * 8000; // 8s, 16s entre intentos
+      await new Promise(r => setTimeout(r, delay));
+      return callOpenAI(url, key, systemMsg, userMsg, attempt + 1);
+    }
+    throw err;
   }
-  const data = await res.json();
-  const raw  = data?.choices?.[0]?.message?.content || '';
-  if (!raw) {
-    const reason = data?.choices?.[0]?.finish_reason;
-    throw new Error(`OpenAI respuesta vacía. finish_reason=${reason} reasoning_tokens=${data?.usage?.completion_tokens_details?.reasoning_tokens}`);
-  }
-  return JSON.parse(raw.replace(/```json|```/g, '').trim());
 }
 
 // ─── HTML del Reporte ────────────────────────────────────────────────────
@@ -737,10 +754,27 @@ module.exports = async function (context, req) {
       context.log.warn("Blob save failed:", blobErr.message);
     }
 
+    // Borrar lock — reporte listo
+    try {
+      const lockName = `company/${empresa.replace(/[^a-zA-Z0-9]/g, '_')}_lock.json`;
+      await BlobServiceClient.fromConnectionString(conn)
+        .getContainerClient("aiq-reports")
+        .getBlockBlobClient(lockName)
+        .deleteIfExists();
+    } catch {}
+
     context.res = { status: 200, headers, body: JSON.stringify({ success: true, html }) };
 
   } catch (err) {
     context.log.error("company-report-http error:", err.message);
+    // Borrar lock en fallo para permitir reintento manual
+    try {
+      const lockName = `company/${empresa.replace(/[^a-zA-Z0-9]/g, '_')}_lock.json`;
+      await BlobServiceClient.fromConnectionString(conn)
+        .getContainerClient("aiq-reports")
+        .getBlockBlobClient(lockName)
+        .deleteIfExists();
+    } catch {}
     context.res = { status: 500, headers, body: JSON.stringify({ error: err.message }) };
   }
 };

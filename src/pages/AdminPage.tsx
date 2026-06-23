@@ -13,7 +13,7 @@ interface ParticipantRow {
   status?: string;
 }
 
-type AdminTab = 'upload' | 'participants' | 'invitations' | 'reporteria' | 'links';
+type AdminTab = 'upload' | 'participants' | 'invitations' | 'reporteria' | 'links' | 'archivos';
 
 const ADMIN_TOKEN_KEY = 'aipulse_admin_token';
 
@@ -111,58 +111,12 @@ function resolveAnswer(id: string, raw: any): string {
   }
 }
 
-function downloadCSV(results: any[]) {
-  const questionIds = Object.keys(QUESTION_MAP);
-  const metaHeaders = ['Nombre', 'Email', 'Empresa', 'Posición', 'Departamento', 'AIQ Score', 'Nivel AIQ', 'Bloque A', 'Bloque B', 'Bloque C', 'Completado'];
-  const questionHeaders = questionIds.map(id => `[${id}] ${QUESTION_MAP[id]}`);
-  const allHeaders = [...metaHeaders, ...questionHeaders];
-
-  const rows = results.map(r => {
-    const meta = [
-      r.nombre, r.email, r.empresa, r.posicion, r.departamento,
-      r.aiqScore?.toFixed(2), r.aiqLevel,
-      r.sectionA?.toFixed(2), r.sectionB?.toFixed(2), r.sectionC?.toFixed(2),
-      r.completedAt ? new Date(r.completedAt).toLocaleString('es-CL') : ''
-    ];
-    const answers = questionIds.map(id => resolveAnswer(id, r.answers?.[id]));
-    return [...meta, ...answers];
-  });
-
-  const csv = [allHeaders, ...rows]
-    .map(row => row.map(v => `"${String(v || '').replace(/"/g, '""')}"`).join(','))
-    .join('\n');
-
-  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+function downloadJSON(data: any, filename: string) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `aipulse-respuestas-${new Date().toISOString().slice(0,10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function downloadIndividualCSV(r: any) {
-  const questionIds = Object.keys(QUESTION_MAP);
-  const rows = [
-    ['Campo', 'Valor'],
-    ['Nombre', r.nombre], ['Email', r.email], ['Empresa', r.empresa],
-    ['Posición', r.posicion], ['Departamento', r.departamento],
-    ['AIQ Score', r.aiqScore?.toFixed(2)], ['Nivel AIQ', r.aiqLevel],
-    ['Bloque A (Experiencia)', r.sectionA?.toFixed(2)],
-    ['Bloque B (Criterio)', r.sectionB?.toFixed(2)],
-    ['Bloque C (Laboratorio)', r.sectionC?.toFixed(2)],
-    ['Completado', r.completedAt ? new Date(r.completedAt).toLocaleString('es-CL') : ''],
-    ['', ''],
-    ['── RESPUESTAS COMPLETAS ──', ''],
-    ...questionIds.map(id => [QUESTION_MAP[id], resolveAnswer(id, r.answers?.[id])])
-  ];
-
-  const csv = rows.map(row => row.map(v => `"${String(v || '').replace(/"/g, '""')}"`).join(',')).join('\n');
-  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `aipulse-${r.nombre?.replace(/\s+/g, '-').toLowerCase() || r.email}-${new Date().toISOString().slice(0,10)}.csv`;
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -194,6 +148,53 @@ export default function AdminPage() {
   const [generatingCompanyReport, setGeneratingCompanyReport] = useState(false);
   const [reportProgressMsg, setReportProgressMsg] = useState('');
   const [companyProgressMsg, setCompanyProgressMsg] = useState('');
+
+  // ── Archivos de enriquecimiento ──
+  type FileStatus = { exists: boolean; uploadedAt?: string; count?: number; users?: number; filename?: string; size?: number };
+  const [companyFiles, setCompanyFiles] = useState<Record<string, FileStatus>>({});
+  const [uploadingFile, setUploadingFile] = useState<string | null>(null);
+  const [uploadMsg, setUploadMsg] = useState<{ tipo: string; msg: string; ok: boolean } | null>(null);
+
+  const fetchCompanyFiles = async () => {
+    try {
+      const res = await fetch('/api/company-files-list', { headers: adminHeaders() });
+      if (res.status === 401) { handleUnauthorized(); return; }
+      const data = await res.json();
+      setCompanyFiles(data.files || {});
+    } catch {}
+  };
+
+  const handleCompanyFileUpload = async (tipo: string, file: File) => {
+    setUploadingFile(tipo);
+    setUploadMsg(null);
+    try {
+      const buffer = await file.arrayBuffer();
+      // Chunked para no explotar el call stack con archivos grandes
+      const bytes = new Uint8Array(buffer);
+      let binary = '';
+      const CHUNK = 8192;
+      for (let i = 0; i < bytes.length; i += CHUNK) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+      }
+      const base64 = btoa(binary);
+      const res = await fetch('/api/company-upload', {
+        method: 'POST',
+        headers: { ...adminHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo, filename: file.name, data: base64 }),
+      });
+      if (res.status === 401) { handleUnauthorized(); return; }
+      const text = await res.text();
+      let data: any = {};
+      try { data = JSON.parse(text); } catch { throw new Error(`Error del servidor (${res.status})`); }
+      if (!res.ok) throw new Error(data.error || 'Error desconocido');
+      setUploadMsg({ tipo, msg: `✓ ${data.count?.toLocaleString()} registros cargados`, ok: true });
+      fetchCompanyFiles();
+    } catch (err: any) {
+      setUploadMsg({ tipo, msg: err.message, ok: false });
+    } finally {
+      setUploadingFile(null);
+    }
+  };
 
   function startProgressMessages(setter: (msg: string) => void, messages: string[], intervalMs = 12000) {
     let i = 0;
@@ -237,35 +238,99 @@ export default function AdminPage() {
   const generateReport = async (email: string) => {
     setGeneratingReport(email);
     const intervalId = startProgressMessages(setReportProgressMsg, INDIVIDUAL_MSGS, 14000);
+
+    const openReport = (html: string) => {
+      window.open(URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' })), '_blank');
+    };
+
+    const pollForIndividual = (pollMs = 12000, maxAttempts = 15) => {
+      let attempts = 0;
+      const poll = async () => {
+        attempts++;
+        try {
+          const res = await fetch('/api/report-generate', { method: 'POST', headers: adminHeaders(), body: JSON.stringify({ email }) });
+          if (res.status === 401) { handleUnauthorized(); return; }
+          const data = await safeJsonFetch(res);
+          if (data.html) {
+            clearInterval(intervalId); setGeneratingReport(null); setReportProgressMsg('');
+            openReport(data.html); return;
+          }
+          if (attempts < maxAttempts) setTimeout(poll, pollMs);
+          else { clearInterval(intervalId); setGeneratingReport(null); setReportProgressMsg(''); alert('El informe está tardando más de lo esperado. Intenta de nuevo en 1 minuto.'); }
+        } catch {
+          if (attempts < maxAttempts) setTimeout(poll, pollMs);
+          else { clearInterval(intervalId); setGeneratingReport(null); setReportProgressMsg(''); }
+        }
+      };
+      setTimeout(poll, pollMs);
+    };
+
     try {
-      const res = await fetch('/api/report-generate', {
-        method: 'POST',
-        headers: adminHeaders(),
-        body: JSON.stringify({ email }),
-      });
+      const res = await fetch('/api/report-generate', { method: 'POST', headers: adminHeaders(), body: JSON.stringify({ email }) });
       if (res.status === 401) { handleUnauthorized(); return; }
       const data = await safeJsonFetch(res);
-      if (res.status === 202 || data.status === 'pending') {
-        alert(`⏳ ${data.message || 'El informe se está generando. Vuelve en 1-2 minutos e intenta de nuevo.'}`);
-        return;
+      if (data.html) { openReport(data.html); return; }
+      if (res.status === 202 || data.status === 'generating') {
+        setReportProgressMsg('Generando informe... se abrirá automáticamente');
+        pollForIndividual(12000, 15); return;
       }
-      if (!res.ok || !data.html) throw new Error(data.error || `Error ${res.status}`);
-
-      const blob = new Blob([data.html], { type: 'text/html;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
+      throw new Error(data.error || `Error ${res.status}`);
     } catch (err: any) {
+      clearInterval(intervalId); setGeneratingReport(null); setReportProgressMsg('');
       alert(`Error generando el informe: ${err.message}`);
-    } finally {
-      clearInterval(intervalId);
-      setGeneratingReport(null);
-      setReportProgressMsg('');
     }
   };
 
   const generateCompanyReport = async (empresa: string) => {
     setGeneratingCompanyReport(true);
     const intervalId = startProgressMessages(setCompanyProgressMsg, COMPANY_MSGS, 18000);
+
+    const openReport = (html: string) => {
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      window.open(URL.createObjectURL(blob), '_blank');
+    };
+
+    const pollForReport = (pollIntervalMs = 15000, maxAttempts = 24) => {
+      let attempts = 0;
+      const poll = async () => {
+        attempts++;
+        try {
+          const res = await fetch('/api/report-generate-company', {
+            method: 'POST',
+            headers: adminHeaders(),
+            body: JSON.stringify({ empresa }),
+          });
+          if (res.status === 401) { handleUnauthorized(); return; }
+          const data = await safeJsonFetch(res);
+          if (data.html) {
+            clearInterval(intervalId);
+            setGeneratingCompanyReport(false);
+            setCompanyProgressMsg('');
+            openReport(data.html);
+            return;
+          }
+          // Aún generando (202) — seguir esperando
+          if (attempts < maxAttempts) {
+            setTimeout(poll, pollIntervalMs);
+          } else {
+            clearInterval(intervalId);
+            setGeneratingCompanyReport(false);
+            setCompanyProgressMsg('');
+            alert(`El informe de ${empresa} está tardando más de lo esperado. Intenta abrir nuevamente en 2 minutos.`);
+          }
+        } catch {
+          // Error de red transitorio — seguir intentando si quedan intentos
+          if (attempts < maxAttempts) setTimeout(poll, pollIntervalMs);
+          else {
+            clearInterval(intervalId);
+            setGeneratingCompanyReport(false);
+            setCompanyProgressMsg('');
+          }
+        }
+      };
+      setTimeout(poll, pollIntervalMs);
+    };
+
     try {
       const res = await fetch('/api/report-generate-company', {
         method: 'POST',
@@ -274,20 +339,24 @@ export default function AdminPage() {
       });
       if (res.status === 401) { handleUnauthorized(); return; }
       const data = await safeJsonFetch(res);
-      if (res.status === 202 || data.status === 'pending') {
-        alert(`⏳ ${data.message || 'El informe se está generando en background. Vuelve en 5-10 minutos.'}`);
+
+      if (data.html) {
+        // Tenía caché — respuesta inmediata
+        openReport(data.html);
         return;
       }
-      if (!res.ok || !data.html) throw new Error(data.error || 'El informe llegó vacío');
-      const blob = new Blob([data.html], { type: 'text/html;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
+      if (res.status === 202 || data.status === 'generating') {
+        // Worker disparado — polling automático cada 15s, hasta 6 minutos
+        setCompanyProgressMsg('Generando informe... se abrirá automáticamente cuando esté listo');
+        pollForReport(15000, 24);
+        return;
+      }
+      throw new Error(data.error || 'Respuesta inesperada del servidor');
     } catch (err: any) {
-      alert(`Error generando el informe de empresa: ${err.message}`);
-    } finally {
       clearInterval(intervalId);
       setGeneratingCompanyReport(false);
       setCompanyProgressMsg('');
+      alert(`Error generando el informe de empresa: ${err.message}`);
     }
   };
 
@@ -522,6 +591,7 @@ export default function AdminPage() {
     { id: 'invitations', label: 'Invitaciones' },
     { id: 'links', label: 'Links de Acceso' },
     { id: 'reporteria', label: 'Reportería' },
+    { id: 'archivos', label: 'Archivos' },
   ];
 
   // ── Login Screen ──
@@ -618,19 +688,39 @@ export default function AdminPage() {
                 Gestiona participantes, envia invitaciones y administra el diagnostico.
               </p>
             </div>
-            <div className="flex items-center gap-3 mt-2">
-              <button
-                onClick={handleOpenDemo}
-                className="font-mono text-[9px] uppercase tracking-wider px-3 py-2 border border-primary rounded-[2px] text-primary hover:bg-primary hover:text-white transition-colors"
-              >
-                ▶ Ver Coach Demo
-              </button>
-              <button
-                onClick={handleLogout}
-                className="font-mono text-[9px] uppercase tracking-wider text-[#AAAAAA] hover:text-[#FF3C3C] transition-colors px-3 py-2 border border-[#E0E0E0] hover:border-[rgba(255,60,60,0.3)] rounded-[2px]"
-              >
-                Cerrar sesion
-              </button>
+            <div className="flex flex-col items-end gap-3 mt-2">
+              {/* Tableros */}
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[8px] text-[#AAAAAA] uppercase tracking-widest mr-1">Tableros</span>
+                {[
+                  { tipo: 'adopcion', label: 'Adopción' },
+                  { tipo: 'diagnostico', label: 'Diagnóstico' },
+                  { tipo: 'participacion', label: 'Participación' },
+                ].map(({ tipo, label }) => (
+                  <button
+                    key={tipo}
+                    onClick={() => window.open(`/dashboard/${tipo}`, '_blank')}
+                    className="font-mono text-[9px] uppercase tracking-wider px-3 py-1.5 border border-[#111111] text-[#111111] rounded-[2px] hover:bg-[#111111] hover:text-white transition-colors"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {/* Acciones */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleOpenDemo}
+                  className="font-mono text-[9px] uppercase tracking-wider px-3 py-2 border border-primary rounded-[2px] text-primary hover:bg-primary hover:text-white transition-colors"
+                >
+                  ▶ Ver Coach Demo
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="font-mono text-[9px] uppercase tracking-wider text-[#AAAAAA] hover:text-[#FF3C3C] transition-colors px-3 py-2 border border-[#E0E0E0] hover:border-[rgba(255,60,60,0.3)] rounded-[2px]"
+                >
+                  Cerrar sesion
+                </button>
+              </div>
             </div>
           </div>
 
@@ -643,6 +733,7 @@ export default function AdminPage() {
                   setActiveTab(tab.id);
                   if (tab.id === 'participants') fetchParticipants();
                   if (tab.id === 'reporteria') { fetchResults(); fetchParticipants(); }
+                  if (tab.id === 'archivos') fetchCompanyFiles();
                 }}
                 className={`
                   px-5 py-3 font-mono text-[10px] uppercase tracking-wider transition-all
@@ -991,6 +1082,83 @@ export default function AdminPage() {
             </motion.div>
           )}
 
+          {/* ── ARCHIVOS TAB ─────────────────────────────────────────── */}
+          {activeTab === 'archivos' && (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+              <div className="mb-6">
+                <h2 className="font-display text-[22px] text-[#111111] mb-1">Archivos de enriquecimiento</h2>
+                <p className="font-body text-[13px] text-[#666666]">
+                  Sube el maestro de empleados y el reporte de uso de IA para enriquecer los tableros analíticos con datos de jerarquía y actividad Copilot.
+                </p>
+              </div>
+
+              {(['maestro', 'copilot', 'otro'] as const).map((tipo) => {
+                const labels: Record<string, { title: string; desc: string; hint: string }> = {
+                  maestro: { title: 'Maestro de empleados', desc: 'Listado completo con jerarquía, área, sucursal y nivel.', hint: 'Col. requeridas: Nombre, Correo, Empresa, Área, Sucursal, Cargo, Nivel, Director CAN' },
+                  copilot: { title: 'Datos de uso de IA', desc: 'Reporte de interacciones Copilot por usuario.', hint: 'Sheet "Report" — col. UserId y Count of accesses (pre-agregado por usuario)' },
+                  otro:    { title: 'Otro archivo', desc: 'Cualquier xlsx adicional de referencia.', hint: 'Se guarda tal cual como JSON genérico' },
+                };
+                const { title, desc, hint } = labels[tipo];
+                const status = companyFiles[tipo];
+                const isUploading = uploadingFile === tipo;
+                const msg = uploadMsg?.tipo === tipo ? uploadMsg : null;
+
+                return (
+                  <div key={tipo} className="border border-[#E0E0E0] rounded-[2px] p-6">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-1">
+                          <span className="font-body text-[14px] font-semibold text-[#111111]">{title}</span>
+                          {status?.exists
+                            ? <span className="font-mono text-[8px] uppercase tracking-wider px-2 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded-[2px]">✓ Subido</span>
+                            : <span className="font-mono text-[8px] uppercase tracking-wider px-2 py-0.5 bg-[#F5F5F5] text-[#AAAAAA] border border-[#E0E0E0] rounded-[2px]">No cargado</span>
+                          }
+                        </div>
+                        <p className="font-body text-[12px] text-[#666666] mb-1">{desc}</p>
+                        <p className="font-mono text-[9px] text-[#AAAAAA]">{hint}</p>
+                        {status?.exists && (
+                          <div className="mt-2 flex gap-4 font-mono text-[9px] text-[#666666]">
+                            {status.count && <span>{status.count.toLocaleString()} registros</span>}
+                            {status.users && <span>· {status.users.toLocaleString()} usuarios únicos</span>}
+                            {status.uploadedAt && <span>· {new Date(status.uploadedAt).toLocaleDateString('es-CL')}</span>}
+                            {status.filename && <span>· {status.filename}</span>}
+                          </div>
+                        )}
+                        {msg && (
+                          <p className={`mt-2 font-mono text-[10px] ${msg.ok ? 'text-green-600' : 'text-red-500'}`}>{msg.msg}</p>
+                        )}
+                      </div>
+                      <label className={`cursor-pointer font-mono text-[9px] uppercase tracking-wider px-4 py-2 border rounded-[2px] transition-colors whitespace-nowrap ${
+                        isUploading
+                          ? 'border-[#CCCCCC] text-[#AAAAAA] cursor-not-allowed'
+                          : 'border-primary text-primary hover:bg-primary hover:text-white'
+                      }`}>
+                        {isUploading ? '⏳ Subiendo...' : (status?.exists ? '↑ Reemplazar' : '↑ Subir xlsx')}
+                        <input
+                          type="file"
+                          accept=".xlsx,.xls"
+                          className="hidden"
+                          disabled={isUploading}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleCompanyFileUpload(tipo, file);
+                            e.target.value = '';
+                          }}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                );
+              })}
+
+              <div className="pt-2 border-t border-[#E0E0E0]">
+                <p className="font-mono text-[9px] text-[#AAAAAA] uppercase tracking-wider">
+                  Los archivos se usan para enriquecer los tableros analíticos. No afectan las encuestas ni los informes individuales.
+                </p>
+              </div>
+            </motion.div>
+          )}
+
           {/* ── REPORTERÍA TAB ───────────────────────────────────────── */}
           {activeTab === 'reporteria' && (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
@@ -1094,10 +1262,10 @@ export default function AdminPage() {
                       </button>
                       {filtered.length > 0 && (
                         <button
-                          onClick={() => downloadCSV(filtered)}
+                          onClick={() => downloadJSON(filtered, `respuestas-${new Date().toISOString().slice(0,10)}.json`)}
                           className="font-mono text-[9px] uppercase tracking-wider h-7 px-3 border border-primary rounded-[2px] text-primary hover:bg-primary hover:text-white transition-colors"
                         >
-                          ↓ Exportar{filterEmpresa ? ` ${filterEmpresa}` : ' todo'} CSV
+                          ↓ Descargar{filterEmpresa ? ` ${filterEmpresa}` : ' todo'} JSON
                         </button>
                       )}
                       {filterEmpresa && filtered.length > 0 && (
@@ -1242,10 +1410,10 @@ export default function AdminPage() {
                             {/* Acciones */}
                             <div className="flex justify-end gap-2 pt-2 border-t border-[#EEEEEE]">
                               <button
-                                onClick={() => downloadIndividualCSV(r)}
+                                onClick={() => downloadJSON(r, `respuestas-${(r.nombre || r.email || 'participante').replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().slice(0,10)}.json`)}
                                 className="font-mono text-[9px] uppercase tracking-wider px-3 py-1.5 border border-[#CCCCCC] rounded-[2px] text-[#666666] hover:border-primary hover:text-primary transition-colors"
                               >
-                                ↓ Descargar respuestas completas
+                                ↓ Descargar respuestas JSON
                               </button>
                               <div className="flex flex-col items-end gap-1">
                                 <button

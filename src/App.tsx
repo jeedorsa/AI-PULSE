@@ -11,6 +11,7 @@ import ThankYouPage from './pages/ThankYouPage';
 import AdminPage from './pages/AdminPage';
 import AccessPage from './pages/AccessPage';
 import CoachPage from './pages/CoachPage';
+import DashboardPage from './pages/DashboardPage';
 
 const PageWrapper = ({ children }: { children: React.ReactNode }) => {
   return (
@@ -49,6 +50,8 @@ const AnimatedRoutes = () => {
         <Route path="/acceso" element={<PageWrapper><AccessPage /></PageWrapper>} />
         {/* /coach — dashboard personal del participante, requiere informe generado */}
         <Route path="/coach" element={<CoachPage />} />
+        {/* /dashboard/:tipo — tableros analíticos (solo admin) */}
+        <Route path="/dashboard/:tipo" element={<DashboardPage />} />
       </Routes>
     </AnimatePresence>
   );

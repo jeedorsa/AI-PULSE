@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:opsz,wght@9..40,100..1000&family=DM+Mono:ital,wght@0,300;0,400;0,500&display=swap" rel="stylesheet">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Pulse — Inchcape · Diagnóstico 21 Apr 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --dark-blue:#111111; --card:#F5F5F5; --eco:#FE3C1C; --green:#b6cd00;
+    --yellow:#f2e400; --purple:#9e61a4; --dark-grey:#394650; --mid-grey:#848a8c;
+    --danger:#e05252; --warn:#f5a623; --text:#111111;
+    --muted:rgba(17,17,17,.55); --dim:rgba(17,17,17,.35);
+    --border:rgba(0,0,0,.10); --tlg:#b6cd00; --jc:#FE3C1C;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Barlow',sans-serif; background:#ffffff; color:var(--text); font-size:14px; min-height:100vh; }
+
+  /* HEADER */
+  .header { background:#000d24; border-bottom:1px solid var(--border); padding:18px 36px; display:flex; align-items:center; justify-content:space-between; }
+  .hbadge { background:var(--eco); color:var(--dark-blue); font-family:'Barlow Condensed',sans-serif; font-weight:800; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; padding:5px 10px; border-radius:4px; display:inline-block; margin-right:14px; }
+  .header h1 { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:18px; }
+  .header h1 span { color:var(--eco); }
+  .hmeta { font-size:11px; color:var(--muted); margin-top:2px; }
+  .hphase { font-size:11px; border:1px solid rgba(0,0,0,.12); color:var(--eco); background:rgba(17,17,17,.06); padding:5px 14px; border-radius:20px; }
+
+  /* FILTER BAR */
+  .filterbar { background:#000d24; border-bottom:1px solid var(--border); padding:12px 36px; display:flex; gap:14px; align-items:flex-end; flex-wrap:wrap; position:sticky; top:0; z-index:100; }
+  .filter-group { display:flex; flex-direction:column; gap:4px; min-width:148px; }
+  .filter-label { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:1.4px; color:var(--muted); }
+  .filter-select { appearance:none; background:rgba(17,17,17,.04); border:1px solid var(--border); border-radius:6px; padding:7px 28px 7px 10px; font-family:'Barlow',sans-serif; font-size:12px; color:var(--text); cursor:pointer; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='7' viewBox='0 0 10 7'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23111111' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 9px center; transition:border-color .2s; }
+  .filter-select option { background:#ffffff; color:var(--text); }
+  .filter-select:focus { outline:none; border-color:var(--eco); }
+  .filter-select.active { border-color:var(--eco); background-color:rgba(17,17,17,.5); color:var(--eco); font-weight:600; }
+  .filter-reset-btn { padding:7px 14px; background:transparent; border:1px solid var(--border); border-radius:6px; font-family:'Barlow',sans-serif; font-size:11px; font-weight:600; color:var(--muted); cursor:pointer; transition:all .2s; align-self:flex-end; white-space:nowrap; }
+  .filter-reset-btn:hover { border-color:var(--danger); color:var(--danger); }
+  .filter-count { margin-left:auto; text-align:right; }
+  .filter-n { font-family:'Barlow Condensed',sans-serif; font-weight:800; font-size:26px; color:var(--eco); line-height:1; }
+  .filter-nlabel { font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; }
+
+  /* ACTIVE ANSWER FILTERS PILL ROW */
+  .active-pills { display:none; background:rgba(255,255,255,.95); border-bottom:1px solid rgba(242,228,0,.15); padding:8px 36px; gap:8px; flex-wrap:wrap; align-items:center; position:sticky; top:57px; z-index:99; backdrop-filter:blur(4px); }
+  .active-pills.show { display:flex; }
+  .pill-label { font-size:10px; color:rgba(242,228,0,.6); font-weight:700; text-transform:uppercase; letter-spacing:1px; margin-right:4px; }
+  .pill { display:inline-flex; align-items:center; gap:6px; background:rgba(242,228,0,.1); border:1px solid rgba(242,228,0,.3); color:var(--yellow); font-size:11px; font-weight:600; padding:3px 10px; border-radius:20px; cursor:pointer; transition:all .15s; }
+  .pill:hover { background:rgba(242,228,0,.2); }
+  .pill .pill-x { font-size:13px; line-height:1; opacity:.7; }
+  .pill-clear-all { font-size:11px; color:var(--muted); cursor:pointer; margin-left:4px; padding:3px 8px; border-radius:20px; border:1px solid var(--border); transition:all .15s; }
+  .pill-clear-all:hover { color:var(--danger); border-color:var(--danger); }
+
+  /* MAIN */
+  .main { padding:24px 36px; max-width:1280px; margin:0 auto; }
+  .stitle { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:10px; text-transform:uppercase; letter-spacing:2.5px; color:var(--muted); margin:28px 0 14px; display:flex; align-items:center; gap:10px; }
+  .stitle::after { content:''; flex:1; height:1px; background:var(--border); }
+  .g2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+  .g3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-bottom:16px; }
+  .card { background:#F5F5F5; border:1px solid var(--border); border-radius:12px; padding:20px 22px; transition:border-color .2s; }
+  .card.has-selection { border-color:rgba(242,228,0,.35); }
+  .ctitle { font-weight:700; font-size:13px; color:var(--text); margin-bottom:3px; }
+  .cq { font-size:11px; color:var(--muted); margin-bottom:16px; line-height:1.4; }
+  .tag { display:inline-block; font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:1px; padding:2px 7px; border-radius:20px; margin-left:8px; }
+  .tag.danger { background:rgba(224,82,82,.12); color:#ff8080; border:1px solid rgba(224,82,82,.25); }
+  .tag.warn { background:rgba(242,228,0,.08); color:var(--yellow); border:1px solid rgba(242,228,0,.2); }
+
+  /* BARS */
+  .hlist { display:flex; flex-direction:column; gap:8px; }
+  .hitem { cursor:pointer; border-radius:6px; padding:6px 8px; margin:-6px -8px; transition:background .15s; position:relative; }
+  .hitem:hover { background:rgba(17,17,17,.04); }
+  .hitem.selected { background:rgba(242,228,0,.08); }
+  .hitem.selected::before { content:''; position:absolute; left:0; top:6px; bottom:6px; width:3px; background:var(--yellow); border-radius:0 2px 2px 0; }
+  .hitem.dimmed { opacity:.35; }
+  .hitem-top { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:5px; }
+  .hlabel { font-size:12px; color:var(--text); line-height:1.35; }
+  .hlabel.nr { color:var(--muted); font-style:italic; }
+  .hcount { font-size:12px; font-weight:700; color:var(--eco); white-space:nowrap; margin-left:8px; font-variant-numeric:tabular-nums; }
+  .hcount.nr { color:var(--dim); }
+  .htrack { background:rgba(0,0,0,.08); border-radius:20px; height:8px; overflow:hidden; }
+  .hfill { height:100%; border-radius:20px; transition:width .35s ease; }
+  .note { margin-top:12px; padding-top:10px; border-top:1px solid var(--border); font-size:11px; color:var(--muted); }
+  .no-data { text-align:center; padding:28px 0; color:var(--muted); font-size:12px; font-style:italic; }
+  .click-hint { font-size:10px; color:var(--dim); margin-bottom:8px; display:flex; align-items:center; gap:5px; }
+
+
+
+  /* AMBASSADORS */
+  .emb-grid { display:flex; flex-direction:column; gap:6px; }
+  .emb-row { display:grid; grid-template-columns:28px 1fr 160px 90px 80px 80px; align-items:center; gap:10px; padding:8px 12px; border-radius:8px; background:rgba(0,0,0,.04); border:1px solid var(--border); transition:background .15s; }
+  .emb-row:hover { background:rgba(17,17,17,.06); }
+  .emb-row.cop-only { border-color:rgba(245,166,35,.2); background:rgba(245,166,35,.03); }
+  .emb-num { font-family:'Barlow Condensed',sans-serif; font-weight:800; font-size:16px; color:var(--muted); text-align:center; }
+  .emb-name { font-size:12px; font-weight:600; color:var(--text); }
+  .emb-email { font-size:10px; color:var(--muted); margin-top:1px; }
+  .emb-area { font-size:11px; }
+  .emb-score-wrap { display:flex; flex-direction:column; gap:3px; }
+  .emb-score-bar { height:5px; border-radius:20px; background:rgba(0,0,0,.08); overflow:hidden; }
+  .emb-score-fill { height:100%; border-radius:20px; }
+  .emb-score-val { font-size:10px; font-weight:700; color:var(--eco); }
+  .emb-cop { font-size:11px; font-weight:700; text-align:right; }
+  .emb-badge { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; padding:3px 8px; border-radius:20px; text-align:center; white-space:nowrap; }
+  .emb-badge.pulse { background:rgba(182,205,0,.12); color:#b6cd00; border:1px solid rgba(182,205,0,.25); }
+  .emb-badge.coponly { background:rgba(245,166,35,.1); color:#f5a623; border:1px solid rgba(245,166,35,.2); }
+  .emb-thead { display:grid; grid-template-columns:28px 1fr 160px 90px 80px 80px; gap:10px; padding:4px 12px 8px; border-bottom:1px solid var(--border); margin-bottom:4px; }
+  .emb-thead span { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:1.2px; color:var(--muted); }
+  .score-legend { display:flex; gap:16px; font-size:10px; color:var(--muted); margin-bottom:12px; flex-wrap:wrap; }
+  .score-legend span { display:flex; align-items:center; gap:5px; }
+  .score-dot { width:8px; height:8px; border-radius:50%; }
+
+  /* COPILOT SECTION */
+  .matrix-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
+  .matrix-cell { border-radius:10px; padding:18px 20px; border:1px solid var(--border); }
+  .matrix-cell.both  { background:rgba(182,205,0,.08); border-color:rgba(182,205,0,.3); }
+  .matrix-cell.cop   { background:rgba(17,17,17,.06); border-color:rgba(0,0,0,.12); }
+  .matrix-cell.pulse { background:rgba(245,166,35,.07); border-color:rgba(245,166,35,.2); }
+  .matrix-cell.none  { background:rgba(132,138,140,.06); border-color:var(--border); }
+  .matrix-big { font-family:'Barlow Condensed',sans-serif; font-weight:800; font-size:42px; line-height:1; }
+  .matrix-big.both  { color:#b6cd00; }
+  .matrix-big.cop   { color:#FE3C1C; }
+  .matrix-big.pulse { color:#f5a623; }
+  .matrix-big.none  { color:#848a8c; }
+  .matrix-label { font-size:12px; font-weight:600; color:var(--text); margin:6px 0 3px; }
+  .matrix-sub   { font-size:11px; color:var(--muted); }
+  .top-table { width:100%; border-collapse:collapse; font-size:12px; margin-top:4px; }
+  .top-table th { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:1.2px; color:var(--muted); padding:0 8px 8px 0; border-bottom:1px solid var(--border); text-align:left; }
+  .top-table td { padding:7px 8px 7px 0; border-bottom:1px solid rgba(0,0,0,.07); vertical-align:middle; }
+  .top-table tr:last-child td { border-bottom:none; }
+  .int-bar { display:flex; align-items:center; gap:8px; }
+  .int-track { flex:1; background:rgba(0,0,0,.08); border-radius:20px; height:6px; overflow:hidden; }
+  .int-fill  { height:100%; border-radius:20px; background:var(--eco); }
+  .int-val   { font-weight:700; color:var(--eco); width:28px; text-align:right; font-size:11px; }
+  .area-tag  { font-size:10px; color:var(--muted); background:rgba(17,17,17,.06); padding:2px 7px; border-radius:20px; white-space:nowrap; }
+  .ap-row    { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .ap-label  { font-size:11px; color:var(--text); width:175px; flex-shrink:0; }
+  .ap-n      { font-size:10px; color:var(--muted); width:24px; text-align:right; }
+  .ap-track  { flex:1; background:rgba(0,0,0,.08); border-radius:20px; height:10px; overflow:hidden; }
+  .ap-fill   { height:100%; border-radius:20px; }
+
+  .nim-item { display:flex; justify-content:space-between; align-items:center; padding:5px 8px; background:rgba(245,166,35,.05); border:1px solid rgba(245,166,35,.1); border-radius:6px; }
+  .nim-email { color:var(--text); font-size:11px; }
+  .nim-int { color:#f5a623; font-weight:700; font-size:11px; white-space:nowrap; margin-left:6px; }
+  .nim-domain { font-size:10px; color:var(--muted); }
+
+  .ap-val    { font-size:11px; font-weight:700; color:var(--eco); width:46px; text-align:right; }
+
+  /* FOOTER */
+  .footer { margin-top:40px; padding:16px 36px; border-top:1px solid var(--border); display:flex; justify-content:space-between; font-size:11px; color:var(--dim); }
+  .ft-tlg { color:var(--tlg); font-weight:700; }
+  .ft-jc { color:var(--jc); font-weight:700; }
+</style>
+<style id="aipulse-brand">
+  :root {
+    --brand-primary: #FE3C1C;
+    --brand-dark: #111111;
+    --brand-mid: #2A2A2A;
+    --brand-surface: #1A1A1A;
+    --brand-border: rgba(255,255,255,0.10);
+    --brand-text: #FFFFFF;
+    --brand-muted: #AAAAAA;
+    --brand-green: #22C55E;
+    --brand-orange: #F5A623;
+  }
+  body, html { font-family: 'DM Sans', sans-serif !important; }
+  h1, h2, h3, .title, .heading, [class*="title"], [class*="heading"] {
+    font-family: 'Bebas Neue', sans-serif !important;
+    letter-spacing: 0.04em;
+  }
+  code, pre, .mono, [class*="mono"], [class*="code"] {
+    font-family: 'DM Mono', monospace !important;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div style="display:flex;align-items:center">
+    <span class="hbadge">AI Pulse</span>
+    <div>
+      <h1>Amplificando con IA — <span>Inchcape</span></h1>
+      <div class="hmeta">Diagnóstico Fase 0 · Corte 27 de abril de 2026 · Cluster Andino Norte</div>
+    </div>
+  </div>
+  <span class="hphase">FASE 0 en curso</span>
+</div>
+
+<!-- DROPDOWN FILTERS -->
+<div class="filterbar">
+  <div class="filter-group">
+    <div class="filter-label">Empresa</div>
+    <select class="filter-select" id="f-empresa" onchange="applyAll()">
+      <option value="">Todas las empresas</option>
+      <option>Derco Colombia</option>
+      <option>Inchcape Colombia</option>
+      <option>Inchcape Ecuador</option>
+      <option>Matrase</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <div class="filter-label">Área</div>
+    <select class="filter-select" id="f-area" onchange="applyAll()">
+      <option value="">Todas las áreas</option>
+      <option>Admin</option><option>Aftersales</option><option>Automotive</option>
+      <option>DDC</option><option>Digital</option><option>Distribution Logistics</option>
+      <option>F&amp;I</option><option>Finance</option><option>Legal &amp; Compliance</option>
+      <option>Machinery</option><option>Marketing &amp; CEX</option><option>People</option>
+      <option>Sales</option><option>Transformation</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <div class="filter-label">Sucursal</div>
+    <select class="filter-select" id="f-sucursal" onchange="applyAll()">
+      <option value="">Todas las sucursales</option>
+      <option>Almacen Wholesale Camiones</option><option>Almacen Wholesale Vehiculos</option>
+      <option>Americas</option><option>Bogota</option><option>Calle 80</option>
+      <option>Corporativa</option><option>Fontibon</option><option>Morato</option>
+      <option>Sin sucursal</option><option>Soledad</option><option>Yumbo</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <div class="filter-label">Nivel</div>
+    <select class="filter-select" id="f-nivel" onchange="applyAll()">
+      <option value="">Todos los niveles</option>
+      <option>Analyst</option><option>Lead</option><option>Manager</option>
+      <option>Operativo</option><option>Specialist</option>
+    </select>
+  </div>
+  <button class="filter-reset-btn" onclick="resetAll()">✕ Limpiar todo</button>
+  <div class="filter-count">
+    <div class="filter-n" id="n-display">129</div>
+    <div class="filter-nlabel">respuestas</div>
+  </div>
+</div>
+
+<!-- ACTIVE ANSWER PILLS -->
+<div class="active-pills" id="active-pills">
+  <span class="pill-label">Filtrando por:</span>
+  <div id="pills-container" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+  <span class="pill-clear-all" onclick="clearAnswerFilters()">Quitar todos</span>
+</div>
+
+<div class="main">
+
+  <div class="stitle">Bloque 0 — Perfil inicial</div>
+  <div class="g2">
+    <div class="card" id="card-v1">
+      <div class="ctitle">P1 · Relación con la IA hoy</div>
+      <div class="cq">¿Cómo describirías tu relación con la IA hoy?</div>
+      <div class="click-hint">💡 Haz clic en una barra para filtrar el resto</div>
+      <div class="hlist" id="chart-v1"></div>
+      <div class="note" id="note-v1"></div>
+    </div>
+    <div class="card" id="card-v2">
+      <div class="ctitle">P2 · Herramientas exploradas</div>
+      <div class="cq">¿Qué herramientas de IA has explorado? (selección múltiple)</div>
+      <div class="click-hint">💡 Haz clic en una barra para filtrar el resto</div>
+      <div class="hlist" id="chart-v2"></div>
+    </div>
+  </div>
+  <div class="g2">
+    <div class="card" id="card-v3">
+      <div class="ctitle">P3 · Barreras de adopción <span class="tag danger">Prioritario</span></div>
+      <div class="cq">¿Qué te ha frenado para usar más la IA? (selección múltiple)</div>
+      <div class="click-hint">💡 Haz clic en una barra para filtrar el resto</div>
+      <div class="hlist" id="chart-v3"></div>
+    </div>
+    <div class="card" id="card-v4">
+      <div class="ctitle">P4 · Superpoderes deseados</div>
+      <div class="cq">¿En cuáles superpoderes te gustarías enfocarte? (hasta 2)</div>
+      <div class="click-hint">💡 Haz clic en una barra para filtrar el resto</div>
+      <div class="hlist" id="chart-v4"></div>
+    </div>
+  </div>
+
+  <div class="stitle">Sección B — Criterio y capacidades técnicas</div>
+  <div class="g2">
+    <div class="card" id="card-b1">
+      <div class="ctitle">P9 · Criterio de verificación de datos <span class="tag warn">Clave</span></div>
+      <div class="cq">Cuando la IA te da un dato importante, ¿cómo decides si puedes confiar en ella?</div>
+      <div class="click-hint">💡 Haz clic en una barra para filtrar el resto</div>
+      <div class="hlist" id="chart-b1"></div>
+      <div class="note" id="note-b1"></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:16px"></div>
+  </div>
+
+  <div class="stitle">Sección D — Cultura, impacto y futuro</div>
+  <div class="g3">
+    <div class="card" id="card-d1">
+      <div class="ctitle">P18 · Soporte del jefe directo</div>
+      <div class="cq">¿En qué medida tu jefe apoya activamente el uso de IA?</div>
+      <div class="click-hint">💡 Haz clic en una barra para filtrar el resto</div>
+      <div class="hlist" id="chart-d1"></div>
+      <div class="note" id="note-d1"></div>
+    </div>
+    <div class="card" id="card-d1b">
+      <div class="ctitle">P18b · Soporte institucional Inchcape</div>
+      <div class="cq">¿En qué medida sientes que Inchcape apoya el uso de IA?</div>
+      <div class="click-hint">💡 Haz clic en una barra para filtrar el resto</div>
+      <div class="hlist" id="chart-d1b"></div>
+    </div>
+    <div class="card" id="card-d9">
+      <div class="ctitle">P25 · Visión del futuro del rol</div>
+      <div class="cq">¿Cómo ves el futuro de tu rol con la llegada de la IA?</div>
+      <div class="click-hint">💡 Haz clic en una barra para filtrar el resto</div>
+      <div class="hlist" id="chart-d9"></div>
+      <div class="note" id="note-d9"></div>
+    </div>
+  </div>
+  <div class="g2">
+    <div class="card" id="card-d5">
+      <div class="ctitle">P22 · Espacios para compartir aprendizajes de IA</div>
+      <div class="cq">¿Existen en Inchcape espacios para compartir prompts, aprendizajes o casos de uso?</div>
+      <div class="click-hint">💡 Haz clic en una barra para filtrar el resto</div>
+      <div class="hlist" id="chart-d5"></div>
+      <div class="note" id="note-d5"></div>
+    </div>
+    <div class="card" id="card-d6">
+      <div class="ctitle">P23 · Conocimiento de la política de uso de IA</div>
+      <div class="cq">¿Sabes si Inchcape tiene una política oficial sobre el uso de IA?</div>
+      <div class="click-hint">💡 Haz clic en una barra para filtrar el resto</div>
+      <div class="hlist" id="chart-d6"></div>
+    </div>
+  </div>
+
+  <!-- COPILOT SECTION -->
+  <div class="stitle">Cruce Copilot — Uso real vs diagnóstico AI Pulse · Marzo 2026</div>
+
+  <!-- KPIs Copilot -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px">
+    <div class="kpi a" style="background:rgba(17,17,17,.06);border:1px solid rgba(0,0,0,.12);border-radius:10px;padding:18px 20px;position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:var(--eco)"></div>
+      <div class="kpi-label">Usuarios únicos Copilot EC/CO</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:42px;line-height:1;color:var(--eco)">256</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">Marzo 2026 · 9.370 interacciones</div>
+    </div>
+    <div class="kpi b" style="background:rgba(182,205,0,.08);border:1px solid rgba(182,205,0,.3);border-radius:10px;padding:18px 20px;position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#b6cd00"></div>
+      <div class="kpi-label">En el maestro</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:42px;line-height:1;color:#b6cd00">218</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">180 sin Pulse · 38 con Pulse</div>
+    </div>
+    <div class="kpi c" style="background:rgba(245,166,35,.07);border:1px solid rgba(245,166,35,.25);border-radius:10px;padding:18px 20px;position:relative;overflow:hidden;cursor:pointer" onclick="toggleNimList()" id="nim-kpi">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#f5a623"></div>
+      <div class="kpi-label">No están en el maestro</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:42px;line-height:1;color:#f5a623">38</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">Externos, contratistas u omisiones · <span style="color:#f5a623">ver lista ▾</span></div>
+    </div>
+  </div>
+
+  <!-- Collapsible: not in maestro list -->
+  <div id="nim-list" style="display:none;margin-bottom:16px">
+    <div class="card">
+      <div class="ctitle" style="margin-bottom:12px">Usuarios Copilot no encontrados en el maestro (38)</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:11px" id="nim-grid"></div>
+    </div>
+  </div>
+
+  <div class="g2" style="margin-bottom:16px">
+    <div class="card">
+      <div class="ctitle">Matriz de activación — universo maestro (1.193 personas)</div>
+      <div class="cq">Combinación de uso real de Copilot en marzo y participación en AI Pulse</div>
+      <div class="matrix-grid">
+        <div class="matrix-cell both">
+          <div class="matrix-big both">38</div>
+          <div class="matrix-label">✅ Copilot + Pulse</div>
+          <div class="matrix-sub">3% del universo — diagnóstico completo</div>
+        </div>
+        <div class="matrix-cell cop">
+          <div class="matrix-big cop">180</div>
+          <div class="matrix-label">💻 Solo Copilot</div>
+          <div class="matrix-sub">15% — activos sin diagnóstico aún</div>
+        </div>
+        <div class="matrix-cell pulse">
+          <div class="matrix-big pulse">87</div>
+          <div class="matrix-label">📊 Solo Pulse</div>
+          <div class="matrix-sub">7% — respondieron, no usan Copilot</div>
+        </div>
+        <div class="matrix-cell none">
+          <div class="matrix-big none">888</div>
+          <div class="matrix-label">⚪ Ninguno aún</div>
+          <div class="matrix-sub">74% — universo por activar</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="ctitle">Autopercepción P1 vs interacciones reales en Copilot</div>
+      <div class="cq">Promedio de interacciones en Copilot (marzo) según respuesta a P1 — solo encuestados con ambos datos (n=38)</div>
+      <div style="margin-top:12px">
+        <div class="ap-row">
+          <div class="ap-label" style="color:#b6cd00;font-weight:600">La uso regularmente</div>
+          <div class="ap-n" style="color:#b6cd00">18</div>
+          <div class="ap-track"><div class="ap-fill" style="width:100%;background:#b6cd00"></div></div>
+          <div class="ap-val" style="color:#b6cd00">85 int.</div>
+        </div>
+        <div class="ap-row">
+          <div class="ap-label" style="color:#FE3C1C">Uso ocasional</div>
+          <div class="ap-n" style="color:#FE3C1C">19</div>
+          <div class="ap-track"><div class="ap-fill" style="width:51%;background:#FE3C1C"></div></div>
+          <div class="ap-val" style="color:#FE3C1C">43 int.</div>
+        </div>
+        <div class="ap-row">
+          <div class="ap-label" style="color:#e05252">Nunca / sin utilidad</div>
+          <div class="ap-n" style="color:#e05252">1</div>
+          <div class="ap-track"><div class="ap-fill" style="width:2%;background:#e05252"></div></div>
+          <div class="ap-val" style="color:#e05252">2 int.</div>
+        </div>
+      </div>
+      <div class="note">
+        <strong style="color:#f5a623">⚠️ 24 personas</strong> dijeron "uso regular" en P1 pero no registran ninguna interacción en Copilot en marzo — posiblemente usan otras herramientas como ChatGPT.
+      </div>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="g2">
+    <div class="card">
+      <div class="ctitle">Top 10 usuarios Copilot que aún no respondieron Pulse</div>
+      <div class="cq">Candidatos prioritarios para seguimiento — ordenados por volumen de uso en marzo 2026</div>
+      <table class="top-table">
+        <thead><tr><th>Usuario</th><th>Área</th><th style="text-align:right">Interacciones</th></tr></thead>
+        <tbody id="top10-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="ctitle">Top 10 usuarios Copilot — general EC/CO</div>
+      <div class="cq">Usuarios con mayor actividad en Copilot durante marzo 2026 (en maestro)</div>
+      <table class="top-table">
+        <thead><tr><th>Usuario</th><th>Área</th><th style="text-align:right">Interacciones</th></tr></thead>
+        <tbody id="top10-general-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+    <div class="card">
+      <div class="ctitle">¿Dónde usan Copilot? — EC/CO</div>
+      <div class="cq">Distribución de interacciones por aplicación · Marzo 2026 · 9.370 interacciones totales</div>
+      <div class="hlist" style="margin-top:8px">
+        <div><div class="hitem-top"><span class="hlabel">Office (Chat web)</span><span class="hcount">6.277 (67%)</span></div><div class="htrack"><div class="hfill" style="width:67%;background:#FE3C1C"></div></div></div>
+        <div><div class="hitem-top"><span class="hlabel">Teams</span><span class="hcount">1.237 (13%)</span></div><div class="htrack"><div class="hfill" style="width:13%;background:#6264a7"></div></div></div>
+        <div><div class="hitem-top"><span class="hlabel">Outlook</span><span class="hcount">907 (10%)</span></div><div class="htrack"><div class="hfill" style="width:10%;background:#0078d4"></div></div></div>
+        <div><div class="hitem-top"><span class="hlabel">Word</span><span class="hcount">345 (4%)</span></div><div class="htrack"><div class="hfill" style="width:4%;background:#b6cd00"></div></div></div>
+        <div><div class="hitem-top"><span class="hlabel">Excel</span><span class="hcount">160 (2%)</span></div><div class="htrack"><div class="hfill" style="width:2%;background:#217346"></div></div></div>
+        <div><div class="hitem-top"><span class="hlabel">PowerPoint</span><span class="hcount">124 (1%)</span></div><div class="htrack"><div class="hfill" style="width:1.5%;background:#b7472a"></div></div></div>
+        <div><div class="hitem-top"><span class="hlabel">Copilot Studio</span><span class="hcount">108 (1%)</span></div><div class="htrack"><div class="hfill" style="width:1.2%;background:#9e61a4"></div></div></div>
+        <div><div class="hitem-top"><span class="hlabel">Edge + otros</span><span class="hcount">131 (1%)</span></div><div class="htrack"><div class="hfill" style="width:1%;background:#848a8c"></div></div></div>
+      </div>
+      <div class="note">Office Web Chat concentra <strong style="color:#FE3C1C">67%</strong> del uso — conversaciones directas, no integración en documentos.</div>
+    </div>
+  </div>
+
+  <!-- AMBASSADORS -->
+  <div class="stitle">Candidatos a embajadores — Top 25 sugeridos</div>
+  <div class="card" style="margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+      <div>
+        <div class="ctitle">Lista de candidatos sugeridos por scoring combinado</div>
+        <div class="cq" style="margin-bottom:0">Puntaje máximo 100 pts · Uso Copilot (40) + Autopercepción P1 (20) + Visión futuro P25 (20) + Sin barreras P3 (10) + Soporte jefe P18 (10)</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-shrink:0">
+        <span class="emb-badge pulse" style="padding:5px 12px;font-size:10px">✅ Con Pulse: 20</span>
+        <span class="emb-badge coponly" style="padding:5px 12px;font-size:10px">📊 Solo Copilot: 5</span>
+      </div>
+    </div>
+    <div class="score-legend">
+      <span><div class="score-dot" style="background:#b6cd00"></div> Puntaje combinado (0–100)</span>
+      <span><div class="score-dot" style="background:#FE3C1C"></div> Interacciones Copilot (marzo)</span>
+      <span><div class="score-dot" style="background:#f5a623"></div> Solo Copilot — sin Pulse aún</span>
+    </div>
+    <div class="emb-thead">
+      <span>#</span>
+      <span>Persona</span>
+      <span>Área</span>
+      <span>Score</span>
+      <span style="text-align:right">Copilot</span>
+      <span style="text-align:center">Estado</span>
+    </div>
+    <div class="emb-grid" id="emb-grid"></div>
+  </div>
+
+</div>
+
+<div class="footer">
+  <div>
+    <strong>AI Pulse · Diagnóstico Fase 0</strong> · Inchcape Cluster Andino Norte · Corte 27 de abril de 2026<br>
+    129 respuestas validadas contra maestro · Datos preliminares — encuesta en campo
+  </div>
+  <div style="text-align:right">
+    <span class="ft-tlg">The Line Group</span>
+    <span style="color:var(--dim);margin:0 6px">·</span>
+    powered by <span class="ft-jc">Javier Cruz</span>
+  </div>
+</div>
+
+<script>
+const RAW = /*__RAW__*/[];
+
+const CHARTS = {
+  v1:  { field:'V1', type:'scalar', order:[4,3,2,1],
+         labels:{1:'Aún no la he usado ni explorado',2:'La he probado pero no le he encontrado utilidad real',3:'La uso de vez en cuando para tareas puntuales',4:'La uso regularmente — forma parte de cómo trabajo'},
+         colors:{1:'#e05252',2:'#f5a623',3:'#FE3C1C',4:'#b6cd00'} },
+  v2:  { field:'V2', type:'multi', items:[
+           {k:'ChatGPT (OpenAI)',c:'#10a37f'},
+           {k:'Microsoft Copilot',c:'#FE3C1C'},
+           {k:'Gemini (Google)',c:'#4285f4'},
+           {k:'Claude (Anthropic)',c:'#d97706'},
+           {k:'Herramientas de imagen con IA (Midjourney, DALL-E, Canva IA)',label:'Imagen IA (Midjourney, DALL-E, Canva)',c:'#b6cd00'},
+           {k:'Otra',c:'#848a8c'},
+           {k:'Herramientas de voz o video con IA (ElevenLabs, Runway, HeyGen)',label:'Voz / Video IA',c:'#848a8c'},
+           {k:'Herramientas de automatización con IA (Make, Zapier)',label:'Automatización IA (Make, Zapier)',c:'#9e61a4'},
+           {k:'Ninguna todavía',c:'#e05252'}]},
+  v3:  { field:'V3', type:'multi', items:[
+           {k:'Me preocupa compartir información de la empresa o de clientes',c:'#e05252'},
+           {k:'Tengo miedo de cometer errores o de usarla mal',c:'#f5a623'},
+           {k:'No sé por dónde empezar ni qué herramientas usar',c:'#FE3C1C'},
+           {k:'Nada me ha frenado — ya la uso con regularidad',c:'#b6cd00'},
+           {k:'No he tenido el espacio ni el permiso para explorarla en el trabajo',c:'#848a8c'},
+           {k:'La he probado pero no le veo una aplicación clara en lo que hago día a día',c:'#848a8c'},
+           {k:'En mi rol no creo que sea relevante todavía',c:'#394650'}]},
+  v4:  { field:'V4', type:'multi', items:[
+           {k:'AUTOMATE — eliminar tareas repetitivas y optimizar procesos',label:'🤖 AUTOMATE — eliminar tareas repetitivas',c:'#f2e400'},
+           {k:'ANALYZE — interpretar datos y entender tendencias',label:'📊 ANALYZE — interpretar datos y tendencias',c:'#FE3C1C'},
+           {k:'STRATEGIZE — tomar mejores decisiones y planificar',label:'🧭 STRATEGIZE — mejores decisiones',c:'#b6cd00'},
+           {k:'RESEARCH — buscar y sintetizar información rápidamente',label:'🔍 RESEARCH — buscar y sintetizar',c:'#9e61a4'},
+           {k:'CREATE — generar contenido, textos e imágenes',label:'✍️ CREATE — generar contenido',c:'#848a8c'}]},
+  b1:  { field:'B1', type:'scalar', order:[4,3,1,2,5],
+         labels:{1:'La acepto si suena lógica o coherente',2:'La busco en Google u otra fuente',3:'Verifico cuando voy a usarlo para decidir',4:'La contrasto siempre con fuente confiable',5:'La uso sin verificar — no sé cómo'},
+         colors:{1:'#f5a623',2:'#848a8c',3:'#FE3C1C',4:'#b6cd00',5:'#e05252'} },
+  d1:  { field:'D1', type:'scalar', order:[1,2,3,4],
+         labels:{1:'Nunca lo ha mencionado ni promovido',2:'Lo menciona sin acciones concretas',3:'Me ha dado espacio o recursos',4:'Lo promueve activamente y da el ejemplo'},
+         colors:{1:'#e05252',2:'#f5a623',3:'#FE3C1C',4:'#b6cd00'} },
+  d1b: { field:'D1b', type:'scalar', order:[1,2,3,4],
+         labels:{1:'No he visto ninguna iniciativa',2:'Menciones generales sin acciones',3:'Herramientas sin formación ni seguimiento',4:'Estrategia clara con formación y liderazgo'},
+         colors:{1:'#e05252',2:'#f5a623',3:'#FE3C1C',4:'#b6cd00'} },
+  d5:  { field:'D5', type:'scalar', order:['yes_active','yes_inactive','no','unknown'],
+         labels:{yes_active:'Sí, existe y lo uso activamente',yes_inactive:'Sí, existe pero no lo uso',no:'No existe nada parecido',unknown:'No sé si existe'},
+         colors:{yes_active:'#b6cd00',yes_inactive:'#FE3C1C',no:'#e05252',unknown:'#848a8c'} },
+  d6:  { field:'D6', type:'scalar', order:[1,2,3,4],
+         labels:{1:'Sí, la conozco y sé lo que dice',2:'Sí, existe pero no la he leído',3:'No sé si existe alguna política',4:'No sé qué es una política de uso de IA'},
+         colors:{1:'#b6cd00',2:'#FE3C1C',3:'#f5a623',4:'#e05252'} },
+  d9:  { field:'D9', type:'scalar', order:[1,2,3,4],
+         labels:{1:'Me genera dudas — no sé qué significa',2:'Tengo curiosidad pero no sé cómo me afectará',3:'Lo veo como oportunidad para crecer',4:'Ya la incorporé como parte natural'},
+         colors:{1:'#e05252',2:'#f5a623',3:'#b6cd00',4:'#FE3C1C'} },
+};
+
+const NOTES = {
+  v1: d => '<strong style="color:#b6cd00">' + pct(countVals(d,'V1',[3,4]),d.length) + '%</strong> ya ha tenido contacto con IA.',
+  b1: d => '<strong style="color:#b6cd00">' + pct(countVals(d,'B1',[3,4]),d.length) + '%</strong> tiene criterio de verificación activo · <strong style="color:#e05252">' + pct(countVals(d,'B1',[1,5]),d.length) + '%</strong> acepta sin validar.',
+  d1: d => '<strong style="color:#e05252">' + pct(countVals(d,'D1',[1,2]),d.length) + '%</strong> sin liderazgo activo de su jefe directo.',
+  d5: d => { const c={yes_active:0,yes_inactive:0,no:0,unknown:0}; d.forEach(r=>{if(r.D5&&c.hasOwnProperty(r.D5))c[r.D5]++;}); return '<strong>' + pct(c.no+c.unknown,d.length) + '%</strong> no tiene acceso activo ni conocimiento de espacios.'; },
+  d9: d => '<strong style="color:#b6cd00">' + pct(countVals(d,'D9',[3,4]),d.length) + '%</strong> tiene disposición positiva hacia la IA.',
+};
+
+// Key store: avoids putting values directly into onclick attributes
+const KEY_STORE = [];
+function storeKey(chartKey, val) {
+  const idx = KEY_STORE.findIndex(e => e.c === chartKey && e.v === val);
+  if (idx >= 0) return idx;
+  return KEY_STORE.push({c: chartKey, v: val}) - 1;
+}
+
+function countVals(data, field, vals) {
+  return data.filter(r => r[field] && vals.map(String).includes(String(r[field]))).length;
+}
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+const answerFilters = {};  // chartKey → Set of selected string values
+
+function getSelected(k) { return answerFilters[k] || new Set(); }
+
+// ─── FILTERING ───────────────────────────────────────────────────────────────
+function getDropdownFiltered() {
+  const emp  = document.getElementById('f-empresa').value;
+  const area = document.getElementById('f-area').value;
+  const suc  = document.getElementById('f-sucursal').value;
+  const niv  = document.getElementById('f-nivel').value;
+  return RAW.filter(r =>
+    (!emp  || r.empresa  === emp)  &&
+    (!area || r.area     === area) &&
+    (!suc  || r.sucursal === suc)  &&
+    (!niv  || r.nivel    === niv)
+  );
+}
+
+function matchesMulti(arr, selected) {
+  return [...selected].some(sel =>
+    arr.some(v => v === sel || v.startsWith(sel.split('—')[0].trim()) || sel.startsWith(v.split('—')[0].trim()))
+  );
+}
+
+function matchesFilter(r, chartKey) {
+  const sel = getSelected(chartKey);
+  if (!sel.size) return true;
+  const cfg = CHARTS[chartKey];
+  const field = cfg.field;
+  if (cfg.type === 'scalar') return sel.has(String(r[field]));
+  return matchesMulti(r[field] || [], sel);
+}
+
+function applyAnswerFilters(base, excludeKey) {
+  return base.filter(r =>
+    Object.keys(answerFilters).every(k => k === excludeKey || matchesFilter(r, k))
+  );
+}
+
+function pct(n, total) { return total === 0 ? 0 : Math.round(n / total * 100); }
+
+// ─── RENDER ──────────────────────────────────────────────────────────────────
+function renderChart(chartKey, data) {
+  const cfg  = CHARTS[chartKey];
+  const el   = document.getElementById('chart-' + chartKey);
+  const card = document.getElementById('card-' + chartKey);
+  if (!el) return;
+
+  const selected    = getSelected(chartKey);
+  const hasSelection = selected.size > 0;
+
+  let items = [];
+  if (cfg.type === 'scalar') {
+    let nrCount = 0;
+    const counts = {};
+    cfg.order.forEach(k => counts[k] = 0);
+    data.forEach(r => {
+      const raw = r[cfg.field];
+      if (raw !== null && raw !== undefined && raw !== '') {
+        const k = typeof cfg.order[0] === 'number' ? Number(raw) : raw;
+        if (counts.hasOwnProperty(k)) counts[k]++; else nrCount++;
+      } else nrCount++;
+    });
+    items = cfg.order.map(k => ({
+      key: String(k), label: cfg.labels[k],
+      n: counts[k], pct: pct(counts[k], data.length), color: cfg.colors[k]
+    }));
+    if (nrCount > 0) items.push({key:'__nr__', label:'No respondió', n:nrCount, pct:pct(nrCount,data.length), color:'rgba(132,138,140,.35)', noResp:true});
+  } else {
+    let nrCount = 0;
+    const counts = {};
+    cfg.items.forEach(it => counts[it.k] = 0);
+    data.forEach(r => {
+      const arr = r[cfg.field] || [];
+      if (!arr.length) { nrCount++; return; }
+      arr.forEach(v => {
+        if (counts.hasOwnProperty(v)) { counts[v]++; return; }
+        const m = cfg.items.find(it => v.startsWith(it.k.split('—')[0].trim()) || it.k.startsWith(v.split('—')[0].trim()));
+        if (m) counts[m.k]++;
+      });
+    });
+    items = cfg.items
+      .map(it => ({key:it.k, label:it.label||it.k, n:counts[it.k], pct:pct(counts[it.k],data.length), color:it.c}))
+      .sort((a,b) => b.n - a.n);
+    if (nrCount > 0) items.push({key:'__nr__', label:'No respondió', n:nrCount, pct:pct(nrCount,data.length), color:'rgba(132,138,140,.35)', noResp:true});
+  }
+
+  if (items.every(i => i.n === 0)) {
+    el.innerHTML = '<div class="no-data">Sin datos para este filtro</div>';
+    if (card) card.classList.remove('has-selection');
+    return;
+  }
+
+  // Build HTML using data-idx to avoid any escaping issues
+  const rows = items.filter(i => i.n > 0).map(it => {
+    const isSelected = selected.has(it.key);
+    const isDimmed   = hasSelection && !isSelected && !it.noResp;
+    const cls = ['hitem', isSelected?'selected':'', isDimmed?'dimmed':''].filter(Boolean).join(' ');
+    const idx  = it.noResp ? -1 : storeKey(chartKey, it.key);
+    const dataAttr = it.noResp ? '' : 'data-idx="' + idx + '"';
+    const style    = it.noResp ? 'cursor:default' : 'cursor:pointer';
+    return '<div class="' + cls + '" ' + dataAttr + ' style="' + style + '">'
+      + '<div class="hitem-top">'
+      + '<span class="hlabel' + (it.noResp?' nr':'') + '">' + it.label + '</span>'
+      + '<span class="hcount' + (it.noResp?' nr':'') + '">' + it.n + ' (' + it.pct + '%)</span>'
+      + '</div>'
+      + '<div class="htrack"><div class="hfill" style="width:' + it.pct + '%;background:' + it.color + '"></div></div>'
+      + '</div>';
+  });
+  el.innerHTML = rows.join('');
+  if (card) card.classList.toggle('has-selection', hasSelection);
+}
+
+function renderNote(k, data) {
+  const fn = NOTES[k];
+  const el = document.getElementById('note-' + k);
+  if (fn && el) el.innerHTML = fn(data);
+}
+
+function renderAll() {
+  const base = getDropdownFiltered();
+  const all  = applyAnswerFilters(base, null);
+  document.getElementById('n-display').textContent = all.length;
+  Object.keys(CHARTS).forEach(k => {
+    renderChart(k, applyAnswerFilters(base, k));
+    renderNote(k, all);
+  });
+  updatePills();
+}
+
+// ─── CLICK DELEGATION (avoids all escaping issues) ───────────────────────────
+document.addEventListener('click', function(e) {
+  const hitem = e.target.closest('.hitem[data-idx]');
+  if (!hitem) return;
+  const idx = parseInt(hitem.dataset.idx, 10);
+  if (isNaN(idx) || idx < 0) return;
+  const {c: chartKey, v: rawKey} = KEY_STORE[idx];
+  toggleAnswer(chartKey, rawKey);
+});
+
+// ─── TOGGLE ──────────────────────────────────────────────────────────────────
+function toggleAnswer(chartKey, rawKey) {
+  if (!answerFilters[chartKey]) answerFilters[chartKey] = new Set();
+  const s = answerFilters[chartKey];
+  if (s.has(rawKey)) { s.delete(rawKey); if (!s.size) delete answerFilters[chartKey]; }
+  else s.add(rawKey);
+  renderAll();
+}
+
+// ─── PILLS ───────────────────────────────────────────────────────────────────
+function getLabel(chartKey, val) {
+  const cfg = CHARTS[chartKey];
+  if (cfg.type === 'scalar') { const k = isNaN(val) ? val : Number(val); return cfg.labels[k] || val; }
+  const it = cfg.items.find(i => i.k === val);
+  return it ? (it.label || it.k) : val;
+}
+
+function updatePills() {
+  const container = document.getElementById('pills-container');
+  const bar       = document.getElementById('active-pills');
+  const all = Object.entries(answerFilters).flatMap(([k, s]) => [...s].map(v => ({k, v})));
+
+  if (!all.length) { bar.classList.remove('show'); return; }
+  bar.classList.add('show');
+
+  container.innerHTML = all.map(({k, v}) => {
+    const idx   = storeKey(k, v);
+    const label = getLabel(k, v);
+    const short = label.length > 42 ? label.slice(0,40) + '…' : label;
+    return '<span class="pill" data-idx="' + idx + '">' + short + ' <span class="pill-x">×</span></span>';
+  }).join('');
+
+  container.querySelectorAll('.pill[data-idx]').forEach(pill => {
+    pill.addEventListener('click', function() {
+      const {c, v} = KEY_STORE[parseInt(this.dataset.idx, 10)];
+      toggleAnswer(c, v);
+    });
+  });
+}
+
+function clearAnswerFilters() {
+  Object.keys(answerFilters).forEach(k => delete answerFilters[k]);
+  renderAll();
+}
+
+function applyAll() {
+  ['f-empresa','f-area','f-sucursal','f-nivel'].forEach(id => {
+    const el = document.getElementById(id);
+    el.classList.toggle('active', el.value !== '');
+  });
+  renderAll();
+}
+
+function resetAll() {
+  ['f-empresa','f-area','f-sucursal','f-nivel'].forEach(id => {
+    const el = document.getElementById(id); el.value = ''; el.classList.remove('active');
+  });
+  clearAnswerFilters();
+}
+
+renderAll();
+
+// Sync pills top to filterbar height (handles wrap on small screens)
+function syncPillsTop() {
+  const fb = document.querySelector('.filterbar');
+  const pills = document.getElementById('active-pills');
+  if (fb && pills) pills.style.top = fb.offsetHeight + 'px';
+}
+syncPillsTop();
+window.addEventListener('resize', syncPillsTop);
+new ResizeObserver(syncPillsTop).observe(document.querySelector('.filterbar'));
+
+
+// ─── AMBASSADORS ─────────────────────────────────────────────────────────────
+const EMBAJADORES = [{"email": "mario.dominguez@inchcape.com.co", "nombre": "MARIO DUBAN", "cargo": "LEGAL MANAGER COLOMBIA", "empresa": "Inchcape Colombia", "area": "Legal & Compliance", "sucursal": "Corporativa", "nivel": "Manager", "score": 91, "copilot_score": 31, "interacciones": 117, "apps_count": 3, "p1_score": 20, "p25_score": 20, "p3_score": 10, "p18_score": 10, "has_pulse": true, "v1_val": 4, "d9_val": 4}, {"email": "christian.cuellar@inchcape.com.co", "nombre": "CHRISTIAN ALEXANDER", "cargo": "DATA ANALYST", "empresa": "Inchcape Colombia", "area": "Distribution Logistics", "sucursal": "Corporativa", "nivel": "Analyst", "score": 90, "copilot_score": 33, "interacciones": 147, "apps_count": 4, "p1_score": 20, "p25_score": 20, "p3_score": 10, "p18_score": 7, "has_pulse": true, "v1_val": 4, "d9_val": 4}, {"email": "juanrozo@derco.com.co", "nombre": "Juan Camilo", "cargo": "LEGAL COORDINATOR", "empresa": "Derco Colombia", "area": "Legal & Compliance", "sucursal": "Sin sucursal", "nivel": "Lead", "score": 85, "copilot_score": 37, "interacciones": 286, "apps_count": 2, "p1_score": 20, "p25_score": 15, "p3_score": 10, "p18_score": 3, "has_pulse": true, "v1_val": 4, "d9_val": 3}, {"email": "andres.rojas@inchcape.com.co", "nombre": "ANDRES", "cargo": "IT PROJECT MANAGER AMERICAS", "empresa": "Inchcape Colombia", "area": "Digital", "sucursal": "Corporativa", "nivel": "Manager", "score": 85, "copilot_score": 32, "interacciones": 137, "apps_count": 2, "p1_score": 20, "p25_score": 20, "p3_score": 10, "p18_score": 3, "has_pulse": true, "v1_val": 4, "d9_val": 4}, {"email": "german.bermudez@inchcape.com.co", "nombre": "GERMAN ANDRES", "cargo": "HEAD OF IT MACAM", "empresa": "Inchcape Colombia", "area": "Digital", "sucursal": "Corporativa", "nivel": "MD", "score": 85, "copilot_score": 28, "interacciones": 67, "apps_count": 4, "p1_score": 20, "p25_score": 20, "p3_score": 10, "p18_score": 7, "has_pulse": true, "v1_val": 4, "d9_val": 4}, {"email": "nestor.granados@inchcape.com.co", "nombre": "Nestor Granados", "cargo": "nan", "empresa": "Inchcape Colombia", "area": "Sin área", "sucursal": "Sin sucursal", "nivel": "Operativo", "score": 81, "copilot_score": 33, "interacciones": 164, "apps_count": 7, "p1_score": 20, "p25_score": 15, "p3_score": 10, "p18_score": 3, "has_pulse": true, "v1_val": 4, "d9_val": 3}, {"email": "ruth.camargo@inchcape.com.co", "nombre": "RUTH EMELY", "cargo": "DATA MINING TEAM LEAD", "empresa": "Inchcape Colombia", "area": "Admin", "sucursal": "Almacen Wholesale Camiones", "nivel": "Lead", "score": 81, "copilot_score": 33, "interacciones": 148, "apps_count": 7, "p1_score": 20, "p25_score": 15, "p3_score": 10, "p18_score": 3, "has_pulse": true, "v1_val": 4, "d9_val": 3}, {"email": "johnny.tatis@inchcape.com.co", "nombre": "JOHNNY ADOLFO", "cargo": "HEAD OF IT COLOMBIA", "empresa": "Inchcape Colombia", "area": "Digital", "sucursal": "Corporativa", "nivel": "MD", "score": 80, "copilot_score": 32, "interacciones": 133, "apps_count": 4, "p1_score": 20, "p25_score": 15, "p3_score": 10, "p18_score": 3, "has_pulse": true, "v1_val": 4, "d9_val": 3}, {"email": "alejandra.sanchez@inchcape.com.co", "nombre": "MARIA ALEJANDRA", "cargo": "COMMUNICATIONS TEAM LEAD COLOMBIA", "empresa": "Inchcape Colombia", "area": "People", "sucursal": "Corporativa", "nivel": "Lead", "score": 74, "copilot_score": 29, "interacciones": 90, "apps_count": 1, "p1_score": 12, "p25_score": 20, "p3_score": 10, "p18_score": 3, "has_pulse": true, "v1_val": 3, "d9_val": 4}, {"email": "santiago.salazarc@inchcape.com.co", "nombre": "SANTIAGO", "cargo": "PRODUCT AND TRAINING SUPPORT", "empresa": "Inchcape Colombia", "area": "Automotive", "sucursal": "Corporativa", "nivel": "Analyst", "score": 71, "copilot_score": 29, "interacciones": 87, "apps_count": 4, "p1_score": 20, "p25_score": 15, "p3_score": 0, "p18_score": 7, "has_pulse": true, "v1_val": 4, "d9_val": 3}, {"email": "gustavo.marin@inchcape.com.co", "nombre": "GUSTAVO ADOLFO", "cargo": "TECHNICAL TRAINING SPECIALIST", "empresa": "Inchcape Colombia", "area": "Automotive", "sucursal": "Corporativa", "nivel": "Specialist", "score": 70, "copilot_score": 33, "interacciones": 147, "apps_count": 2, "p1_score": 12, "p25_score": 15, "p3_score": 10, "p18_score": 0, "has_pulse": true, "v1_val": 3, "d9_val": 3}, {"email": "juanumana@derco.com.co", "nombre": "Juan Diego", "cargo": "TECHNICAL TEAM LEAD", "empresa": "Derco Colombia", "area": "Automotive", "sucursal": "Sin sucursal", "nivel": "Lead", "score": 68, "copilot_score": 20, "interacciones": 19, "apps_count": 2, "p1_score": 20, "p25_score": 15, "p3_score": 10, "p18_score": 3, "has_pulse": true, "v1_val": 4, "d9_val": 3}, {"email": "elena.daza@inchcape.com.co", "nombre": "ELENA PATRICIA", "cargo": "SPARE PARTS PLANNER", "empresa": "Inchcape Colombia", "area": "Aftersales", "sucursal": "Sin sucursal", "nivel": "Analyst", "score": 65, "copilot_score": 28, "interacciones": 67, "apps_count": 2, "p1_score": 12, "p25_score": 15, "p3_score": 0, "p18_score": 10, "has_pulse": true, "v1_val": 3, "d9_val": 3}, {"email": "lina.cadena@inchcape.com.co", "nombre": "LINA MARIA", "cargo": "MARKETING & CE SPECIALIST", "empresa": "Inchcape Colombia", "area": "Marketing & CEX", "sucursal": "Fontibon", "nivel": "Specialist", "score": 63, "copilot_score": 25, "interacciones": 47, "apps_count": 1, "p1_score": 20, "p25_score": 15, "p3_score": 0, "p18_score": 3, "has_pulse": true, "v1_val": 4, "d9_val": 3}, {"email": "vivianahoyos@derco.com.co", "nombre": "Viviana Surley", "cargo": "ADMINISTRATIVE ANALYST", "empresa": "Derco Colombia", "area": "Machinery", "sucursal": "Sin sucursal", "nivel": "Analyst", "score": 58, "copilot_score": 31, "interacciones": 118, "apps_count": 1, "p1_score": 12, "p25_score": 15, "p3_score": 0, "p18_score": 0, "has_pulse": true, "v1_val": 3, "d9_val": 3}, {"email": "jonathan.troncoso@inchcape.com.ec", "nombre": "TRONCOSO MERA PEDRO JONATHAN", "cargo": "ANALISTA DE PLANIFICACION DE DEMANDA", "empresa": "Inchcape Ecuador", "area": "Ecuador", "sucursal": "Ecuador", "nivel": "Analyst", "score": 57, "copilot_score": 0, "interacciones": 0, "apps_count": 0, "p1_score": 20, "p25_score": 20, "p3_score": 10, "p18_score": 7, "has_pulse": true, "v1_val": 4, "d9_val": 4}, {"email": "wilson.campos@inchcape.com.co", "nombre": "WILSON", "cargo": "INSTRUCTOR", "empresa": "Inchcape Colombia", "area": "Aftersales", "sucursal": "Almacen Wholesale Camiones", "nivel": "Specialist", "score": 56, "copilot_score": 14, "interacciones": 7, "apps_count": 1, "p1_score": 20, "p25_score": 15, "p3_score": 0, "p18_score": 7, "has_pulse": true, "v1_val": 4, "d9_val": 3}, {"email": "leidy.catama@inchcape.com", "nombre": "Leidy Johanna", "cargo": "DOCUMENTATION ASSISTANT", "empresa": "Derco Colombia", "area": "Distribution Logistics", "sucursal": "Sin sucursal", "nivel": "Analyst", "score": 55, "copilot_score": 0, "interacciones": 0, "apps_count": 0, "p1_score": 20, "p25_score": 15, "p3_score": 10, "p18_score": 10, "has_pulse": true, "v1_val": 4, "d9_val": 3}, {"email": "william.ruge@derco.com.co", "nombre": "William Ferney", "cargo": "STOCK PLANNER ANALYST", "empresa": "Derco Colombia", "area": "Machinery", "sucursal": "Sin sucursal", "nivel": "Analyst", "score": 55, "copilot_score": 0, "interacciones": 0, "apps_count": 0, "p1_score": 20, "p25_score": 15, "p3_score": 10, "p18_score": 10, "has_pulse": true, "v1_val": 4, "d9_val": 3}, {"email": "juan.barbosa@inchcape.com.co", "nombre": "JUAN SEBASTIAN", "cargo": "FINANCIAL DASHBOARDS ANALYST", "empresa": "Inchcape Colombia", "area": "Finance", "sucursal": "Corporativa", "nivel": "Analyst", "score": 55, "copilot_score": 0, "interacciones": 0, "apps_count": 0, "p1_score": 20, "p25_score": 15, "p3_score": 10, "p18_score": 10, "has_pulse": true, "v1_val": 4, "d9_val": 3}, {"email": "sandra.rosero@inchcape.com.co", "nombre": "SANDRA MILENA", "cargo": "MARKETING SPECIALIST", "empresa": "Inchcape Colombia", "area": "Marketing & CEX", "sucursal": "Corporativa", "nivel": "Specialist", "score": 32, "copilot_score": 32, "interacciones": 143, "apps_count": 1, "has_pulse": false, "p1_score": 0, "p25_score": 0, "p3_score": 0, "p18_score": 0, "v1_val": null, "d9_val": null}, {"email": "john.velasquez@inchcape.com.co", "nombre": "JOHN LENNOM", "cargo": "PAYROLL SR ANALYST", "empresa": "Inchcape Colombia", "area": "People", "sucursal": "Corporativa", "nivel": "Analyst", "score": 32, "copilot_score": 32, "interacciones": 127, "apps_count": 2, "has_pulse": false, "p1_score": 0, "p25_score": 0, "p3_score": 0, "p18_score": 0, "v1_val": null, "d9_val": null}, {"email": "yuly.laverde@inchcape.com.co", "nombre": "YULY PAOLA", "cargo": "PQR ANALYST", "empresa": "Inchcape Colombia", "area": "Transformation", "sucursal": "Corporativa", "nivel": "Analyst", "score": 30, "copilot_score": 30, "interacciones": 98, "apps_count": 1, "has_pulse": false, "p1_score": 0, "p25_score": 0, "p3_score": 0, "p18_score": 0, "v1_val": null, "d9_val": null}, {"email": "jefferson.alvarez@inchcape.com.co", "nombre": "Jefferson", "cargo": "TECHNICAL ASSISTANCE & SERVICE LEAD", "empresa": "Inchcape Colombia", "area": "Sales", "sucursal": "Corporativa", "nivel": "Lead", "score": 30, "copilot_score": 30, "interacciones": 97, "apps_count": 1, "has_pulse": false, "p1_score": 0, "p25_score": 0, "p3_score": 0, "p18_score": 0, "v1_val": null, "d9_val": null}, {"email": "anamaria.arroyabe@derco.com.co", "nombre": "Ana Maria", "cargo": "MANAGEMENT CONTROL ANALYST", "empresa": "Derco Colombia", "area": "Admin", "sucursal": "Sin sucursal", "nivel": "Analyst", "score": 25, "copilot_score": 25, "interacciones": 42, "apps_count": 1, "has_pulse": false, "p1_score": 0, "p25_score": 0, "p3_score": 0, "p18_score": 0, "v1_val": null, "d9_val": null}];
+(function() {
+  var grid = document.getElementById('emb-grid');
+  if (!grid) return;
+  var maxScore = 100;
+  grid.innerHTML = EMBAJADORES.map(function(r, i) {
+    var name = r.nombre.split(' ').map(function(w){ return w.charAt(0).toUpperCase()+w.slice(1).toLowerCase(); }).join(' ');
+    var scorePct = Math.round(r.score / maxScore * 100);
+    var copColor = r.interacciones > 100 ? '#b6cd00' : r.interacciones > 30 ? '#FE3C1C' : '#848a8c';
+    var rowCls = r.has_pulse ? 'emb-row' : 'emb-row cop-only';
+    var badge  = r.has_pulse
+      ? '<span class="emb-badge pulse">✅ Pulse</span>'
+      : '<span class="emb-badge coponly">📊 Copilot</span>';
+    var areaBadge = '<span class="area-tag" style="font-size:10px">' + r.area + '</span>';
+    return '<div class="' + rowCls + '">'
+      + '<div class="emb-num">' + (i+1) + '</div>'
+      + '<div><div class="emb-name">' + name + '</div><div class="emb-email">' + r.email + '</div></div>'
+      + '<div>' + areaBadge + '</div>'
+      + '<div class="emb-score-wrap">'
+      +   '<div class="emb-score-bar"><div class="emb-score-fill" style="width:' + scorePct + '%;background:linear-gradient(90deg,#FE3C1C,' + (r.score >= 70 ? '#b6cd00' : '#FE3C1C') + ')"></div></div>'
+      +   '<div class="emb-score-val">' + r.score + ' pts</div>'
+      + '</div>'
+      + '<div class="emb-cop" style="color:' + copColor + '">' + (r.interacciones > 0 ? r.interacciones + ' int.' : '—') + '</div>'
+      + '<div style="text-align:center">' + badge + '</div>'
+      + '</div>';
+  }).join('');
+})();
+
+// ─── COPILOT: NOT IN MAESTRO LIST ────────────────────────────────────────────
+const NIM = [{"email":"wguazumba@inchcape.com.ec","interacciones":346,"dominio":"inchcape.com.ec"},{"email":"acaisapanta@inchcape.com.ec","interacciones":129,"dominio":"inchcape.com.ec"},{"email":"monica.torres@inchcape.com.co","interacciones":111,"dominio":"inchcape.com.co"},{"email":"maria.rosa@inchcape.com.co","interacciones":102,"dominio":"inchcape.com.co"},{"email":"julie.ramos@inchcape.com.co","interacciones":51,"dominio":"inchcape.com.co"},{"email":"catherine.morales@inchcape.com.co","interacciones":50,"dominio":"inchcape.com.co"},{"email":"bpullas@inchcape.com.ec","interacciones":28,"dominio":"inchcape.com.ec"},{"email":"ext_esteban.guerrero@inchcape.com.co","interacciones":25,"dominio":"inchcape.com.co"},{"email":"ext_jose.gonzalez@inchcape.com.co","interacciones":24,"dominio":"inchcape.com.co"},{"email":"ext_juan.martinez@inchcape.com.co","interacciones":13,"dominio":"inchcape.com.co"},{"email":"ext_edgar.montiel@inchcape.com.co","interacciones":7,"dominio":"inchcape.com.co"},{"email":"amunoz@inchcape.com.ec","interacciones":7,"dominio":"inchcape.com.ec"},{"email":"areyes@inchcape.com.ec","interacciones":5,"dominio":"inchcape.com.ec"},{"email":"mestrella@inchcape.com.ec","interacciones":4,"dominio":"inchcape.com.ec"},{"email":"rchulde@inchcape.com.ec","interacciones":3,"dominio":"inchcape.com.ec"},{"email":"ext_andres.cetina@inchcape.com.co","interacciones":3,"dominio":"inchcape.com.co"},{"email":"andresvaldivia@derco.com.co","interacciones":3,"dominio":"derco.com.co"},{"email":"jbaca@inchcape.com.ec","interacciones":2,"dominio":"inchcape.com.ec"},{"email":"gacosta@inchcape.com.ec","interacciones":1,"dominio":"inchcape.com.ec"},{"email":"garantiasbaterias@derco.com.co","interacciones":1,"dominio":"derco.com.co"},{"email":"dmontenegro@inchcape.com.ec","interacciones":1,"dominio":"inchcape.com.ec"},{"email":"eruales@inchcape.com.ec","interacciones":1,"dominio":"inchcape.com.ec"},{"email":"externosiati2@inchcape.com.ec","interacciones":1,"dominio":"inchcape.com.ec"},{"email":"foyasa@inchcape.com.ec","interacciones":1,"dominio":"inchcape.com.ec"},{"email":"dreyes@inchcape.com.ec","interacciones":1,"dominio":"inchcape.com.ec"},{"email":"acalvachi@inchcape.com.ec","interacciones":1,"dominio":"inchcape.com.ec"},{"email":"daniela.barrero@inchcape.com.co","interacciones":1,"dominio":"inchcape.com.co"},{"email":"dcobos@inchcape.com.ec","interacciones":1,"dominio":"inchcape.com.ec"},{"email":"dbaez@inchcape.com.ec","interacciones":1,"dominio":"inchcape.com.ec"},{"email":"juan.franco@inchcape.com.co","interacciones":1,"dominio":"inchcape.com.co"},{"email":"jloor@inchcape.com.ec","interacciones":1,"dominio":"inchcape.com.ec"},{"email":"julian.gomezm@inchcape.com.co","interacciones":1,"dominio":"inchcape.com.co"},{"email":"kapalacios@inchcape.com.ec","interacciones":1,"dominio":"inchcape.com.ec"},{"email":"morellana@inchcape.com.ec","interacciones":1,"dominio":"inchcape.com.ec"},{"email":"rjaya@inchcape.com.ec","interacciones":1,"dominio":"inchcape.com.ec"},{"email":"pquemac@inchcape.com.ec","interacciones":1,"dominio":"inchcape.com.ec"},{"email":"wgranda@inchcape.com.ec","interacciones":1,"dominio":"inchcape.com.ec"},{"email":"servicioalcliente@derco.com.co","interacciones":1,"dominio":"derco.com.co"}];
+
+// ─── COPILOT TOP 10 (sin Pulse) ──────────────────────────────────────────────
+const TOP10_NO_PULSE = [
+  {email:'hector.buitrago@inchcape.com.co',   interacciones:453, area:'Finance'},
+  {email:'ingrid.triana@inchcape.com.co',      interacciones:376, area:'Legal & Compliance'},
+  {email:'wilson.sanchez@inchcape.com.co',     interacciones:352, area:'Finance'},
+  {email:'laura.toncon@inchcape.com.co',       interacciones:254, area:'Finance'},
+  {email:'edwin.rodriguez@inchcape.com.co',    interacciones:238, area:'Distribution Logistics'},
+  {email:'javierpava@derco.com.co',            interacciones:199, area:'Distribution Logistics'},
+  {email:'yesid.casallas@inchcape.com.co',     interacciones:172, area:'Machinery'},
+  {email:'yulianmarin@derco.com.co',           interacciones:161, area:'Distribution Logistics'},
+  {email:'sergio.blanco@inchcape.com.co',      interacciones:154, area:'Automotive'},
+  {email:'nicolasmunoz@derco.com.co',          interacciones:145, area:'Automotive'},
+];
+
+const TOP10_GENERAL = [
+  {email:'hector.buitrago@inchcape.com.co',   interacciones:453, area:'Finance',                hasPulse:false},
+  {email:'ingrid.triana@inchcape.com.co',      interacciones:376, area:'Legal & Compliance',     hasPulse:false},
+  {email:'wilson.sanchez@inchcape.com.co',     interacciones:352, area:'Finance',                hasPulse:false},
+  {email:'juanrozo@derco.com.co',              interacciones:286, area:'Legal & Compliance',     hasPulse:true},
+  {email:'laura.toncon@inchcape.com.co',       interacciones:254, area:'Finance',                hasPulse:false},
+  {email:'edwin.rodriguez@inchcape.com.co',    interacciones:238, area:'Distribution Logistics', hasPulse:false},
+  {email:'javierpava@derco.com.co',            interacciones:199, area:'Distribution Logistics', hasPulse:false},
+  {email:'yesid.casallas@inchcape.com.co',     interacciones:172, area:'Machinery',              hasPulse:false},
+  {email:'nestor.granados@inchcape.com.co',    interacciones:164, area:'Sin área',               hasPulse:true},
+  {email:'yulianmarin@derco.com.co',           interacciones:161, area:'Distribution Logistics', hasPulse:false},
+];
+
+function renderTopTable(tbodyId, list, showPulse) {
+  var tbody = document.getElementById(tbodyId);
+  if (!tbody) return;
+  var maxInt = list[0].interacciones;
+  tbody.innerHTML = list.map(function(r) {
+    var parts = r.email.split('@')[0].split('.');
+    var name  = parts.map(function(p){ return p.charAt(0).toUpperCase()+p.slice(1); }).join(' ');
+    var w     = Math.round(r.interacciones / maxInt * 100);
+    var pulse = showPulse
+      ? '<span style="font-size:10px;margin-left:4px;color:' + (r.hasPulse ? '#b6cd00' : '#848a8c') + '">'
+        + (r.hasPulse ? '✅ Pulse' : '—') + '</span>'
+      : '';
+    return '<tr>'
+      + '<td style="font-size:11px;color:var(--text)">' + name + pulse + '<br>'
+      + '<span style="font-size:10px;color:var(--muted)">' + r.email + '</span></td>'
+      + '<td><span class="area-tag">' + r.area + '</span></td>'
+      + '<td><div class="int-bar"><div class="int-track"><div class="int-fill" style="width:' + w + '%"></div></div>'
+      + '<div class="int-val">' + r.interacciones + '</div></div></td>'
+      + '</tr>';
+  }).join('');
+}
+
+renderTopTable('top10-tbody', TOP10_NO_PULSE, false);
+renderTopTable('top10-general-tbody', TOP10_GENERAL, true);
+
+function toggleNimList() {
+  var el  = document.getElementById('nim-list');
+  var kpi = document.getElementById('nim-kpi');
+  var visible = el.style.display !== 'none';
+  el.style.display = visible ? 'none' : 'block';
+  var span = kpi.querySelector('span');
+  if (span) span.textContent = visible ? 'ver lista \u25be' : 'ocultar lista \u25b4';
+  if (!el.dataset.rendered) {
+    document.getElementById('nim-grid').innerHTML = NIM.map(function(r) {
+      return '<div class="nim-item">'
+        + '<div><div class="nim-email">' + r.email + '</div>'
+        + '<div class="nim-domain">' + r.dominio + '</div></div>'
+        + '<div class="nim-int">' + r.interacciones + ' int.</div>'
+        + '</div>';
+    }).join('');
+    el.dataset.rendered = '1';
+  }
+}
+</script>
+</body>
+</html>

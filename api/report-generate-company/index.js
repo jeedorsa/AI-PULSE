@@ -767,25 +767,51 @@ module.exports = async function (context, req) {
     context.log.warn("Blob check empresa failed:", blobErr.message);
   }
 
-  // ── No existe blob → llamar worker y esperar resultado ──────────────
+  // ── No existe blob → verificar lock y disparar worker en background ────────
   const workerKey  = process.env.WORKER_FUNCTION_KEY;
-  const workerBase = 'https://ai-pulse-worker-fsafhygmb6grbqg3.northcentralus-01.azurewebsites.net/api';
+  const workerBase = process.env.WORKER_BASE_URL || 'https://ai-pulse-api.azurewebsites.net/api';
+
+  // Lock para evitar workers duplicados en polling
   try {
-    context.log.info(`Llamando worker company-report-http para ${empresa}`);
-    const workerRes = await fetch(`${workerBase}/company-report-http?code=${workerKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ empresa })
-    });
-    const workerData = await workerRes.json();
-    if (!workerRes.ok || !workerData.html) {
-      throw new Error(workerData.error || `Worker respondió ${workerRes.status}`);
+    const containerClient = BlobServiceClient.fromConnectionString(conn).getContainerClient("aiq-reports");
+    const lockName = `company/${empresa.replace(/[^a-zA-Z0-9]/g, '_')}_lock.json`;
+    const lockBlob = containerClient.getBlockBlobClient(lockName);
+    if (await lockBlob.exists()) {
+      const lockData = JSON.parse((await lockBlob.downloadToBuffer()).toString());
+      const ageMs = Date.now() - new Date(lockData.startedAt).getTime();
+      if (ageMs < 12 * 60 * 1000) { // lock válido 12 min (3 prompts × 4 min máx)
+        context.log.info(`Worker empresa ya en progreso para ${empresa} (${Math.round(ageMs/1000)}s ago)`);
+        context.res = { status: 202, headers, body: JSON.stringify({ status: 'generating', message: `Generando informe de ${empresa}...` }) };
+        return;
+      }
     }
-    context.log.info(`Worker completado para empresa ${empresa}`);
-    context.res = { status: 200, headers, body: JSON.stringify({ success: true, html: workerData.html }) };
-  } catch (workerErr) {
-    context.log.error("Worker call failed:", workerErr.message);
-    context.res = { status: 500, headers, body: JSON.stringify({ error: workerErr.message }) };
+    const lockPayload = JSON.stringify({ empresa, startedAt: new Date().toISOString() });
+    await lockBlob.upload(lockPayload, Buffer.byteLength(lockPayload), {
+      blobHTTPHeaders: { blobContentType: 'application/json' }, overwrite: true
+    });
+  } catch (lockErr) {
+    context.log.warn('Lock empresa check/write failed (non-blocking):', lockErr.message);
   }
+
+  fetch(`${workerBase}/company-report-http?code=${workerKey}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ empresa })
+  }).then(async (r) => {
+    if (!r.ok) context.log.warn(`Worker respondió ${r.status} para ${empresa}`);
+    else context.log.info(`Worker completado para ${empresa}`);
+  }).catch(err => {
+    context.log.error(`Worker fire-and-forget error para ${empresa}:`, err.message);
+  });
+
+  context.log.info(`Worker disparado (background) para ${empresa} — respondiendo 202`);
+  context.res = {
+    status: 202,
+    headers,
+    body: JSON.stringify({
+      status: 'generating',
+      message: `El informe de ${empresa} se está generando. Se notificará automáticamente cuando esté listo.`
+    })
+  };
 
 };

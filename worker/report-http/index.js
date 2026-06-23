@@ -373,33 +373,44 @@ module.exports = async function (context, req) {
     const prompt = buildPrompt(participant, answers, scores, companyDist);
     const url = `${openaiEndpoint.replace(/\/$/, '')}/openai/deployments/${openaiDeploy}/chat/completions?api-version=${openaiVersion}`;
 
-    const aiResponse = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'api-key': openaiKey },
-      body: JSON.stringify({
-        messages: [
-          { role: 'system', content: 'Eres el analista principal de AI Pulse. Respondes SOLO con JSON válido, sin markdown. Usa siempre tuteo (tú/tu/tus/te) — nunca usted/su/sus.' },
-          { role: 'user', content: prompt }
-        ],
-        max_completion_tokens: 20000
-      })
-    });
-
-    if (!aiResponse.ok) {
-      const errBody = await aiResponse.text();
-      throw new Error(`OpenAI ${aiResponse.status}: ${errBody.slice(0, 200)}`);
+    let analysis;
+    let lastErr;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const aiResponse = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'api-key': openaiKey },
+          body: JSON.stringify({
+            messages: [
+              { role: 'system', content: 'Eres el analista principal de AI Pulse. Respondes SOLO con JSON válido, sin markdown. Usa siempre tuteo (tú/tu/tus/te) — nunca usted/su/sus.' },
+              { role: 'user', content: prompt }
+            ],
+            max_completion_tokens: 20000
+          })
+        });
+        if (!aiResponse.ok) {
+          const errBody = await aiResponse.text();
+          throw new Error(`OpenAI ${aiResponse.status}: ${errBody.slice(0, 200)}`);
+        }
+        const aiData = await aiResponse.json();
+        const rawText = aiData?.choices?.[0]?.message?.content || '';
+        if (!rawText) {
+          const reason = aiData?.choices?.[0]?.finish_reason;
+          throw new Error(`OpenAI respuesta vacía. finish_reason=${reason}`);
+        }
+        const cleaned = rawText.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+        analysis = JSON.parse(cleaned);
+        break;
+      } catch (err) {
+        lastErr = err;
+        context.log.warn(`report-http OpenAI attempt ${attempt} failed: ${err.message}`);
+        if (attempt < 3) await new Promise(r => setTimeout(r, attempt * 8000));
+      }
     }
-
-    const aiData = await aiResponse.json();
-    const rawText = aiData?.choices?.[0]?.message?.content || '';
-    if (!rawText) {
-      const reason = aiData?.choices?.[0]?.finish_reason;
-      throw new Error(`OpenAI respuesta vacía. finish_reason=${reason} reasoning_tokens=${aiData?.usage?.completion_tokens_details?.reasoning_tokens}`);
-    }
-
-    const analysis = JSON.parse(rawText.replace(/```json|```/g, '').trim());
+    if (!analysis) throw lastErr;
     const html = generateHTML(participant, scores, answers, analysis, companyDist);
 
+    const lockName = `individual/${email.replace(/[@.]/g, '_')}_lock.json`;
     // Guardar blob
     try {
       const blobName = blobNameForEmail(email);
@@ -409,6 +420,8 @@ module.exports = async function (context, req) {
       await containerClient.getBlockBlobClient(blobName).upload(buf, buf.length, {
         blobHTTPHeaders: { blobContentType: "text/html; charset=utf-8" }, overwrite: true
       });
+      // Borrar lock — reporte listo
+      await containerClient.getBlockBlobClient(lockName).deleteIfExists();
     } catch (blobErr) { context.log.warn("Blob save failed:", blobErr.message); }
 
     // Actualizar coachEnabled
@@ -424,6 +437,13 @@ module.exports = async function (context, req) {
 
   } catch (err) {
     context.log.error("report-http error:", err.message);
+    // Borrar lock en fallo para permitir reintento
+    try {
+      await BlobServiceClient.fromConnectionString(conn)
+        .getContainerClient("aiq-reports")
+        .getBlockBlobClient(`individual/${email.replace(/[@.]/g, '_')}_lock.json`)
+        .deleteIfExists();
+    } catch {}
     context.res = { status: 500, headers, body: JSON.stringify({ error: err.message }) };
   }
 };
