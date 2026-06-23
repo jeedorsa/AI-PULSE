@@ -1,4 +1,4 @@
-name: Deploy Worker to Azure Functions
+name: Deploy Worker to new Azure Functions
 
 on:
   push:
@@ -6,10 +6,6 @@ on:
       - main
     paths:
       - 'worker/**'
-
-permissions:
-  id-token: write
-  contents: read
 
 jobs:
   deploy:
@@ -26,17 +22,11 @@ jobs:
         run: npm install --production
         working-directory: worker
 
-      - name: Login to Azure
-        uses: azure/login@v2
-        with:
-          client-id: cd895c00-7cd4-44c0-935d-e74656934b42
-          tenant-id: 497f2d6c-dcb5-4e39-b72e-3a85fbbd7812
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Deploy to Azure Functions
+      - name: Deploy to Azure Functions (publish profile auth)
         uses: Azure/functions-action@v1
         with:
-          app-name: ai-pulse-worker
+          app-name: ai-pulse-api
           package: worker
+          publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE_AI_PULSE_API }}
           scm-do-build-during-deployment: false
           enable-oryx-build: false

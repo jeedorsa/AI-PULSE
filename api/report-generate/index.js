@@ -217,7 +217,7 @@ module.exports = async function (context, req) {
 
   // ── No existe blob → verificar si ya está en progreso o disparar worker ──
   const workerKey  = process.env.WORKER_FUNCTION_KEY;
-  const workerBase = 'https://ai-pulse-worker-fsafhygmb6grbqg3.northcentralus-01.azurewebsites.net/api';
+  const workerBase = process.env.WORKER_BASE_URL || 'https://ai-pulse-api.azurewebsites.net/api';
 
   // Verificar marcador "en progreso" para no lanzar workers duplicados
   try {

@@ -769,7 +769,7 @@ module.exports = async function (context, req) {
 
   // ── No existe blob → verificar lock y disparar worker en background ────────
   const workerKey  = process.env.WORKER_FUNCTION_KEY;
-  const workerBase = 'https://ai-pulse-worker-fsafhygmb6grbqg3.northcentralus-01.azurewebsites.net/api';
+  const workerBase = process.env.WORKER_BASE_URL || 'https://ai-pulse-api.azurewebsites.net/api';
 
   // Lock para evitar workers duplicados en polling
   try {
