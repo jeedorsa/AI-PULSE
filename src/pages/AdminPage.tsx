@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { Navbar } from '../components/ui/Navbar';
 import { Button } from '../components/ui/Button';
+import { questions as defaultQuestions } from '../data/questions';
 
 interface ParticipantRow {
   email: string;
@@ -13,7 +14,7 @@ interface ParticipantRow {
   status?: string;
 }
 
-type AdminTab = 'upload' | 'participants' | 'invitations' | 'reporteria' | 'links' | 'archivos';
+type AdminTab = 'upload' | 'participants' | 'invitations' | 'reporteria' | 'links' | 'archivos' | 'preguntas';
 
 const ADMIN_TOKEN_KEY = 'aipulse_admin_token';
 
@@ -227,6 +228,102 @@ export default function AdminPage() {
   const [filterEmpresa, setFilterEmpresa] = useState('');
   const [linkEmpresa, setLinkEmpresa] = useState('');
   const [linkDominio, setLinkDominio] = useState('');
+
+  // ── Preguntas (editor) ─────────────────────────────────────────────────────
+  const [qList, setQList] = useState<any[]>(defaultQuestions);
+  const [qDirty, setQDirty] = useState(false);
+  const [qSaving, setQSaving] = useState(false);
+  const [qSaveMsg, setQSaveMsg] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newQ, setNewQ] = useState<{ id: string; section: string; type: string; text: string; options: string }>({
+    id: '', section: 'D', type: 'open', text: '', options: ''
+  });
+
+  const fetchQuestionsConfig = useCallback(async () => {
+    try {
+      const res = await fetch('/api/questions-config');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data.questions) && data.questions.length > 0) {
+        setQList(data.questions);
+      } else {
+        setQList(defaultQuestions);
+      }
+      setQDirty(false);
+    } catch {}
+  }, []);
+
+  const saveQuestionsConfig = async () => {
+    setQSaving(true);
+    setQSaveMsg(null);
+    try {
+      const token = getAdminToken();
+      const res = await fetch('/api/questions-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': token || '' },
+        body: JSON.stringify({ questions: qList })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setQSaveMsg({ ok: false, msg: data.error || 'Error guardando' });
+      } else {
+        setQSaveMsg({ ok: true, msg: `Guardado · ${data.count} preguntas` });
+        setQDirty(false);
+      }
+    } catch (err: any) {
+      setQSaveMsg({ ok: false, msg: err.message || 'Error de red' });
+    } finally {
+      setQSaving(false);
+    }
+  };
+
+  const deleteQuestionAt = (idx: number) => {
+    setQList(prev => prev.filter((_, i) => i !== idx));
+    setQDirty(true);
+  };
+
+  const moveQuestion = (idx: number, dir: -1 | 1) => {
+    setQList(prev => {
+      const arr = [...prev];
+      const swap = idx + dir;
+      if (swap < 0 || swap >= arr.length) return arr;
+      [arr[idx], arr[swap]] = [arr[swap], arr[idx]];
+      return arr;
+    });
+    setQDirty(true);
+  };
+
+  const addQuestion = () => {
+    const id = newQ.id.trim();
+    const text = newQ.text.trim();
+    if (!id || !text) { setQSaveMsg({ ok: false, msg: 'ID y texto son obligatorios' }); return; }
+    if (qList.some(q => q.id === id)) { setQSaveMsg({ ok: false, msg: `Ya existe pregunta con id "${id}"` }); return; }
+
+    const q: any = { id, section: newQ.section, type: newQ.type };
+    if (newQ.type === 'open') {
+      q.text = text;
+    } else if (newQ.type === 'mixed_scale') {
+      q.scaleText = text;
+      const opts = newQ.options.split('\n').map(s => s.trim()).filter(Boolean);
+      q.scaleOptions = opts.length > 0
+        ? opts.map((label, i) => ({ value: i + 1, label }))
+        : [
+            { value: 1, label: 'Nivel 1' },
+            { value: 2, label: 'Nivel 2' },
+            { value: 3, label: 'Nivel 3' },
+            { value: 4, label: 'Nivel 4' },
+          ];
+    } else if (newQ.type === 'mixed_multi') {
+      q.multiText = text;
+      q.multiOptions = newQ.options.split('\n').map(s => s.trim()).filter(Boolean);
+      if (q.multiOptions.length === 0) { setQSaveMsg({ ok: false, msg: 'Debe ingresar al menos una opción (una por línea)' }); return; }
+    }
+    setQList(prev => [...prev, q]);
+    setQDirty(true);
+    setShowAddForm(false);
+    setNewQ({ id: '', section: 'D', type: 'open', text: '', options: '' });
+    setQSaveMsg(null);
+  };
   const [linkCopied, setLinkCopied] = useState(false);
 
   async function safeJsonFetch(res: Response): Promise<any> {
@@ -592,6 +689,7 @@ export default function AdminPage() {
     { id: 'links', label: 'Links de Acceso' },
     { id: 'reporteria', label: 'Reportería' },
     { id: 'archivos', label: 'Archivos' },
+    { id: 'preguntas', label: 'Preguntas' },
   ];
 
   // ── Login Screen ──
@@ -734,6 +832,7 @@ export default function AdminPage() {
                   if (tab.id === 'participants') fetchParticipants();
                   if (tab.id === 'reporteria') { fetchResults(); fetchParticipants(); }
                   if (tab.id === 'archivos') fetchCompanyFiles();
+                  if (tab.id === 'preguntas') fetchQuestionsConfig();
                 }}
                 className={`
                   px-5 py-3 font-mono text-[10px] uppercase tracking-wider transition-all
@@ -1155,6 +1254,135 @@ export default function AdminPage() {
                 <p className="font-mono text-[9px] text-[#AAAAAA] uppercase tracking-wider">
                   Los archivos se usan para enriquecer los tableros analíticos. No afectan las encuestas ni los informes individuales.
                 </p>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ── PREGUNTAS TAB ──────────────────────────────────────────── */}
+          {activeTab === 'preguntas' && (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+              <div className="mb-2">
+                <h2 className="font-display text-[22px] text-[#111111] mb-1">Editor de preguntas</h2>
+                <p className="font-body text-[13px] text-[#666666]">
+                  Lista las preguntas actuales del assessment. Podés eliminar, reordenar o añadir. Usá <code className="font-mono text-[11px] bg-[#F5F5F5] px-1">{'{empresa}'}</code> en el texto para que se reemplace dinámicamente con el nombre de la empresa del participante.
+                </p>
+              </div>
+
+              {/* Toolbar */}
+              <div className="flex items-center justify-between gap-3 sticky top-[56px] z-10 bg-white py-3 border-b border-[#E0E0E0]">
+                <div className="flex items-center gap-3">
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-[#555555]">
+                    {qList.length} preguntas {qDirty && <span className="text-primary">· sin guardar</span>}
+                  </span>
+                </div>
+                <div className="flex gap-2 items-center">
+                  {qSaveMsg && (
+                    <span className={`font-mono text-[10px] ${qSaveMsg.ok ? 'text-green-600' : 'text-red-500'}`}>{qSaveMsg.msg}</span>
+                  )}
+                  <button
+                    onClick={() => setShowAddForm(s => !s)}
+                    className="font-mono text-[9px] uppercase tracking-wider px-3 py-2 border border-[#111111] rounded-[2px] text-[#111111] hover:bg-[#111111] hover:text-white transition-colors"
+                  >
+                    {showAddForm ? '× Cancelar' : '+ Añadir pregunta'}
+                  </button>
+                  <button
+                    onClick={() => { if (confirm('¿Restaurar al set por defecto? Se descartan los cambios no guardados.')) { setQList(defaultQuestions); setQDirty(true); } }}
+                    className="font-mono text-[9px] uppercase tracking-wider px-3 py-2 border border-[#CCCCCC] rounded-[2px] text-[#666666] hover:bg-[#F5F5F5] transition-colors"
+                  >
+                    Restaurar default
+                  </button>
+                  <button
+                    onClick={saveQuestionsConfig}
+                    disabled={!qDirty || qSaving}
+                    className={`font-mono text-[9px] uppercase tracking-wider px-4 py-2 rounded-[2px] transition-colors ${qDirty && !qSaving ? 'bg-primary text-white border border-primary hover:bg-primary/90' : 'bg-[#F5F5F5] text-[#AAAAAA] border border-[#E0E0E0] cursor-not-allowed'}`}
+                  >
+                    {qSaving ? 'Guardando...' : 'Guardar cambios'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Add form */}
+              {showAddForm && (
+                <div className="bg-[#F7F7F7] border border-[#E0E0E0] rounded-[2px] p-5 space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <label className="font-mono text-[8px] uppercase tracking-wider text-[#AAAAAA] block mb-1">ID (corto, único)</label>
+                      <input type="text" value={newQ.id} onChange={e => setNewQ({ ...newQ, id: e.target.value.toUpperCase().replace(/\s/g, '') })} placeholder="ej: D10" className="w-full bg-white border border-[#CCCCCC] rounded-[2px] px-3 py-2 font-mono text-[12px]" />
+                    </div>
+                    <div>
+                      <label className="font-mono text-[8px] uppercase tracking-wider text-[#AAAAAA] block mb-1">Sección</label>
+                      <select value={newQ.section} onChange={e => setNewQ({ ...newQ, section: e.target.value })} className="w-full bg-white border border-[#CCCCCC] rounded-[2px] px-3 py-2 font-mono text-[12px]">
+                        <option value="V">V — punto de partida</option>
+                        <option value="A">A — experiencia</option>
+                        <option value="B">B — criterio</option>
+                        <option value="C">C — ejecución</option>
+                        <option value="D">D — cultura</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="font-mono text-[8px] uppercase tracking-wider text-[#AAAAAA] block mb-1">Tipo</label>
+                      <select value={newQ.type} onChange={e => setNewQ({ ...newQ, type: e.target.value })} className="w-full bg-white border border-[#CCCCCC] rounded-[2px] px-3 py-2 font-mono text-[12px]">
+                        <option value="open">Texto abierto</option>
+                        <option value="mixed_scale">Escala (1-4)</option>
+                        <option value="mixed_multi">Múltiple opción</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="font-mono text-[8px] uppercase tracking-wider text-[#AAAAAA] block mb-1">Texto de la pregunta</label>
+                    <textarea value={newQ.text} onChange={e => setNewQ({ ...newQ, text: e.target.value })} rows={2} placeholder="ej: ¿Qué herramientas de IA conoces en {empresa}?" className="w-full bg-white border border-[#CCCCCC] rounded-[2px] px-3 py-2 font-body text-[13px]" />
+                  </div>
+                  {(newQ.type === 'mixed_scale' || newQ.type === 'mixed_multi') && (
+                    <div>
+                      <label className="font-mono text-[8px] uppercase tracking-wider text-[#AAAAAA] block mb-1">Opciones (una por línea)</label>
+                      <textarea value={newQ.options} onChange={e => setNewQ({ ...newQ, options: e.target.value })} rows={5} placeholder={newQ.type === 'mixed_scale' ? "Nivel bajo\nNivel medio\nNivel alto\nMáximo" : "Opción A\nOpción B\nOpción C"} className="w-full bg-white border border-[#CCCCCC] rounded-[2px] px-3 py-2 font-body text-[12px] font-mono" />
+                    </div>
+                  )}
+                  <button onClick={addQuestion} className="font-mono text-[9px] uppercase tracking-wider px-4 py-2 bg-[#111111] text-white rounded-[2px] hover:bg-[#333333]">
+                    + Añadir a la lista
+                  </button>
+                </div>
+              )}
+
+              {/* Questions list */}
+              <div className="space-y-2">
+                {qList.map((q, idx) => {
+                  const text = q.text || q.scaleText || q.multiText || q.closedText || '(sin texto)';
+                  const opts = q.scaleOptions?.map((o: any) => o.label) || q.multiOptions || q.closedOptions?.map((o: any) => o.label) || [];
+                  return (
+                    <div key={`${q.id}-${idx}`} className="border border-[#E0E0E0] rounded-[2px] p-4 hover:border-[#CCCCCC] transition-colors">
+                      <div className="flex items-start gap-3">
+                        <div className="flex flex-col gap-1">
+                          <button onClick={() => moveQuestion(idx, -1)} disabled={idx === 0} className={`font-mono text-[10px] w-6 h-5 rounded-[2px] ${idx === 0 ? 'text-[#CCCCCC] cursor-not-allowed' : 'text-[#666666] hover:bg-[#F5F5F5]'}`}>▲</button>
+                          <button onClick={() => moveQuestion(idx, 1)} disabled={idx === qList.length - 1} className={`font-mono text-[10px] w-6 h-5 rounded-[2px] ${idx === qList.length - 1 ? 'text-[#CCCCCC] cursor-not-allowed' : 'text-[#666666] hover:bg-[#F5F5F5]'}`}>▼</button>
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-mono text-[10px] text-[#AAAAAA]">#{idx + 1}</span>
+                            <span className="font-mono text-[9px] uppercase tracking-wider px-2 py-0.5 bg-[#F5F5F5] border border-[#E0E0E0] rounded-[2px] text-[#666666]">{q.id}</span>
+                            <span className="font-mono text-[9px] uppercase tracking-wider px-2 py-0.5 bg-primary/10 text-primary rounded-[2px]">{q.section}</span>
+                            <span className="font-mono text-[9px] text-[#AAAAAA]">{q.type}</span>
+                          </div>
+                          <p className="font-body text-[13px] text-[#111111] leading-snug">{text}</p>
+                          {opts.length > 0 && (
+                            <ul className="mt-2 space-y-0.5">
+                              {opts.slice(0, 6).map((o: string, i: number) => (
+                                <li key={i} className="font-mono text-[10px] text-[#666666]">· {o}</li>
+                              ))}
+                              {opts.length > 6 && <li className="font-mono text-[10px] text-[#AAAAAA]">… {opts.length - 6} más</li>}
+                            </ul>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => { if (confirm(`¿Eliminar pregunta ${q.id}?`)) deleteQuestionAt(idx); }}
+                          className="font-mono text-[9px] uppercase tracking-wider px-3 py-1.5 border border-red-300 text-red-600 rounded-[2px] hover:bg-red-50 transition-colors whitespace-nowrap"
+                        >
+                          × Eliminar
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </motion.div>
           )}

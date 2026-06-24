@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
+import { useAssessmentStore } from './store/useAssessmentStore';
 import LandingPage from './pages/LandingPage';
 import GatePage from './pages/GatePage';
 import AssessmentPage from './pages/AssessmentPage';
@@ -58,6 +60,9 @@ const AnimatedRoutes = () => {
 };
 
 export default function App() {
+  const loadQuestions = useAssessmentStore(s => s.loadQuestions);
+  useEffect(() => { loadQuestions(); }, [loadQuestions]);
+
   return (
     <Router>
       <AnimatedRoutes />

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { questions } from '../data/questions';
+import { questions as defaultQuestions } from '../data/questions';
 import { gradeAnswer } from '../lib/geminiClient';
 
 // ─── TIPOS ────────────────────────────────────────────────────────────────────
@@ -48,12 +48,16 @@ interface AssessmentState {
   participant: Participant | null;
   participantToken: string | null;
   isAdmin: boolean;
+  questions: any[];
+  questionsLoaded: boolean;
 
   setRole: (role: 'csuite' | 'manager' | 'colaborador' | 'independiente') => void;
   setEnterprise: (isEnterprise: boolean) => void;
   setParticipant: (participant: Participant) => void;
   setParticipantToken: (token: string) => void;
   setAdmin: (isAdmin: boolean) => void;
+  setQuestions: (questions: any[]) => void;
+  loadQuestions: () => Promise<void>;
   answerQuestion: (questionId: string, value: any) => void;
   nextQuestion: () => void;
   prevQuestion: () => void;
@@ -113,11 +117,28 @@ export const useAssessmentStore = create<AssessmentState>()(
       participant: null,
       participantToken: null,
       isAdmin: false,
+      questions: defaultQuestions,
+      questionsLoaded: false,
 
       // ── Setters básicos ─────────────────────────────────────────────────────
 
       setRole: (role) => set({ userRole: role, startTime: Date.now() }),
       setEnterprise: (isEnterprise) => set({ isEnterprise }),
+      setQuestions: (qs) => set({ questions: qs, questionsLoaded: true }),
+      loadQuestions: async () => {
+        try {
+          const res = await fetch('/api/questions-config');
+          if (!res.ok) { set({ questionsLoaded: true }); return; }
+          const data = await res.json();
+          if (Array.isArray(data.questions) && data.questions.length > 0) {
+            set({ questions: data.questions, questionsLoaded: true });
+          } else {
+            set({ questionsLoaded: true });
+          }
+        } catch {
+          set({ questionsLoaded: true });
+        }
+      },
 
       setParticipant: (participant) => {
         const positionToRole = (pos: string): AssessmentState['userRole'] => {
@@ -169,15 +190,15 @@ export const useAssessmentStore = create<AssessmentState>()(
         set((state) => {
           const nextIndex = state.currentQuestion + 1;
           const token = state.participantToken;
-          if (token && nextIndex < questions.length) {
+          if (token && nextIndex < get().questions.length) {
             fetch('/api/progress-save', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ token, currentQuestion: nextIndex, answers: state.answers })
             }).catch(() => {});
           }
-          if (nextIndex < questions.length) {
-            return { currentQuestion: nextIndex, currentSection: questions[nextIndex].section as any };
+          if (nextIndex < get().questions.length) {
+            return { currentQuestion: nextIndex, currentSection: get().questions[nextIndex].section as any };
           }
           return { currentQuestion: nextIndex };
         });
@@ -187,14 +208,14 @@ export const useAssessmentStore = create<AssessmentState>()(
         set((state) => {
           const prevIndex = state.currentQuestion - 1;
           if (prevIndex >= 0) {
-            return { currentQuestion: prevIndex, currentSection: questions[prevIndex].section as any };
+            return { currentQuestion: prevIndex, currentSection: get().questions[prevIndex].section as any };
           }
           return {};
         });
       },
 
       restoreProgress: (currentQuestion, answers) => {
-        const section = questions[currentQuestion]?.section || 'A';
+        const section = get().questions[currentQuestion]?.section || 'A';
         set({ currentQuestion, answers, currentSection: section as any });
       },
 

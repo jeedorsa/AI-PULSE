@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAssessmentStore } from '../store/useAssessmentStore';
-import { questions } from '../data/questions';
 import { Button } from '../components/ui/Button';
 import { Navbar } from '../components/ui/Navbar';
 import { SectionBadge } from '../components/ui/SectionBadge';
@@ -21,7 +20,7 @@ import { useState } from 'react';
 
 export default function AssessmentPage() {
   const navigate = useNavigate();
-  const { currentQuestion, answers, answerQuestion, nextQuestion, prevQuestion, userRole, participant } = useAssessmentStore();
+  const { currentQuestion, answers, answerQuestion, nextQuestion, prevQuestion, userRole, participant, questions } = useAssessmentStore();
   const [isIdeFocused, setIsIdeFocused] = useState(false);
   
   const question = questions[currentQuestion];

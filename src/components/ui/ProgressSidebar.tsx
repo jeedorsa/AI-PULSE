@@ -1,10 +1,9 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { useAssessmentStore } from '../../store/useAssessmentStore';
-import { questions } from '../../data/questions';
 
 export const ProgressSidebar: React.FC = () => {
-  const { currentQuestion } = useAssessmentStore();
+  const { currentQuestion, questions } = useAssessmentStore();
   
   const totalQuestions = questions.length;
   const percentComplete = Math.round((currentQuestion / totalQuestions) * 100);
