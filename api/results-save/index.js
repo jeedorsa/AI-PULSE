@@ -84,10 +84,10 @@ module.exports = async function (context, req) {
       [C3 - Prompt con razonamiento] ${answers.C3?.text || ""}
 
       [D1 - Apoyo jefe directo] ${answers.D1?.value || ""}
-      [D1b - Apoyo Inchcape como empresa] ${answers.D1b?.value || ""}
+      [D1b - Apoyo ${participant.empresa} como empresa] ${answers.D1b?.value || ""}
       [D2 - IA generó desconfianza] ${answers.D2 || ""}
       [D4 - Herramienta que necesita] ${answers.D4 || ""}
-      [D5 - Espacios compartir IA en Inchcape] ${answers.D5?.choice || ""} — ${answers.D5?.text || ""}
+      [D5 - Espacios compartir IA en ${participant.empresa}] ${answers.D5?.choice || ""} — ${answers.D5?.text || ""}
       [D6 - Conoce política oficial de IA] ${answers.D6?.value || ""}
       [D7 - No usar IA por ética] ${answers.D7 || ""}
       [D9 - Futuro del rol] ${answers.D9?.value || ""}

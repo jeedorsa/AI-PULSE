@@ -229,7 +229,7 @@ export const questions = [
     id: 'D1b',
     section: 'D',
     type: 'mixed_scale',
-    scaleText: '¿En qué medida sientes que Inchcape como empresa apoya activamente el uso de IA?',
+    scaleText: '¿En qué medida sientes que {empresa} como empresa apoya activamente el uso de IA?',
     scaleOptions: [
       { value: 1, label: 'No he visto ninguna iniciativa o comunicación al respecto' },
       { value: 2, label: 'He escuchado menciones generales pero sin acciones concretas' },
@@ -256,7 +256,7 @@ export const questions = [
     id: 'D5',
     section: 'D',
     type: 'mixed_conditional',
-    closedText: 'Además de este programa, ¿existen espacios en Inchcape para compartir prompts, aprendizajes o casos de uso de IA entre compañeros?',
+    closedText: 'Además de este programa, ¿existen espacios en {empresa} para compartir prompts, aprendizajes o casos de uso de IA entre compañeros?',
     closedOptions: [
       { value: 'yes_active', label: 'Sí, existe y lo uso activamente' },
       { value: 'yes_inactive', label: 'Sí, existe pero no está activo o no lo uso' },
@@ -269,7 +269,7 @@ export const questions = [
     id: 'D6',
     section: 'D',
     type: 'mixed_scale',
-    scaleText: '¿Sabes si Inchcape tiene una política oficial sobre el uso de IA?',
+    scaleText: '¿Sabes si {empresa} tiene una política oficial sobre el uso de IA?',
     scaleOptions: [
       { value: 1, label: 'Sí, la conozco y sé lo que dice' },
       { value: 2, label: 'Sí, sé que existe pero no la he leído' },

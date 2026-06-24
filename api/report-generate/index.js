@@ -107,7 +107,7 @@ C3 — Prompt con razonamiento paso a paso (decisión de descuento):
 D1 — Apoyo del jefe directo al uso de IA:
 "${ans('D1')}"
 
-D1b — Apoyo de Inchcape como empresa al uso de IA:
+D1b — Apoyo de ${participant.empresa} como empresa al uso de IA:
 "${ans('D1b')}"
 
 D2 — Si ha sentido que usar IA generaba desconfianza o incomodidad:
@@ -116,10 +116,10 @@ D2 — Si ha sentido que usar IA generaba desconfianza o incomodidad:
 D4 — Herramienta de IA que necesitaría y no tiene acceso:
 "${ans('D4')}"
 
-D5 — Espacios en Inchcape para compartir IA entre compañeros:
+D5 — Espacios en ${participant.empresa} para compartir IA entre compañeros:
 "${ans('D5')}"
 
-D6 — Si sabe si Inchcape tiene una política oficial sobre el uso de IA:
+D6 — Si sabe si ${participant.empresa} tiene una política oficial sobre el uso de IA:
 "${ans('D6')}"
 
 D7 — Decisión de NO usar IA por razones éticas o principios propios:

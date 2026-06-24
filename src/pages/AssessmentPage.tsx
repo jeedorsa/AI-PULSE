@@ -200,7 +200,7 @@ export default function AssessmentPage() {
               {/* Question Text */}
               <div className="transition-opacity duration-250" style={{ opacity: isIdeFocused ? 0.1 : 1 }}>
                 <h2 className="font-body text-[16px] md:text-[20px] font-medium text-[#111111] leading-[1.5] mb-8">
-                  {question.text || question.scaleText || question.multiText || question.closedText}
+                  {(question.text || question.scaleText || question.multiText || question.closedText || '').replace(/\{empresa\}/g, participant?.empresa || 'tu empresa')}
                 </h2>
               </div>
 
