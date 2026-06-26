@@ -10,6 +10,7 @@ import VerifyPage from './pages/VerifyPage';
 import ThankYouPage from './pages/ThankYouPage';
 import AdminPage from './pages/AdminPage';
 import AccessPage from './pages/AccessPage';
+import LoginPage from './pages/LoginPage';
 import CoachPage from './pages/CoachPage';
 import DashboardPage from './pages/DashboardPage';
 
@@ -22,7 +23,7 @@ const PageWrapper = ({ children }: { children: React.ReactNode }) => {
       transition={{ 
         duration: 0.3, 
         ease: 'easeOut',
-        exit: { duration: 0.2 } 
+        //exit: { duration: 0.2 } 
       }}
       className="w-full h-full"
     >
@@ -48,6 +49,8 @@ const AnimatedRoutes = () => {
         <Route path="/admin" element={<PageWrapper><AdminPage /></PageWrapper>} />
         {/* /acceso soporta modo whitelist y modo dominio abierto (?empresa=X&dominio=X.com) */}
         <Route path="/acceso" element={<PageWrapper><AccessPage /></PageWrapper>} />
+        {/* /login — pantalla de login standalone (diseño AI Pulse Auth) */}
+        <Route path="/login" element={<LoginPage />} />
         {/* /coach — dashboard personal del participante, requiere informe generado */}
         <Route path="/coach" element={<CoachPage />} />
         {/* /dashboard/:tipo — tableros analíticos (solo admin) */}
