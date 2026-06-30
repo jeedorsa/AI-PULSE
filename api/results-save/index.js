@@ -93,47 +93,49 @@ module.exports = async function (context, req) {
       [D9 - Futuro del rol] ${answers.D9?.value || ""}
     `.replace(/\s+/g, ' ').trim();
 
-    // GENERACIÓN DEL EMBEDDING 
-    const client = new AzureOpenAI({
-      endpoint: process.env.AZURE_OPENAI_ENDPOINT,
-      apiKey: process.env.AZURE_OPENAI_API_KEY,
-      apiVersion: "2024-12-01-preview"
-    });
-
+    // GENERACIÓN DEL EMBEDDING (best-effort — solo si Vector DB está activo)
     let vector;
-    try {
-      const response = await client.embeddings.create({
-        model: process.env.AZURE_OPENAI_EMBEDDING_DEPLOYMENT,
-        input: textToEmbed,
-        dimensions: 1536
-      });
-      vector = response.data[0].embedding;
-    } catch (err) {
-      if (err?.statusCode === 404 || (err?.message && err.message.includes("404"))) {
-        err.message = `Deployment de embeddings no encontrado: "${process.env.AZURE_OPENAI_EMBEDDING_DEPLOYMENT}". Verifica en Azure OpenAI Studio que exista un deployment con ese nombre y que tu Function App tenga la variable AZURE_OPENAI_EMBEDDING_DEPLOYMENT configurada con ese valor.`;
+    if (process.env.VECTOR_DB_ENDPOINT) {
+      try {
+        const client = new AzureOpenAI({
+          endpoint: process.env.AZURE_OPENAI_ENDPOINT,
+          apiKey: process.env.AZURE_OPENAI_API_KEY,
+          apiVersion: "2024-12-01-preview"
+        });
+        const response = await client.embeddings.create({
+          model: process.env.AZURE_OPENAI_EMBEDDING_DEPLOYMENT,
+          input: textToEmbed,
+          dimensions: 1536
+        });
+        vector = response.data[0].embedding;
+      } catch (err) {
+        context.log.warn("Embedding generation failed (continuing without vector):", err.message);
       }
-      throw err;
     }
 
-    // INDEXACIÓN EN VECTOR DB
+    // INDEXACIÓN EN VECTOR DB (best-effort — no debe bloquear el guardado del result)
     if (process.env.VECTOR_DB_ENDPOINT) {
-      const searchClient = new SearchClient(
-        process.env.VECTOR_DB_ENDPOINT,
-        process.env.VECTOR_COLLECTION_NAME,
-        new AzureKeyCredential(process.env.VECTOR_DB_API_KEY)
-      );
+      try {
+        const searchClient = new SearchClient(
+          process.env.VECTOR_DB_ENDPOINT,
+          process.env.VECTOR_COLLECTION_NAME,
+          new AzureKeyCredential(process.env.VECTOR_DB_API_KEY)
+        );
 
-      await searchClient.mergeOrUploadDocuments([{
-        id: vectorId,
-        assessmentId: token,
-        empresa: participant.empresa,
-        departamento: participant.departamento,
-        aiqLevel: aiqResult.level,
-        aiqScore: Number(aiqResult.score),
-        challengeProfile: aiqResult.challengeProfile,
-        completedAt: completedAt,
-        contentVector: vector
-      }]);
+        await searchClient.mergeOrUploadDocuments([{
+          id: vectorId,
+          assessmentId: token,
+          empresa: participant.empresa,
+          departamento: participant.departamento,
+          aiqLevel: aiqResult.level,
+          aiqScore: Number(aiqResult.score),
+          challengeProfile: aiqResult.challengeProfile,
+          completedAt: completedAt,
+          contentVector: vector
+        }]);
+      } catch (vectorErr) {
+        context.log.warn("Vector DB indexing failed (continuing without index):", vectorErr.message);
+      }
     }
 
     // Persistencia en Table Storage
