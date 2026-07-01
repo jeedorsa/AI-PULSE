@@ -111,7 +111,7 @@ module.exports = async function (context, req) {
 
     let result = null;
     for await (const entity of resultsClient.listEntities({
-      queryOptions: { filter: `RowKey eq '${email}'` }
+      queryOptions: { filter: `email eq '${email}'` }
     })) { result = entity; break; }
 
     let analysis = {};

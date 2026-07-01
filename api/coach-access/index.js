@@ -63,7 +63,7 @@ module.exports = async function (context, req) {
     return;
   }
 
-  // ── validate: solo verifica token activo ────────────────────────────────
+  // ── validate: verifica token y devuelve perfil completo ─────────────────
   if (mode === "validate") {
     const token = body.sessionToken || "";
     const tokenEmail = validateSessionToken(token);
@@ -71,17 +71,43 @@ module.exports = async function (context, req) {
       context.res = { status: 401, headers, body: JSON.stringify({ valid: false }) };
       return;
     }
-    context.res = { status: 200, headers, body: JSON.stringify({ valid: true }) };
+
+    // Cargar perfil del participante para hidratar el dashboard
+    try {
+      const resultsClient = TableClient.fromConnectionString(conn, "assessmentResults");
+      let result = null;
+      for await (const entity of resultsClient.listEntities({
+        queryOptions: { filter: `email eq '${email}'` },
+      })) { result = entity; break; }
+
+      context.res = {
+        status: 200, headers,
+        body: JSON.stringify({
+          valid:    true,
+          nombre:   result?.nombre   || "",
+          aiqScore: result?.aiqScore || 0,
+          aiqLevel: result?.aiqLevel || "",
+          sectionA: result?.sectionA || 0,
+          sectionB: result?.sectionB || 0,
+          sectionC: result?.sectionC || 0,
+          empresa:  result?.partitionKey || "",
+          posicion: result?.posicion || "",
+        }),
+      };
+    } catch {
+      // Si falla la BD, al menos confirmamos que el token es válido
+      context.res = { status: 200, headers, body: JSON.stringify({ valid: true }) };
+    }
     return;
   }
 
   try {
     const resultsClient = TableClient.fromConnectionString(conn, "assessmentResults");
 
-    // Buscar resultado por email
+    // Buscar resultado por email (campo, no RowKey — RowKey es el token del assessment)
     let result = null;
     for await (const entity of resultsClient.listEntities({
-      queryOptions: { filter: `RowKey eq '${email}'` }
+      queryOptions: { filter: `email eq '${email}'` }
     })) { result = entity; break; }
 
     if (!result) {

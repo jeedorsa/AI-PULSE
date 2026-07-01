@@ -70,6 +70,18 @@ export default function CoachPage() {
         if (d.valid) {
           setEmail(savedEmail);
           setSessionToken(savedToken);
+          if (d.nombre !== undefined) {
+            setProfile({
+              nombre:   d.nombre,
+              aiqScore: d.aiqScore || 0,
+              aiqLevel: d.aiqLevel || '',
+              sectionA: d.sectionA || 0,
+              sectionB: d.sectionB || 0,
+              sectionC: d.sectionC || 0,
+              empresa:  d.empresa  || '',
+              posicion: d.posicion || '',
+            });
+          }
           setScreen('dashboard');
         }
       }).catch(() => {});

@@ -4,3 +4,5 @@ dist/
 .env.local
 .envrc
 .DS_Store
+api/local.settings.json
+worker/local.settings.json

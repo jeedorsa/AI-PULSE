@@ -64,10 +64,10 @@ module.exports = async function (context, req) {
       return;
     }
 
-    // Buscar resultado y reportAnalysis
+    // Buscar resultado y reportAnalysis (RowKey es el token, email es un campo)
     let result = null;
     for await (const entity of resultsClient.listEntities({
-      queryOptions: { filter: `RowKey eq '${email}'` }
+      queryOptions: { filter: `email eq '${email}'` }
     })) { result = entity; break; }
 
     if (!result) throw new Error("Resultado no encontrado");
