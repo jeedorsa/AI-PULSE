@@ -27,8 +27,11 @@ module.exports = async function (context, req) {
     return;
   }
 
-  const googleClientId = process.env.GOOGLE_CLIENT_ID || "";
-  if (!googleClientId) {
+  const googleClientId    = process.env.GOOGLE_CLIENT_ID    || "";
+  const microsoftClientId = process.env.MICROSOFT_CLIENT_ID || "";
+  const microsoftTenantId = process.env.MICROSOFT_TENANT_ID || "";
+
+  if (!googleClientId && !microsoftClientId) {
     context.res = {
       status: 503,
       headers,
@@ -40,6 +43,6 @@ module.exports = async function (context, req) {
   context.res = {
     status: 200,
     headers,
-    body: JSON.stringify({ googleClientId }),
+    body: JSON.stringify({ googleClientId, microsoftClientId, microsoftTenantId }),
   };
 };

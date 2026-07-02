@@ -14,7 +14,6 @@ const COPY = {
     google: 'Continuar con Google',
     microsoft: 'Continuar con Microsoft',
     loading: 'Verificando acceso...',
-    msComingSoon: 'Microsoft SSO próximamente',
   },
   en: {
     brandLine1: "70% think they're intermediate.",
@@ -26,7 +25,6 @@ const COPY = {
     google: 'Continue with Google',
     microsoft: 'Continue with Microsoft',
     loading: 'Verifying access...',
-    msComingSoon: 'Microsoft SSO coming soon',
   },
 };
 
@@ -46,12 +44,44 @@ declare global {
   }
 }
 
+// Singleton a nivel de módulo: evita que React StrictMode doble-invoque la inicialización de MSAL
+let _msalInitPromise: Promise<any> | null = null;
+
+function getMsalInstance(clientId: string, tenantId: string): Promise<any> {
+  if (!_msalInitPromise) {
+    _msalInitPromise = import('@azure/msal-browser').then(async ({ PublicClientApplication }) => {
+      // Limpiar estado MSAL obsoleto en sessionStorage (interaction_in_progress de sesiones anteriores)
+      for (const key of Object.keys(sessionStorage)) {
+        if (key.includes('interaction.status') || key.startsWith(`msal.${clientId}`)) {
+          sessionStorage.removeItem(key);
+        }
+      }
+      const app = new PublicClientApplication({
+        auth: {
+          clientId,
+          authority: `https://login.microsoftonline.com/${tenantId}`,
+          redirectUri: `${window.location.origin}/login`,
+        },
+        cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false },
+      });
+      await app.initialize();
+      return app;
+    }).catch(err => {
+      _msalInitPromise = null; // Permite reintentar si falla
+      throw err;
+    });
+  }
+  return _msalInitPromise;
+}
+
 export default function LoginPage() {
-  const [lang, setLang] = useState<Lang>('es');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [ready, setReady] = useState(false); // true cuando GIS script + client_id están listos
+  const [lang, setLang]         = useState<Lang>('es');
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState('');
+  const [gisReady, setGisReady] = useState(false);   // Google Identity Services listo
+  const [msalReady, setMsalReady] = useState(false); // MSAL (Microsoft) listo
   const googleClientId = useRef('');
+  const msalRef        = useRef<any>(null); // PublicClientApplication de MSAL
   const navigate = useNavigate();
   const t = COPY[lang];
 
@@ -59,54 +89,60 @@ export default function LoginPage() {
     let cancelled = false;
 
     async function init() {
-      // 1. Obtener el client_id desde el backend (fuente única de configuración)
-      let clientId = '';
+      // ── 1. Obtener configuración desde el backend ────────────────────────
+      let config: { googleClientId?: string; microsoftClientId?: string; microsoftTenantId?: string } = {};
       try {
         const res = await fetch('/api/client-config');
         if (!res.ok) throw new Error('config unavailable');
-        const data = await res.json();
-        clientId = data.googleClientId || '';
+        config = await res.json();
       } catch {
         if (!cancelled) setError('No se pudo cargar la configuración de autenticación.');
         return;
       }
 
-      if (!clientId) {
-        if (!cancelled) setError('Autenticación con Google no configurada. Contacta al administrador.');
-        return;
+      // ── 2. Google: cargar GIS SDK ────────────────────────────────────────
+      if (config.googleClientId) {
+        googleClientId.current = config.googleClientId;
+        const existing = document.getElementById('gis-script');
+        if (existing) {
+          if (!cancelled) setGisReady(true);
+        } else {
+          const script = document.createElement('script');
+          script.id    = 'gis-script';
+          script.src   = 'https://accounts.google.com/gsi/client';
+          script.async = true;
+          script.defer = true;
+          script.onload  = () => { if (!cancelled) setGisReady(true); };
+          script.onerror = () => { if (!cancelled) setError('No se pudo cargar Google Sign-In.'); };
+          document.head.appendChild(script);
+        }
       }
 
-      googleClientId.current = clientId;
-
-      // 2. Cargar el SDK de Google Identity Services
-      const existing = document.getElementById('gis-script');
-      if (existing) {
-        if (!cancelled) setReady(true);
-        return;
+      // ── 3. Microsoft: inicializar MSAL (singleton — seguro con StrictMode) ─
+      if (config.microsoftClientId && config.microsoftTenantId) {
+        getMsalInstance(config.microsoftClientId, config.microsoftTenantId)
+          .then(app => {
+            if (!cancelled) {
+              msalRef.current = app;
+              setMsalReady(true);
+            }
+          })
+          .catch(() => {
+            // Si MSAL falla, el botón permanece deshabilitado
+          });
       }
-
-      const script = document.createElement('script');
-      script.id = 'gis-script';
-      script.src = 'https://accounts.google.com/gsi/client';
-      script.async = true;
-      script.defer = true;
-      script.onload = () => { if (!cancelled) setReady(true); };
-      script.onerror = () => {
-        if (!cancelled) setError('No se pudo cargar Google Sign-In. Verifica tu conexión.');
-      };
-      document.head.appendChild(script);
     }
 
     init();
     return () => { cancelled = true; };
   }, []);
 
+  // ── Google handler (sin cambios) ─────────────────────────────────────────
   const handleGoogleClick = () => {
-    if (!ready || !window.google || !googleClientId.current) {
+    if (!gisReady || !window.google || !googleClientId.current) {
       setError('Google Sign-In aún está cargando. Intenta en un momento.');
       return;
     }
-
     setError('');
 
     const tokenClient = window.google.accounts.oauth2.initTokenClient({
@@ -119,16 +155,13 @@ export default function LoginPage() {
         }
         setLoading(true);
         try {
-          const res = await fetch('/api/google-auth', {
-            method: 'POST',
+          const res  = await fetch('/api/google-auth', {
+            method:  'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ access_token: tokenResponse.access_token }),
+            body:    JSON.stringify({ access_token: tokenResponse.access_token }),
           });
           const data = await res.json();
-          if (!res.ok) {
-            setError(data.error || 'No tienes acceso al sistema.');
-            return;
-          }
+          if (!res.ok) { setError(data.error || 'No tienes acceso al sistema.'); return; }
           sessionStorage.setItem('aipulse_coach_email', data.email);
           sessionStorage.setItem('aipulse_coach_token', data.sessionToken);
           navigate('/coach');
@@ -141,6 +174,41 @@ export default function LoginPage() {
     });
 
     tokenClient.requestAccessToken();
+  };
+
+  // ── Microsoft handler ────────────────────────────────────────────────────
+  const handleMicrosoftClick = async () => {
+    if (!msalReady || !msalRef.current || loading) return;
+    setError('');
+
+    let result: any;
+    try {
+      result = await msalRef.current.loginPopup({ scopes: ['User.Read'] });
+    } catch (err: any) {
+      // El usuario cerró el popup — no mostrar error
+      if (err?.errorCode !== 'user_cancelled' && err?.message !== 'user_cancelled') {
+        setError('No se completó el inicio de sesión con Microsoft.');
+      }
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res  = await fetch('/api/microsoft-auth', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ access_token: result.accessToken }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || 'No tienes acceso al sistema.'); return; }
+      sessionStorage.setItem('aipulse_coach_email', data.email);
+      sessionStorage.setItem('aipulse_coach_token', data.sessionToken);
+      navigate('/coach');
+    } catch {
+      setError('Error de conexión. Intenta de nuevo.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -189,7 +257,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Acceso */}
+        {/* Panel de acceso */}
         <div className="flex-1 flex items-center justify-center p-8 md:p-10">
           <div className="w-full max-w-[380px] font-body text-black">
             <div className="font-display text-[22px] tracking-[3px] text-[#111111] select-none mb-[26px]">
@@ -202,11 +270,12 @@ export default function LoginPage() {
             <p className="m-0 mb-[28px] text-[14.5px] leading-[1.45] text-[#808080] max-w-[330px]">{t.sub}</p>
 
             <div className="flex flex-col gap-[10px]">
-              {/* Botón Google */}
+
+              {/* ── Botón Google ── */}
               <button
                 type="button"
                 onClick={handleGoogleClick}
-                disabled={loading || !ready}
+                disabled={loading || !gisReady}
                 className="flex items-center justify-center gap-[10px] h-[48px] w-full bg-white border border-[#DADADA] rounded-[10px] text-[14.5px] font-medium text-[#1a1a1a] hover:bg-[#F7F7F7] hover:border-[#B3B3B3] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
@@ -224,21 +293,22 @@ export default function LoginPage() {
                 )}
               </button>
 
-              {/* Botón Microsoft — pendiente */}
+              {/* ── Botón Microsoft ── */}
               <button
                 type="button"
-                disabled
-                title={t.msComingSoon}
-                className="flex items-center justify-center gap-[10px] h-[48px] w-full bg-white border border-[#DADADA] rounded-[10px] text-[14.5px] font-medium text-[#AAAAAA] cursor-not-allowed"
+                onClick={handleMicrosoftClick}
+                disabled={loading || !msalReady}
+                className="flex items-center justify-center gap-[10px] h-[48px] w-full bg-white border border-[#DADADA] rounded-[10px] text-[14.5px] font-medium text-[#1a1a1a] hover:bg-[#F7F7F7] hover:border-[#B3B3B3] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <svg width="17" height="17" viewBox="0 0 18 18" aria-hidden="true">
-                  <rect x="0" y="0" width="8.4" height="8.4" fill="#F25022" opacity="0.4" />
-                  <rect x="9.6" y="0" width="8.4" height="8.4" fill="#7FBA00" opacity="0.4" />
-                  <rect x="0" y="9.6" width="8.4" height="8.4" fill="#00A4EF" opacity="0.4" />
-                  <rect x="9.6" y="9.6" width="8.4" height="8.4" fill="#FFB900" opacity="0.4" />
+                  <rect x="0" y="0" width="8.4" height="8.4" fill="#F25022" />
+                  <rect x="9.6" y="0" width="8.4" height="8.4" fill="#7FBA00" />
+                  <rect x="0" y="9.6" width="8.4" height="8.4" fill="#00A4EF" />
+                  <rect x="9.6" y="9.6" width="8.4" height="8.4" fill="#FFB900" />
                 </svg>
                 {t.microsoft}
               </button>
+
             </div>
 
             {/* Error */}
