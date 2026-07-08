@@ -21,8 +21,8 @@ const B1_OPT = { 1: 'Confío si suena bien', 2: 'Búsqueda rápida en Google', 3
 const D1_OPT = { 1: 'Nunca ha habido incentivo', 2: 'Menciones generales sin acciones', 3: 'He recibido recursos o tiempo específico', 4: 'Existe una estrategia clara con liderazgo' };
 const D9_OPT = { 1: 'Me genera incertidumbre', 2: 'Tengo curiosidad pero no sé cómo afectará', 3: 'Lo veo como oportunidad de crecimiento', 4: 'La IA ya es central en mi desarrollo profesional' };
 const E5_OPT = { 1: 'No', 2: 'Comparto prompts puntuales', 3: 'Enseño técnicas y resuelvo dudas', 4: 'Lidero la adopción y creo recursos compartidos' };
-const NIVEL_NOMBRES = { L1: 'Novato', L2: 'Experimentador', L3: 'Practicante', L4T: 'Amplificador Técnico', L4L: 'Amplificador Estratégico' };
-const NIVEL_SIGUIENTE = { L1: 'L2', L2: 'L3', L3: 'L4T', L4T: 'L4L', L4L: 'L4L' };
+const NIVEL_NOMBRES = { L1: 'Novato', L2: 'Experimentador', L3: 'Practicante', L4: 'Amplificador' };
+const NIVEL_SIGUIENTE = { L1: 'L2', L2: 'L3', L3: 'L4', L4: 'L4' };
 
 function blobNameForEmail(email) {
   return `individual/${email.replace(/[@.]/g, '_')}.html`;
@@ -68,7 +68,7 @@ function buildPrompt(participant, answers, scores, companyDistribution) {
   const ans = (id) => resolveAnswer(id, answers[id]);
   const nivel = scores.aiqLevel;
   const nivelNombre = NIVEL_NOMBRES[nivel] || nivel;
-  const nivelSiguienteKey = NIVEL_SIGUIENTE[nivel] || 'L4L';
+  const nivelSiguienteKey = NIVEL_SIGUIENTE[nivel] || 'L4';
   const nivelSiguienteNombre = NIVEL_NOMBRES[nivelSiguienteKey] || nivelSiguienteKey;
 
   return `Eres el analista principal de AI Pulse, una consultora experta en diagnósticos de madurez en inteligencia artificial para empresas. Tu trabajo es generar el análisis narrativo personalizado de un informe AIQ individual.
@@ -183,14 +183,14 @@ REGLAS: Mínimo 2 fortalezas, máximo 3. Mínimo 2 oportunidades, máximo 3. Exa
 
 function generateHTML(participant, scores, answers, analysis, companyDist) {
   const nivel = scores.aiqLevel;
-  const nivelNombre = { L1: 'Novato', L2: 'Experimentador', L3: 'Practicante', L4T: 'Amplificador Técnico', L4L: 'Amplificador Estratégico' }[nivel] || nivel;
-  const nivelSigKey = { L1: 'L2', L2: 'L3', L3: 'L4T', L4T: 'L4L', L4L: 'L4L' }[nivel];
-  const nivelSigNombre = { L1: 'Experimentador', L2: 'Practicante', L3: 'Amplificador Técnico', L4T: 'Amplificador Estratégico', L4L: 'Amplificador Estratégico' }[nivel];
+  const nivelNombre = { L1: 'Novato', L2: 'Experimentador', L3: 'Practicante', L4: 'Amplificador' }[nivel] || nivel;
+  const nivelSigKey = { L1: 'L2', L2: 'L3', L3: 'L4', L4: 'L4' }[nivel];
+  const nivelSigNombre = { L1: 'Experimentador', L2: 'Practicante', L3: 'Amplificador', L4: 'Amplificador' }[nivel];
   const fecha = new Date().toLocaleDateString('es-CL', { year: 'numeric', month: 'long', day: 'numeric' });
   const herramientas = (answers.V4?.selected || []).join(', ') || '—';
 
-  const niveles = ['L1', 'L2', 'L3', 'L4T', 'L4L'];
-  const nivelesNombres = { L1: 'Novato', L2: 'Experimentador', L3: 'Practicante', L4T: 'Amp. Técnico', L4L: 'Amp. Estratégico' };
+  const niveles = ['L1', 'L2', 'L3', 'L4'];
+  const nivelesNombres = { L1: 'Novato', L2: 'Experimentador', L3: 'Practicante', L4: 'Amplificador' };
   const barraHTML = niveles.map(n => `
     <div class="lbar-item ${n === nivel ? 'active' : niveles.indexOf(n) < niveles.indexOf(nivel) ? 'past' : ''}">
       <span class="lbar-name">${nivelesNombres[n]}</span>
@@ -615,7 +615,7 @@ module.exports = async function (context, queueMessage) {
   };
 
   // 3. Distribución de empresa
-  const companyDist = { L1: 0, L2: 0, L3: 0, L4T: 0, L4L: 0, total: 0 };
+  const companyDist = { L1: 0, L2: 0, L3: 0, L4: 0, total: 0 };
   for await (const entity of resultsClient.listEntities({
     queryOptions: { filter: `PartitionKey eq '${participant.empresa}'` }
   })) {

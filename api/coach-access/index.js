@@ -1,4 +1,5 @@
-const { TableClient } = require("@azure/data-tables");
+const { createTableClient } = require("../shared/tableClient");
+const { recommendationCardsFromIds } = require("../shared/aiqRubricV5");
 const crypto = require("crypto");
 
 /**
@@ -38,6 +39,33 @@ function validateSessionToken(token) {
   } catch { return null; }
 }
 
+// Campos de perfil compartidos por validate/setup/login — centralizado para
+// que los tres devuelvan siempre la misma forma (incluye rubricVersion/flags/
+// recomendaciones ya renderizadas para la nueva vista de CoachPage).
+function buildProfileFields(result) {
+  const nombre  = result?.nombre || "";
+  const empresa = result?.partitionKey || "";
+  let recomendacionesIds = [];
+  try { recomendacionesIds = result?.recomendacionesIds ? JSON.parse(result.recomendacionesIds) : []; } catch {}
+  let flags = [];
+  try { flags = result?.alerts ? JSON.parse(result.alerts) : []; } catch {}
+
+  return {
+    nombre,
+    aiqScore: result?.aiqScore || 0,
+    aiqLevel: result?.aiqLevel || "",
+    sectionA: result?.sectionA || 0,
+    sectionB: result?.sectionB || 0,
+    sectionC: result?.sectionC || 0,
+    empresa,
+    posicion: result?.posicion || "",
+    completedAt: result?.completedAt || "",
+    rubricVersion: result?.rubricVersion || "legacy",
+    flags,
+    recomendaciones: recommendationCardsFromIds(recomendacionesIds, { nombre, empresa }),
+  };
+}
+
 module.exports = async function (context, req) {
   const headers = {
     "Access-Control-Allow-Origin": "*",
@@ -74,7 +102,7 @@ module.exports = async function (context, req) {
 
     // Cargar perfil del participante para hidratar el dashboard
     try {
-      const resultsClient = TableClient.fromConnectionString(conn, "assessmentResults");
+      const resultsClient = createTableClient(conn, "assessmentResults");
       let result = null;
       for await (const entity of resultsClient.listEntities({
         queryOptions: { filter: `email eq '${email}'` },
@@ -83,15 +111,8 @@ module.exports = async function (context, req) {
       context.res = {
         status: 200, headers,
         body: JSON.stringify({
-          valid:    true,
-          nombre:   result?.nombre   || "",
-          aiqScore: result?.aiqScore || 0,
-          aiqLevel: result?.aiqLevel || "",
-          sectionA: result?.sectionA || 0,
-          sectionB: result?.sectionB || 0,
-          sectionC: result?.sectionC || 0,
-          empresa:  result?.partitionKey || "",
-          posicion: result?.posicion || "",
+          valid: true,
+          ...buildProfileFields(result),
         }),
       };
     } catch {
@@ -102,7 +123,7 @@ module.exports = async function (context, req) {
   }
 
   try {
-    const resultsClient = TableClient.fromConnectionString(conn, "assessmentResults");
+    const resultsClient = createTableClient(conn, "assessmentResults");
 
     // Buscar resultado por email (campo, no RowKey — RowKey es el token del assessment)
     let result = null;
@@ -127,7 +148,7 @@ module.exports = async function (context, req) {
         return;
       }
       // Ya tiene contraseña?
-      const coachClient = TableClient.fromConnectionString(conn, "coachSessions");
+      const coachClient = createTableClient(conn, "coachSessions");
       let session = null;
       try { session = await coachClient.getEntity(email, "session"); } catch {}
       context.res = {
@@ -150,7 +171,7 @@ module.exports = async function (context, req) {
       return;
     }
 
-    const coachClient = TableClient.fromConnectionString(conn, "coachSessions");
+    const coachClient = createTableClient(conn, "coachSessions");
     let session = null;
     try { session = await coachClient.getEntity(email, "session"); } catch {}
 
@@ -180,15 +201,8 @@ module.exports = async function (context, req) {
         body: JSON.stringify({
           success: true,
           sessionToken,
-          nombre:    result.nombre || "",
-          aiqScore:  result.aiqScore || 0,
-          aiqLevel:  result.aiqLevel || "",
-          sectionA:  result.sectionA || 0,
-          sectionB:  result.sectionB || 0,
-          sectionC:  result.sectionC || 0,
-          empresa:   result.partitionKey || "",
-          posicion:  result.posicion || "",
-          isNew:     true
+          ...buildProfileFields(result),
+          isNew: true,
         })
       };
       return;
@@ -211,15 +225,8 @@ module.exports = async function (context, req) {
         body: JSON.stringify({
           success: true,
           sessionToken,
-          nombre:   result.nombre || "",
-          aiqScore: result.aiqScore || 0,
-          aiqLevel: result.aiqLevel || "",
-          sectionA: result.sectionA || 0,
-          sectionB: result.sectionB || 0,
-          sectionC: result.sectionC || 0,
-          empresa:  result.partitionKey || "",
-          posicion: result.posicion || "",
-          isNew:    false
+          ...buildProfileFields(result),
+          isNew: false,
         })
       };
       return;

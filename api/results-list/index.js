@@ -1,22 +1,6 @@
-const { TableClient } = require("@azure/data-tables");
 const { requireAdmin } = require("../shared/adminAuth");
-
-/**
- * Reensambla answers desde los 5 bloques particionados (nuevo formato post-fix)
- * o desde el campo único `answers` (registros anteriores, puede estar truncado).
- */
-function assembleAnswers(entity) {
-  // Nuevo formato: campos answersV / answersA / answersB / answersC / answersD
-  if (entity.answersV !== undefined || entity.answersA !== undefined) {
-    const out = {};
-    for (const field of ["answersV", "answersA", "answersB", "answersC", "answersD"]) {
-      try { Object.assign(out, JSON.parse(entity[field] || "{}")); } catch {}
-    }
-    return out;
-  }
-  // Legado: campo único (puede estar truncado si superó 32KB)
-  try { return JSON.parse(entity.answers || "{}"); } catch { return {}; }
-}
+const { createTableClient } = require("../shared/tableClient");
+const { assembleAnswers } = require("../shared/assembleAnswers");
 
 module.exports = async function (context, req) {
   const headers = {
@@ -40,26 +24,26 @@ module.exports = async function (context, req) {
   }
 
   try {
-    const resultsClient = TableClient.fromConnectionString(connectionString, "assessmentResults");
+    const resultsClient = createTableClient(connectionString, "assessmentResults");
     const results = [];
 
     for await (const entity of resultsClient.listEntities()) {
       const answers = assembleAnswers(entity);
 
       results.push({
-        email:            entity.email || "",
-        nombre:           entity.nombre || "",
-        posicion:         entity.posicion || "",
-        empresa:          entity.partitionKey || "",
-        departamento:     entity.departamento || "",
-        aiqScore:         entity.aiqScore || 0,
-        aiqLevel:         entity.aiqLevel || "N/A",
-        sectionA:         entity.sectionA || 0,
-        sectionB:         entity.sectionB || 0,
-        sectionC:         entity.sectionC || 0,
-        challengeProfile: entity.challengeProfile || "",
-        completedAt:      entity.completedAt || "",
-        durationMinutes:  entity.durationMinutes || null,
+        email:              entity.email || "",
+        nombre:             entity.nombre || "",
+        empresa:            entity.partitionKey || "",
+        aiqScore:           entity.aiqScore || 0,
+        aiqLevel:           entity.aiqLevel || "N/A",
+        sectionA:           entity.sectionA || 0,
+        sectionB:           entity.sectionB || 0,
+        sectionC:           entity.sectionC || 0,
+        flags:              entity.alerts ? JSON.parse(entity.alerts) : [],
+        rubricVersion:      entity.rubricVersion || "legacy",
+        recomendacionesIds: entity.recomendacionesIds ? JSON.parse(entity.recomendacionesIds) : [],
+        completedAt:        entity.completedAt || "",
+        durationMinutes:    entity.durationMinutes || null,
         answers
       });
     }

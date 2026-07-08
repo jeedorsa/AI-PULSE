@@ -1,4 +1,4 @@
-const { TableClient } = require("@azure/data-tables");
+const { createTableClient } = require("../shared/tableClient");
 const crypto = require("crypto");
 
 /**
@@ -33,6 +33,7 @@ function buildSystemPrompt(result, analysis, tasks) {
   const nombre   = result.nombre || "";
   const posicion = result.posicion || "";
   const empresa  = result.partitionKey || "";
+  const escalaMax = result.rubricVersion === "v5" ? 4 : 5;
 
   const tareasTexto = tasks.map(t =>
     `- [${t.completada ? "✅ Completada" : "⬜ Pendiente"}] ${t.titulo}: ${t.descripcion}`
@@ -45,9 +46,9 @@ PERFIL DEL PARTICIPANTE:
 - Cargo: ${posicion}
 - Empresa: ${empresa}
 - Nivel AIQ: ${nivel}
-- Bloque A (Experiencia Real): ${(result.sectionA || 0).toFixed(2)} / 5.0
-- Bloque B (Criterio Técnico): ${(result.sectionB || 0).toFixed(2)} / 5.0
-- Bloque C (Laboratorio): ${(result.sectionC || 0).toFixed(2)} / 5.0
+- Bloque A (Experiencia Real): ${(result.sectionA || 0).toFixed(2)} / ${escalaMax}.0
+- Bloque B (Criterio Técnico): ${(result.sectionB || 0).toFixed(2)} / ${escalaMax}.0
+- Bloque C (Laboratorio): ${(result.sectionC || 0).toFixed(2)} / ${escalaMax}.0
 
 ANÁLISIS DE SU DIAGNÓSTICO:
 - Fortaleza colectiva: ${analysis.fortaleza_colectiva || ""}
@@ -101,8 +102,8 @@ module.exports = async function (context, req) {
   const openaiVersion    = process.env.AZURE_OPENAI_API_VERSION || "2024-12-01-preview";
 
   try {
-    const coachClient   = TableClient.fromConnectionString(conn, "coachSessions");
-    const resultsClient = TableClient.fromConnectionString(conn, "assessmentResults");
+    const coachClient   = createTableClient(conn, "coachSessions");
+    const resultsClient = createTableClient(conn, "assessmentResults");
 
     // Cargar sesión y resultado
     const session = await coachClient.getEntity(email, "session");

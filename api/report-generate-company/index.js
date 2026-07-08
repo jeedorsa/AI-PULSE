@@ -23,8 +23,8 @@ const NIVEL_CODIGO = {
   'Supervisor': 'SPV',
   'Colaborador individual': 'COL'
 };
-const NIVEL_NOMBRES = { L1: 'Novato', L2: 'Experimentador', L3: 'Practicante', L4T: 'Amplificador Técnico', L4L: 'Amplificador Estratégico' };
-const NIVELES = ['L1', 'L2', 'L3', 'L4T', 'L4L'];
+const NIVEL_NOMBRES = { L1: 'Novato', L2: 'Experimentador', L3: 'Practicante', L4: 'Amplificador' };
+const NIVELES = ['L1', 'L2', 'L3', 'L4'];
 
 function assembleAnswers(entity) {
   if (entity.answersV || entity.answersA) {
@@ -143,7 +143,7 @@ FORTALEZAS:
 
 FLAGS CRÍTICOS:
 - riesgo_gobernanza_critico: brecha_gobernanza.activa Y brecha_comunicacion.activa
-- n_perfiles_con_pausa: número con "REGLA_1" en alerts
+- n_perfiles_con_pausa: número con "REGLA1_SEGURIDAD" en alerts
 
 OUTPUT JSON EXACTO:
 {

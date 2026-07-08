@@ -38,6 +38,20 @@ function adminHeaders(): Record<string, string> {
   };
 }
 
+// Rúbrica v5 guarda varias respuestas como objetos ({value}, {text}, {selected}, {choice})
+// en vez de strings planos — esto extrae un texto renderizable sin importar la forma.
+function answerToText(val: any): string {
+  if (val === null || val === undefined) return '';
+  if (typeof val === 'string' || typeof val === 'number') return String(val);
+  if (typeof val === 'object') {
+    if (typeof val.text === 'string' && val.text.trim()) return val.text;
+    if (Array.isArray(val.selected)) return val.selected.join(', ');
+    if (typeof val.value === 'number' || typeof val.value === 'string') return String(val.value);
+    if (typeof val.choice === 'string') return val.choice;
+  }
+  return '';
+}
+
 
 // ── Mapa completo de preguntas para exportación ──────────────────
 const QUESTION_MAP: Record<string, string> = {
@@ -138,9 +152,10 @@ export default function AdminPage() {
 
   // Reportería
   interface ResultRow {
-    email: string; nombre: string; posicion: string; empresa: string; departamento: string;
+    email: string; nombre: string; empresa: string;
     aiqScore: number; aiqLevel: string; sectionA: number; sectionB: number; sectionC: number;
-    challengeProfile: string; completedAt: string; answers: Record<string, any>;
+    flags?: string[]; recomendacionesIds?: string[];
+    rubricVersion?: string; completedAt: string; durationMinutes: number | null; answers: Record<string, any>;
   }
   const [results, setResults] = useState<ResultRow[]>([]);
   const [loadingResults, setLoadingResults] = useState(false);
@@ -1527,8 +1542,10 @@ export default function AdminPage() {
                 <div className="space-y-3">
                   {(filterEmpresa ? results.filter(r => r.empresa === filterEmpresa) : results).map((r, i) => {
                     const isExpanded = expandedResult === r.email;
-                    const levelColor = r.aiqLevel === 'L4L' || r.aiqLevel === 'L4T' ? '#00AA55' : r.aiqLevel === 'L3' ? '#CC8800' : '#AAAAAA';
-                    const scoreWidth = (r.aiqScore / 5) * 100;
+                    const levelColor = r.aiqLevel === 'L4' || r.aiqLevel === 'L4L' || r.aiqLevel === 'L4T' ? '#00AA55' : r.aiqLevel === 'L3' ? '#CC8800' : '#AAAAAA';
+                    // Rúbrica v5: escala 1.0-4.0. Registros legacy (pre-migración): escala 0-5.
+                    const scoreMax = r.rubricVersion === 'v5' ? 4 : 5;
+                    const scoreWidth = (r.aiqScore / scoreMax) * 100;
                     return (
                       <div key={i} className="border border-[#E0E0E0] rounded-[2px] overflow-hidden">
                         {/* Row header */}
@@ -1539,7 +1556,7 @@ export default function AdminPage() {
                           {/* Nombre + empresa */}
                           <div className="flex-1 min-w-0">
                             <p className="font-body text-[13px] font-semibold text-[#111111] truncate">{r.nombre}</p>
-                            <p className="font-mono text-[9px] text-[#AAAAAA] uppercase tracking-wider truncate">{r.empresa} · {r.posicion}</p>
+                            <p className="font-mono text-[9px] text-[#AAAAAA] uppercase tracking-wider truncate">{r.empresa}</p>
                           </div>
 
                           {/* AIQ Score bar */}
@@ -1593,11 +1610,11 @@ export default function AdminPage() {
                             </div>
 
                             {/* Herramientas que usa */}
-                            {r.answers?.V4?.selected?.length > 0 && (
+                            {r.answers?.V2?.selected?.length > 0 && (
                               <div>
                                 <p className="font-mono text-[8px] uppercase tracking-wider text-[#AAAAAA] mb-2">Herramientas que usa</p>
                                 <div className="flex flex-wrap gap-2">
-                                  {r.answers.V4.selected.map((tool: string) => (
+                                  {r.answers.V2.selected.map((tool: string) => (
                                     <span key={tool} className="font-mono text-[9px] px-2 py-1 bg-primary/5 border border-primary/20 rounded-[2px] text-primary">{tool}</span>
                                   ))}
                                 </div>
@@ -1608,14 +1625,13 @@ export default function AdminPage() {
                             <div className="space-y-3">
                               <p className="font-mono text-[8px] uppercase tracking-wider text-[#AAAAAA]">Respuestas destacadas</p>
                               {[
-                                { label: 'Último entregable con IA', value: r.answers?.E2 },
-                                { label: 'Seguridad de datos', value: r.answers?.B2 },
-                                { label: 'Automatización lograda', value: r.answers?.B5 },
-                                { label: 'IA con info de empresa', value: r.answers?.B6 },
-                                { label: 'Prompt C1 (email cliente)', value: r.answers?.C1?.text },
-                                { label: 'Prompt C2 (mejora)', value: r.answers?.C2?.text },
-                                { label: 'Prompt C3 (razonamiento)', value: r.answers?.C3?.text },
-                              ].filter(item => item.value && item.value.trim && item.value.trim().length > 3).map((item, k) => (
+                                { label: 'Último entregable con IA', value: answerToText(r.answers?.E2) },
+                                { label: 'Seguridad de datos', value: answerToText(r.answers?.B2) },
+                                { label: 'Automatización lograda', value: answerToText(r.answers?.B4) },
+                                { label: 'Prompt C1 (email cliente)', value: answerToText(r.answers?.C1) },
+                                { label: 'Prompt C2 (mejora)', value: answerToText(r.answers?.C2) },
+                                { label: 'Prompt C3 (razonamiento)', value: answerToText(r.answers?.C3) },
+                              ].filter(item => item.value && item.value.trim().length > 3).map((item, k) => (
                                 <div key={k} className="border-l-2 border-primary/30 pl-3">
                                   <p className="font-mono text-[8px] uppercase tracking-wider text-[#AAAAAA] mb-1">{item.label}</p>
                                   <p className="font-body text-[12px] text-[#333333] leading-[1.6]">{item.value}</p>
@@ -1661,10 +1677,8 @@ export default function AdminPage() {
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-2 pt-2 border-t border-[#EEEEEE]">
                               {[
                                 { label: 'Email', value: r.email },
-                                { label: 'Departamento', value: r.departamento },
-                                { label: 'Área declarada', value: r.answers?.V1 },
-                                { label: 'Apoyo de su jefe', value: r.answers?.D1?.text },
-                                { label: 'Challenge Profile', value: r.challengeProfile },
+                                { label: 'Relación con la IA (V1)', value: answerToText(r.answers?.V1) },
+                                { label: 'Apoyo de su jefe', value: answerToText(r.answers?.D1) },
                                 { label: 'Completado', value: r.completedAt ? new Date(r.completedAt).toLocaleString('es-CL') : '—' },
                               ].map((field, m) => field.value ? (
                                 <div key={m}>
