@@ -1,19 +1,80 @@
-import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { useState, useEffect } from 'react';
+import { motion } from 'motion/react';
 
 const LEVEL_NAMES: Record<string, string> = {
-  L1: 'Novato', L2: 'Experimentador', L3: 'Practicante',
+  L1: 'Novato', L2: 'Experimentador', L3: 'Practicante', L4: 'Amplificador',
   L4T: 'Amplificador Técnico', L4L: 'Amplificador Estratégico'
 };
-const DIM_NAMES: Record<string, string> = { A: 'Experiencia Real', B: 'Criterio Técnico', C: 'Laboratorio' };
+
+// ── Perfil AIQ estilo "AI Pulse" ────────────────────────────────────────────
+type LevelCode = 'L1' | 'L2' | 'L3' | 'L4';
+type DimCode = 'A' | 'B' | 'C';
+
+const ESCALA_INFO: { code: LevelCode; desc: string }[] = [
+  { code: 'L1', desc: 'Explora la IA por primera vez' },
+  { code: 'L2', desc: 'Usa la IA en tareas puntuales' },
+  { code: 'L3', desc: 'Integra la IA con criterio y resultados concretos' },
+  { code: 'L4', desc: 'Multiplica el impacto de la IA en su equipo' },
+];
+
+const DIM_PROFILE_LABELS: Record<DimCode, string> = {
+  A: 'Uso real de IA en tu trabajo',
+  B: 'Criterio y seguridad',
+  C: 'Capacidad de prompting',
+};
+
+const DIM_LEVEL_DESC: Record<DimCode, Record<LevelCode, string>> = {
+  A: {
+    L1: 'Todavía no has incorporado la IA en tu día a día, o la has explorado muy brevemente. Ese es exactamente el punto de partida que este programa está diseñado para acompañar.',
+    L2: 'Ya usás la IA para tareas puntuales y genéricas, pero todavía no la conectás con problemas concretos de tu rol. El siguiente paso es identificar un caso de uso específico y repetible.',
+    L3: 'Tenés casos de uso concretos: identificás un problema o entregable real y sabés qué particularidad de la herramienta te ayuda a resolverlo. Ahora el foco es sistematizar ese uso.',
+    L4: 'Integrás la IA de forma sistémica en tu trabajo: coordinás múltiples usos o tenés un flujo ya establecido con un rol reproducible. Sos un referente para tu equipo en este eje.',
+  },
+  B: {
+    L1: 'Todavía no tenés un criterio claro sobre qué información compartir con una IA ni cómo verificar lo que te devuelve. Construir ese criterio es la base de un uso responsable.',
+    L2: 'Tenés conciencia básica de los límites: sabés que no todo se puede compartir y que hay que verificar. El siguiente paso es hacer eso más sistemático y menos intuitivo.',
+    L3: 'Manejás categorías concretas de información sensible y tenés al menos una razón clara para no compartirlas — regulación, contrato o política. Ese criterio ya es sólido.',
+    L4: 'Distinguís con claridad qué herramienta usar según el tipo de dato (interna vs. pública) y conocés las políticas de tu empresa. Sos referente en criterio de seguridad para tu equipo.',
+  },
+  C: {
+    L1: 'Tus instrucciones a la IA son aún simples o generales, lo que limita la calidad de lo que obtenés. Aprender a escribir mejores prompts es la habilidad con mayor retorno inmediato.',
+    L2: 'Ya agregás algunos elementos de contexto a tus prompts, pero de forma genérica. El siguiente paso es ser más específico: rol, formato y restricciones concretas.',
+    L3: 'Tus prompts ya incluyen contexto, tono y restricciones claras — y en el caso de decisiones, pedís razonamiento paso a paso. Eso te da resultados consistentemente mejores.',
+    L4: 'Escribís prompts con estructura avanzada: rol específico, narrativa completa y validación del razonamiento de la IA. Sos un usuario avanzado de esta habilidad.',
+  },
+};
+
+function normalizeLevel(level?: string): LevelCode {
+  if (level === 'L4T' || level === 'L4L' || level === 'L4') return 'L4';
+  if (level === 'L1' || level === 'L2' || level === 'L3') return level;
+  return 'L1';
+}
+
+// sectionA/B/C en v5 ya son el nivel de sección como entero 1-4; en legacy
+// eran un promedio ponderado sobre 5 — se aproxima a 1-4 para no romper la
+// vista con datos históricos no migrados.
+function dimLevelInt(value: number, rubricVersion?: string): number {
+  const raw = rubricVersion === 'v5' ? value : (value / 5) * 4;
+  return Math.max(1, Math.min(4, Math.round(raw || 1)));
+}
+
+const INT_TO_LEVEL_CODE: Record<number, LevelCode> = { 1: 'L1', 2: 'L2', 3: 'L3', 4: 'L4' };
+
+interface RecomendacionCard { id: string; headline: string; body: string; }
 
 const COACH_EMAIL_KEY = 'aipulse_coach_email';
 const COACH_TOKEN_KEY = 'aipulse_coach_token';
 const COACH_DEMO_KEY  = 'aipulse_coach_demo';
 
-interface Task { id: string; titulo: string; descripcion: string; dimension: string; completada: boolean; }
-interface Message { role: 'user' | 'assistant'; content: string; ts?: number; }
-interface Profile { nombre: string; aiqScore: number; aiqLevel: string; sectionA: number; sectionB: number; sectionC: number; empresa: string; posicion: string; }
+interface Profile {
+  nombre: string; aiqScore: number; aiqLevel: string;
+  sectionA: number; sectionB: number; sectionC: number;
+  empresa: string; posicion: string;
+  completedAt?: string;
+  rubricVersion?: string;
+  flags?: string[];
+  recomendaciones?: RecomendacionCard[];
+}
 
 type Screen = 'login' | 'setup' | 'dashboard';
 
@@ -29,13 +90,7 @@ export default function CoachPage() {
   const [error, setError]         = useState('');
   const [profile, setProfile]     = useState<Profile | null>(null);
   const [sessionToken, setSessionToken] = useState('');
-  const [tasks, setTasks]         = useState<Task[]>([]);
-  const [loadingTasks, setLoadingTasks] = useState(false);
-  const [messages, setMessages]   = useState<Message[]>([]);
-  const [inputMsg, setInputMsg]   = useState('');
-  const [sending, setSending]     = useState(false);
   const [isDemo, setIsDemo]       = useState(false);
-  const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Restaurar sesión — detecta modo demo primero
   useEffect(() => {
@@ -49,10 +104,6 @@ export default function CoachPage() {
         setEmail(savedEmail);
         setSessionToken(savedToken);
         setProfile(demo.profile);
-        setTasks(demo.tasks || []);
-        setMessages(
-          (demo.chatHistory || []).map((m: any) => ({ role: m.role, content: m.content }))
-        );
         setScreen('dashboard');
         return;
       } catch {}
@@ -80,6 +131,10 @@ export default function CoachPage() {
               sectionC: d.sectionC || 0,
               empresa:  d.empresa  || '',
               posicion: d.posicion || '',
+              completedAt: d.completedAt,
+              rubricVersion: d.rubricVersion,
+              flags: d.flags || [],
+              recomendaciones: d.recomendaciones || [],
             });
           }
           setScreen('dashboard');
@@ -87,29 +142,6 @@ export default function CoachPage() {
       }).catch(() => {});
     }
   }, []);
-
-  // Scroll al fondo del chat
-  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
-
-  // Cargar tareas al entrar al dashboard (solo modo real)
-  useEffect(() => {
-    if (screen !== 'dashboard' || !sessionToken || !email || isDemo) return;
-    loadTasks();
-  }, [screen, sessionToken]);
-
-  const loadTasks = async () => {
-    setLoadingTasks(true);
-    try {
-      const res = await fetch('/api/coach-init', {
-        method: 'POST',
-        headers: coachHeaders(email, sessionToken),
-        body: JSON.stringify({})
-      });
-      const data = await res.json();
-      if (data.tasks) setTasks(data.tasks);
-    } catch {}
-    setLoadingTasks(false);
-  };
 
   const handleCheckEmail = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,61 +183,25 @@ export default function CoachPage() {
       setProfile({
         nombre: data.nombre, aiqScore: data.aiqScore, aiqLevel: data.aiqLevel,
         sectionA: data.sectionA, sectionB: data.sectionB, sectionC: data.sectionC,
-        empresa: data.empresa, posicion: data.posicion
+        empresa: data.empresa, posicion: data.posicion,
+        completedAt: data.completedAt,
+        rubricVersion: data.rubricVersion,
+        flags: data.flags || [],
+        recomendaciones: data.recomendaciones || [],
       });
-      if (data.isNew) {
-        setMessages([{ role: 'assistant', content: `Hola ${data.nombre}, bienvenido a tu espacio de desarrollo AIQ. Aquí puedes consultarme dudas sobre cómo mejorar tu uso de IA en el trabajo, revisar tus tareas y hacer seguimiento a tu progreso. ¿Por dónde quieres empezar?` }]);
-      }
       setScreen('dashboard');
     } catch { setError('Error de conexión.'); }
     setLoading(false);
   };
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputMsg.trim() || sending) return;
-    const msg = inputMsg.trim();
-    setInputMsg('');
-    setMessages(prev => [...prev, { role: 'user', content: msg, ts: Date.now() }]);
-    setSending(true);
-    try {
-      const res = await fetch('/api/coach-chat', {
-        method: 'POST',
-        headers: coachHeaders(email, sessionToken),
-        body: JSON.stringify({ message: msg })
-      });
-      const data = await res.json();
-      if (data.reply) setMessages(prev => [...prev, { role: 'assistant', content: data.reply, ts: Date.now() }]);
-    } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Hubo un error. Intenta de nuevo.', ts: Date.now() }]);
-    }
-    setSending(false);
-  };
-
-  const handleToggleTask = async (taskId: string, current: boolean) => {
-    const optimistic = tasks.map(t => t.id === taskId ? { ...t, completada: !current } : t);
-    setTasks(optimistic);
-    // En demo solo actualizamos estado local — no hay BD
-    if (isDemo) return;
-    try {
-      const res = await fetch('/api/tasks-update', {
-        method: 'POST',
-        headers: coachHeaders(email, sessionToken),
-        body: JSON.stringify({ taskId, completada: !current })
-      });
-      const data = await res.json();
-      if (data.tasks) setTasks(data.tasks);
-    } catch { setTasks(tasks); }
-  };
-
   const handleLogout = () => {
     sessionStorage.removeItem(COACH_EMAIL_KEY);
     sessionStorage.removeItem(COACH_TOKEN_KEY);
-    setScreen('login'); setProfile(null); setTasks([]); setMessages([]);
+    setScreen('login'); setProfile(null);
     setEmail(''); setPassword(''); setSessionToken('');
   };
 
-  const inputClass = "w-full bg-[#F7F7F7] border border-[#CCCCCC] rounded-[2px] px-4 py-3 font-body text-[14px] text-[#111111] placeholder-[#AAAAAA] focus:outline-none focus:border-primary/60 transition-colors";
+  const inputClass = "w-full bg-[#F7F7F7] border border-[#DADADA] rounded-[2px] px-4 py-3 font-body text-[14px] text-[#111111] placeholder-[#9a9a9a] focus:outline-none focus:border-primary/60 transition-colors";
 
   // ── PANTALLA LOGIN / SETUP ───────────────────────────────────────────────
   if (screen === 'login' || screen === 'setup') {
@@ -217,13 +213,13 @@ export default function CoachPage() {
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm">
           <div className="text-center mb-8">
             <div className="font-display text-[32px] text-primary leading-none mb-1">AIQ</div>
-            <div className="font-mono text-[9px] uppercase tracking-widest text-[#AAAAAA]">Coach Personal</div>
+            <div className="font-mono text-[9px] uppercase tracking-widest text-[#9a9a9a]">Coach Personal</div>
           </div>
 
           {/* Paso 1: ingresar email */}
           {screen === 'login' && !isSetup && (
             <form onSubmit={handleCheckEmail} className="space-y-4">
-              <p className="font-body text-[13px] text-[#666666] text-center">
+              <p className="font-body text-[13px] text-[#808080] text-center">
                 Ingresa tu correo para acceder a tu coach
               </p>
               <input type="email" value={email} onChange={e => setEmail(e.target.value)}
@@ -267,14 +263,14 @@ export default function CoachPage() {
           )}
 
           {error && (
-            <div className="mt-4 p-3 rounded-[2px] border bg-[rgba(255,60,60,0.05)] border-[rgba(255,60,60,0.2)]">
-              <p className="font-body text-[12px] text-[#FF3C3C] text-center">{error}</p>
+            <div className="mt-4 p-3 rounded-[8px] bg-[rgba(254,60,28,0.06)] border border-[rgba(254,60,28,0.2)]">
+              <p className="font-body text-[12px] text-primary text-center">{error}</p>
             </div>
           )}
 
           {(isSetup || (!isSetup && error === '' && email)) && (
             <button onClick={() => { setScreen('login'); setPassword(''); setError(''); }}
-              className="mt-4 w-full font-mono text-[9px] uppercase tracking-wider text-[#AAAAAA] hover:text-primary transition-colors">
+              className="mt-4 w-full font-mono text-[9px] uppercase tracking-wider text-[#9a9a9a] hover:text-primary transition-colors">
               ← Volver
             </button>
           )}
@@ -284,215 +280,166 @@ export default function CoachPage() {
   }
 
   // ── DASHBOARD ────────────────────────────────────────────────────────────
-  const levelColor = profile?.aiqLevel && ['L4L','L4T'].includes(profile.aiqLevel) ? '#00AA55'
-    : profile?.aiqLevel === 'L3' ? '#CC8800' : '#AAAAAA';
-  const completadas = tasks.filter(t => t.completada).length;
+  // Derivados para la tarjeta de perfil estilo "AI Pulse"
+  const nivelActual = normalizeLevel(profile?.aiqLevel);
+  const dimLevels: Record<DimCode, number> = {
+    A: dimLevelInt(profile?.sectionA || 0, profile?.rubricVersion),
+    B: dimLevelInt(profile?.sectionB || 0, profile?.rubricVersion),
+    C: dimLevelInt(profile?.sectionC || 0, profile?.rubricVersion),
+  };
+  const dimLevelCodes: Record<DimCode, LevelCode> = {
+    A: INT_TO_LEVEL_CODE[dimLevels.A],
+    B: INT_TO_LEVEL_CODE[dimLevels.B],
+    C: INT_TO_LEVEL_CODE[dimLevels.C],
+  };
+  const DIM_BAR_PCT: Record<LevelCode, number> = { L1: 25, L2: 50, L3: 75, L4: 100 };
+  const DIM_BAR_COLOR: Record<LevelCode, string> = {
+    L1: 'rgba(254,60,28,0.35)', L2: 'rgba(254,60,28,0.55)', L3: 'rgba(254,60,28,0.75)', L4: '#FE3C1C',
+  };
+  const fechaPerfil = (() => {
+    const fecha = profile?.completedAt ? new Date(profile.completedAt) : new Date();
+    const s = fecha.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  })();
 
   return (
     <div className="min-h-screen bg-[#F7F7F7]">
       {/* Navbar */}
-      <div className="bg-white border-b border-[#E0E0E0] px-6 py-3 flex items-center justify-between">
+      <div className="bg-white border-b border-[#DADADA] px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span className="font-display text-[20px] text-primary">AIQ</span>
-          <span className="font-mono text-[9px] uppercase tracking-widest text-[#AAAAAA]">Coach Personal</span>
+          <span className="font-mono text-[9px] uppercase tracking-widest text-[#9a9a9a]">Coach Personal</span>
         </div>
-        <button onClick={handleLogout} className="font-mono text-[9px] uppercase tracking-wider text-[#AAAAAA] hover:text-primary transition-colors">
+        <button onClick={handleLogout} className="font-mono text-[9px] uppercase tracking-wider text-[#9a9a9a] hover:text-primary transition-colors">
           Cerrar sesión
         </button>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-6">
+      <div className="max-w-[720px] mx-auto px-4 py-8">
 
-        {/* ── Columna izquierda ── */}
         <div className="space-y-4">
 
-          {/* Perfil AIQ */}
-          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-            className="bg-white border border-[#E0E0E0] rounded-[2px] p-5">
-            <div className="mb-4">
-              <p className="font-body text-[15px] font-semibold text-[#111111]">{profile?.nombre}</p>
-              <p className="font-mono text-[9px] uppercase tracking-wider text-[#AAAAAA] mt-0.5">
-                {profile?.posicion}{profile?.empresa ? ` · ${profile.empresa}` : ''}
-              </p>
-            </div>
-            <div className="flex items-end gap-3 mb-4">
-              <div>
-                <span className="font-display text-[40px] leading-none" style={{ color: levelColor }}>
-                  {profile?.aiqScore.toFixed(2)}
+          {/* Perfil AIQ — estilo AI Pulse */}
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+
+            {/* Header */}
+            <div className="relative overflow-hidden rounded-[10px] bg-[#111111] pt-9 px-10 pb-8 shadow-lg">
+              <div
+                className="absolute inset-0"
+                style={{ backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.10) 1px, transparent 1.6px)', backgroundSize: '15px 15px' }}
+              />
+              <div className="relative flex items-center justify-between mb-6">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/25 px-3.5 py-[5px] font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-primary">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                  Diagnóstico AIQ · AI Pulse
                 </span>
-                <span className="font-mono text-[10px] text-[#AAAAAA] ml-1">/ 5.0</span>
+                <span className="font-body text-[11px] font-light text-[#B3B3B3] whitespace-nowrap">{fechaPerfil}</span>
               </div>
-              <div className="pb-1">
-                <div className="font-mono text-[9px] uppercase tracking-wider" style={{ color: levelColor }}>
-                  {profile?.aiqLevel}
+              <div className="relative flex items-end justify-between gap-4 mb-6">
+                <div className="min-w-0">
+                  <p className="font-display text-[34px] font-black text-white leading-tight mb-1.5">{profile?.nombre}</p>
+                  <p className="font-body text-[12px] font-light text-[#B3B3B3] tracking-[0.04em] truncate">{profile?.empresa}</p>
                 </div>
-                <div className="font-body text-[12px] text-[#555555]">
-                  {LEVEL_NAMES[profile?.aiqLevel || ''] || ''}
+                <div className="text-right flex-shrink-0">
+                  <div className="inline-block bg-primary text-white font-display text-[52px] font-black leading-none tracking-[-0.03em] rounded-[4px] px-1 mb-1">{nivelActual}</div>
+                  <div className="font-display text-[18px] font-bold text-white">{LEVEL_NAMES[nivelActual]}</div>
                 </div>
+              </div>
+              {/* Escala */}
+              <div className="relative grid grid-cols-4 gap-2 pt-5 border-t border-white/[0.08]">
+                {ESCALA_INFO.map(item => {
+                  const active = item.code === nivelActual;
+                  return (
+                    <div key={item.code} className={`rounded-[6px] px-3 py-2.5 ${active ? 'bg-[#2A1712] border border-primary' : 'bg-[#1A1A1A] border border-[#2A2A2A]'}`}>
+                      <div className={`font-display text-[16px] font-black mb-0.5 ${active ? 'text-primary' : 'text-white/25'}`}>{item.code}</div>
+                      <div className={`font-mono text-[9px] font-semibold uppercase tracking-[0.06em] ${active ? 'text-primary/70' : 'text-white/20'}`}>
+                        {LEVEL_NAMES[item.code]}
+                      </div>
+                      <div className={`text-[9px] leading-[1.4] mt-1 ${active ? 'text-white/60' : 'text-white/15'}`}>{item.desc}</div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
-            {/* Barras por dimensión */}
-            <div className="space-y-2">
-              {(['A','B','C'] as const).map(dim => {
-                const score = dim === 'A' ? profile?.sectionA : dim === 'B' ? profile?.sectionB : profile?.sectionC;
+
+            {/* Encuadre */}
+            <div className="bg-white rounded-[10px] py-6 px-7 border-l-4 border-primary shadow-sm">
+              <p className="font-body text-[13.5px] text-[#808080] leading-[1.75] italic">
+                Este diagnóstico es el punto de partida en AI Pulse. No mide tu desempeño ni tu potencial como profesional: mide dónde estás hoy con la IA para diseñar el camino que tiene más sentido para vos. No hay respuestas correctas ni incorrectas: hay puntos de partida distintos, y todos son válidos.
+              </p>
+              <div className="mt-3.5 flex items-center gap-2.5">
+                <div className="w-6 h-0.5 bg-primary flex-shrink-0" />
+                <div className="font-display text-[11px] font-bold text-[#111111] tracking-[0.03em]">Equipo VINKA</div>
+              </div>
+            </div>
+
+            {/* Dimensiones */}
+            <div className="font-mono text-[9px] font-extrabold uppercase tracking-[0.18em] text-[#808080] px-1">Tu perfil por dimensión</div>
+            <div className="space-y-2.5">
+              {(['A', 'B', 'C'] as DimCode[]).map(dim => {
+                const lvl = dimLevelCodes[dim];
                 return (
-                  <div key={dim}>
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="font-mono text-[8px] uppercase tracking-wider text-[#AAAAAA]">
-                        {dim} · {DIM_NAMES[dim]}
-                      </span>
-                      <span className="font-mono text-[10px] text-[#555555]">{(score || 0).toFixed(1)}</span>
+                  <div key={dim} className="grid grid-cols-[160px_1fr] rounded-[10px] overflow-hidden shadow-sm">
+                    <div className="bg-[#111111] px-[18px] py-[22px] flex flex-col justify-between">
+                      <div className="font-display text-[12px] font-bold text-white leading-[1.4]">{DIM_PROFILE_LABELS[dim]}</div>
+                      <div className="mt-4 flex flex-col gap-[5px]">
+                        <div className="h-[3px] rounded-[2px] bg-white/[0.08] relative overflow-hidden">
+                          <div className="absolute top-0 left-0 bottom-0 rounded-[2px]" style={{ width: `${DIM_BAR_PCT[lvl]}%`, background: DIM_BAR_COLOR[lvl] }} />
+                        </div>
+                        <div className="font-display text-[10px] font-extrabold tracking-[0.06em]" style={{ color: DIM_BAR_COLOR[lvl] }}>{lvl} · {LEVEL_NAMES[lvl]}</div>
+                      </div>
                     </div>
-                    <div className="h-1.5 bg-[#E8E8E8] rounded-full overflow-hidden">
-                      <div className="h-full bg-primary transition-all duration-500"
-                        style={{ width: `${((score || 0) / 5) * 100}%` }} />
+                    <div className="bg-white px-6 py-[22px] flex items-center">
+                      <div className="font-body text-[12.5px] text-[#808080] leading-[1.7]">{DIM_LEVEL_DESC[dim][lvl]}</div>
                     </div>
                   </div>
                 );
               })}
             </div>
-          </motion.div>
 
-          {/* Tareas */}
-          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-            className="bg-white border border-[#E0E0E0] rounded-[2px] p-5">
-            <div className="flex items-center justify-between mb-4">
-              <span className="font-mono text-[9px] uppercase tracking-wider text-[#111111]">Tus tareas</span>
-              {tasks.length > 0 && (
-                <span className="font-mono text-[9px] text-[#AAAAAA]">{completadas}/{tasks.length}</span>
-              )}
+            {/* Qué sigue */}
+            <div className="rounded-[10px] py-6 px-7 shadow-lg flex items-center gap-5" style={{ background: 'linear-gradient(135deg, #111111 0%, #000000 100%)' }}>
+              <div className="flex-shrink-0 w-11 h-11 rounded-full border-2 border-primary/30 flex items-center justify-center text-[20px]">🚀</div>
+              <div>
+                <div className="font-mono text-[9px] font-extrabold uppercase tracking-[0.18em] text-primary mb-[5px]">Lo que viene</div>
+                <div className="font-body text-[13px] text-white/85 leading-[1.6] font-light">
+                  Basado en este diagnóstico, el programa <strong className="font-bold text-primary">AI Pulse</strong> te acompaña con sesiones diseñadas para tu perfil y el de tu equipo. Más información pronto.
+                </div>
+              </div>
             </div>
 
-            {loadingTasks ? (
-              <p className="font-body text-[12px] text-[#AAAAAA] text-center py-4">Generando tu plan...</p>
-            ) : tasks.length === 0 ? (
-              <p className="font-body text-[12px] text-[#AAAAAA] text-center py-4">Cargando tareas...</p>
-            ) : (
-              <div className="space-y-3">
-                {tasks.map(task => (
-                  <div key={task.id}
-                    className={`border rounded-[2px] p-3 transition-colors ${task.completada ? 'border-[#00AA55]/30 bg-[#F0FFF4]' : 'border-[#E0E0E0]'}`}>
-                    <div className="flex gap-3">
-                      <button onClick={() => handleToggleTask(task.id, task.completada)}
-                        className={`mt-0.5 w-4 h-4 rounded-sm border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-                          task.completada ? 'bg-[#00AA55] border-[#00AA55]' : 'border-[#CCCCCC] hover:border-primary'}`}>
-                        {task.completada && (
-                          <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                      </button>
-                      <div className="flex-1 min-w-0">
-                        <p className={`font-body text-[12px] font-medium leading-tight ${task.completada ? 'line-through text-[#AAAAAA]' : 'text-[#111111]'}`}>
-                          {task.titulo}
-                        </p>
-                        <p className="font-body text-[11px] text-[#777777] mt-1 leading-[1.5]">{task.descripcion}</p>
-                        <span className="inline-block mt-1.5 font-mono text-[8px] uppercase tracking-wider text-primary bg-primary/5 px-1.5 py-0.5 rounded-sm">
-                          {DIM_NAMES[task.dimension] || task.dimension}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {completadas === tasks.length && tasks.length > 0 && (
-                  <div className="text-center py-2">
-                    <p className="font-mono text-[9px] uppercase tracking-wider text-[#00AA55]">
-                      ✓ Todas las tareas completadas
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
           </motion.div>
         </div>
 
-        {/* ── Chat ── */}
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-          className="bg-white border border-[#E0E0E0] rounded-[2px] flex flex-col" style={{ height: 'calc(100vh - 120px)' }}>
-
-          <div className="px-5 py-4 border-b border-[#E0E0E0]">
-            <span className="font-mono text-[9px] uppercase tracking-wider text-[#111111]">Chat con tu coach</span>
-            <p className="font-body text-[11px] text-[#AAAAAA] mt-0.5">Pregunta sobre tus tareas, tu nivel AIQ o cómo mejorar en IA</p>
-          </div>
-
-          {/* Mensajes */}
-          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-            {messages.length === 0 && !sending && (
-              <div className="text-center py-8">
-                <p className="font-body text-[13px] text-[#AAAAAA]">
-                  Hola {profile?.nombre?.split(' ')[0]} — ¿en qué te puedo ayudar hoy?
-                </p>
-                <div className="mt-4 flex flex-wrap gap-2 justify-center">
-                  {[
-                    '¿Cómo puedo mejorar mi Bloque B?',
-                    'Explícame mis tareas',
-                    '¿Qué significa mi nivel AIQ?'
-                  ].map(suggestion => (
-                    <button key={suggestion}
-                      onClick={() => { setInputMsg(suggestion); }}
-                      className="font-mono text-[9px] uppercase tracking-wider px-3 py-1.5 border border-[#CCCCCC] rounded-[2px] text-[#666666] hover:border-primary hover:text-primary transition-colors">
-                      {suggestion}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <AnimatePresence initial={false}>
-              {messages.map((msg, i) => (
-                <motion.div key={i}
-                  initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[80%] rounded-[2px] px-4 py-3 ${
-                    msg.role === 'user'
-                      ? 'bg-primary text-white'
-                      : 'bg-[#F7F7F7] border border-[#E0E0E0] text-[#111111]'
-                  }`}>
-                    {msg.role === 'assistant' && (
-                      <div className="font-mono text-[8px] uppercase tracking-wider text-[#AAAAAA] mb-1">Coach AIQ</div>
-                    )}
-                    <p className="font-body text-[13px] leading-[1.65] whitespace-pre-wrap">{msg.content}</p>
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-
-            {sending && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
-                <div className="bg-[#F7F7F7] border border-[#E0E0E0] rounded-[2px] px-4 py-3">
-                  <div className="flex gap-1 items-center">
-                    {[0,1,2].map(i => (
-                      <motion.div key={i} className="w-1.5 h-1.5 bg-[#AAAAAA] rounded-full"
-                        animate={{ opacity: [0.3, 1, 0.3] }}
-                        transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }} />
-                    ))}
-                  </div>
-                </div>
-              </motion.div>
-            )}
-            <div ref={chatEndRef} />
-          </div>
-
-          {/* Input */}
-          <div className="px-5 py-4 border-t border-[#E0E0E0]">
-            <form onSubmit={handleSendMessage} className="flex gap-3">
-              <input
-                type="text"
-                value={inputMsg}
-                onChange={e => setInputMsg(e.target.value)}
-                placeholder="Escribe tu pregunta..."
-                disabled={sending}
-                className="flex-1 bg-[#F7F7F7] border border-[#CCCCCC] rounded-[2px] px-4 py-2.5 font-body text-[13px] text-[#111111] placeholder-[#AAAAAA] focus:outline-none focus:border-primary/60 transition-colors disabled:opacity-50"
-              />
-              <button type="submit" disabled={sending || !inputMsg.trim()}
-                className="px-4 py-2.5 bg-primary text-white font-mono text-[10px] uppercase tracking-wider rounded-[2px] hover:bg-primary/90 transition-colors disabled:opacity-40">
-                Enviar
-              </button>
-            </form>
-          </div>
-        </motion.div>
-
       </div>
+
+      {/* Footer Vinka */}
+      <footer className="w-full bg-white border-t border-black/[0.08]">
+        <div className="max-w-[1120px] mx-auto px-6 py-7 flex flex-col md:grid md:grid-cols-3 items-center gap-4">
+          <div
+            className="md:justify-self-start"
+            style={{
+              fontFamily: '"Big Shoulders Display", sans-serif',
+              fontWeight: 900,
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
+              color: 'rgb(0, 0, 0)',
+              fontSize: '28px',
+            }}
+          >
+            VINKA
+          </div>
+          <span className="font-body text-[#808080] text-[13.5px] text-center md:justify-self-center">© 2026 Vinka SAS · vinka.one</span>
+          <a
+            href="https://www.linkedin.com/company/vinkalab/"
+            target="_blank"
+            rel="noopener"
+            className="font-body font-medium text-black text-[13.5px] no-underline border-b border-primary pb-0.5 md:justify-self-end"
+          >
+            LinkedIn
+          </a>
+        </div>
+      </footer>
     </div>
   );
 }
