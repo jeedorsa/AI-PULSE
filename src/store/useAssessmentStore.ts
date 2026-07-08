@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { questions as defaultQuestions } from '../data/questions';
-import { gradeAnswer } from '../lib/geminiClient';
 
 // ─── TIPOS ────────────────────────────────────────────────────────────────────
 
@@ -62,7 +61,6 @@ interface AssessmentState {
   nextQuestion: () => void;
   prevQuestion: () => void;
   restoreProgress: (currentQuestion: number, answers: Record<string, any>) => void;
-  gradeWithAI: () => Promise<void>;
   calculateAIQ: () => AIQResult;
   reset: () => void;
 }
@@ -217,63 +215,6 @@ export const useAssessmentStore = create<AssessmentState>()(
       restoreProgress: (currentQuestion, answers) => {
         const section = get().questions[currentQuestion]?.section || 'A';
         set({ currentQuestion, answers, currentSection: section as any });
-      },
-
-      // ── GRADING CON IA ─────────────────────────────────────────────────────
-      /**
-       * Llama a /api/grade para TODAS las preguntas que puntúan (secciones A, B, C).
-       * Incluye preguntas de escala, abiertas y prompt_input.
-       * El API grade/index.js tiene el prompt correcto por questionId.
-       *
-       * Las preguntas de Sección V y D no puntúan — se omiten aquí.
-       * Las de Sección D se incluyen solo para extraer flags organizacionales.
-       */
-      gradeWithAI: async () => {
-        set({ gradingStatus: 'loading' });
-        const { answers } = get();
-
-        // Preguntas que puntúan individualmente (Inchcape v1.0 — scoring ajustado próxima semana)
-        const scoredIds = ['E2','E3','E5','B1','B2','B4','C1','C2','C3'];
-
-        // TODO: ajustar perfil_con_automatizacion para v1.0 (B3/B5 eliminados)
-        const perfilConAutomatizacion = false;
-
-        try {
-          // Grading en paralelo de todas las preguntas scored
-          const results = await Promise.allSettled(
-            scoredIds.map(async (id) => {
-              const answer = answers[id];
-              if (answer === undefined || answer === null) return { id, score: 1, flags: [] };
-
-              const graded = await gradeAnswer({
-                questionId: id,
-                answer,
-                context: { perfil_con_automatizacion: perfilConAutomatizacion }
-              });
-              return { id, score: graded.score, flags: graded.flags || [] };
-            })
-          );
-
-          const newAiScores: Record<string, number> = {};
-          const newAiFlags: Record<string, string[]> = {};
-
-          results.forEach((r, i) => {
-            const id = scoredIds[i];
-            if (r.status === 'fulfilled') {
-              newAiScores[id] = r.value.score;
-              newAiFlags[id] = r.value.flags;
-            } else {
-              newAiScores[id] = localScore(answers[id], id);
-              newAiFlags[id] = [];
-            }
-          });
-
-          set({ aiScores: newAiScores, aiFlags: newAiFlags, gradingStatus: 'done' });
-
-        } catch (err) {
-          console.error('gradeWithAI error:', err);
-          set({ gradingStatus: 'error' });
-        }
       },
 
       // ── CÁLCULO AIQ FINAL ──────────────────────────────────────────────────

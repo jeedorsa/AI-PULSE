@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { useAssessmentStore } from '../store/useAssessmentStore';
@@ -7,46 +7,47 @@ import { AIQRing } from '../components/ui/AIQRing';
 
 export default function ThankYouPage() {
   const navigate = useNavigate();
-  const { aiqResult, participant,userRole, answers, aiScores, startTime } = useAssessmentStore();
-  //const { participant, userRole } = useAssessmentStore();
+  const { participant, userRole, answers, startTime } = useAssessmentStore();
+  const saveFiredRef = useRef(false);
 
   useEffect(() => {
     if (!userRole && !participant) {
       navigate('/', { replace: true });
     }
 
-    //Agregar lógica para guardar resultados en base de datos.......
+    // El AIQ ya no se calcula en el cliente: results-save lo evalúa
+    // server-side (rúbrica v5) a partir de las respuestas crudas.
+    // saveFiredRef evita un doble POST (React StrictMode monta este efecto
+    // dos veces en dev; sin el guard, resulta en 16 llamadas LLM concurrentes
+    // en vez de 8, con más probabilidad de rate-limit).
     const saveResults = async () => {
-    try {
-      await fetch('/api/results-save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token: participant?.token,
-          participant,
-          answers,
-          aiScores,
-          aiqResult,
-          metadata: {
-            startTime,
-            completedAt: new Date().toISOString(),
-            durationMinutes: startTime 
-              ? (Date.now() - startTime) / 60000 
-              : null
-          }
-        })
-      });
-    } catch (err) {
-      console.error('Error saving results:', err);
+      try {
+        await fetch('/api/results-save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            token: participant?.token,
+            participant,
+            answers,
+            metadata: {
+              startTime,
+              completedAt: new Date().toISOString(),
+              durationMinutes: startTime
+                ? (Date.now() - startTime) / 60000
+                : null
+            }
+          })
+        });
+      } catch (err) {
+        console.error('Error saving results:', err);
+      }
+    };
+
+    // Solo disparamos el guardado si tenemos un token válido, y solo una vez
+    if (participant?.token && !saveFiredRef.current) {
+      saveFiredRef.current = true;
+      saveResults();
     }
-  };
-
-  // Solo disparamos el guardado si tenemos un token válido
-  if (participant?.token) {
-    saveResults();
-  }
-  //Fin de lógica para guardar resultados.......
-
   }, [userRole, participant, navigate]);
 
   return (
