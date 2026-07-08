@@ -1,4 +1,4 @@
-const { TableClient } = require("@azure/data-tables");
+const { createTableClient } = require("../shared/tableClient");
 const crypto = require("crypto");
 
 /**
@@ -50,7 +50,7 @@ module.exports = async function (context, req) {
   }
 
   try {
-    const coachClient = TableClient.fromConnectionString(process.env.AZURE_STORAGE_CONNECTION_STRING, "coachSessions");
+    const coachClient = createTableClient(process.env.AZURE_STORAGE_CONNECTION_STRING, "coachSessions");
     const session = await coachClient.getEntity(email, "session");
     const tasks = JSON.parse(session.tasks || "[]");
 

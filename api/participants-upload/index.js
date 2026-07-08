@@ -1,4 +1,4 @@
-const { TableClient } = require("@azure/data-tables");
+const { createTableClient } = require("../shared/tableClient");
 const XLSX = require("xlsx");
 const { v4: uuidv4 } = require("uuid");
 const { requireAdmin } = require("../shared/adminAuth");
@@ -66,7 +66,7 @@ module.exports = async function (context, req) {
     }
 
     // Create table if it doesn't exist
-    const tableClient = TableClient.fromConnectionString(connectionString, "participants");
+    const tableClient = createTableClient(connectionString, "participants");
     try {
       await tableClient.createTable();
     } catch (e) {

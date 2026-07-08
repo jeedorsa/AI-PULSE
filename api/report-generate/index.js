@@ -1,4 +1,4 @@
-const { TableClient } = require("@azure/data-tables");
+const { createTableClient } = require("../shared/tableClient");
 const { BlobServiceClient } = require("@azure/storage-blob");
 const { requireAdmin } = require("../shared/adminAuth");
 
@@ -263,7 +263,7 @@ module.exports = async function (context, req) {
   if (false) { // dead code — procesado por worker/report-processor
   try {
     // 1. Obtener resultado del participante — filtrar por email directamente
-    const resultsClient = TableClient.fromConnectionString(connectionString, "assessmentResults");
+    const resultsClient = createTableClient(connectionString, "assessmentResults");
     let result = null;
 
     for await (const entity of resultsClient.listEntities({

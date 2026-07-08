@@ -1,4 +1,4 @@
-const { TableClient } = require("@azure/data-tables");
+const { createTableClient } = require("../shared/tableClient");
 
 module.exports = async function (context, req) {
   const headers = {
@@ -17,7 +17,7 @@ module.exports = async function (context, req) {
 
   const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
   try {
-    const tableClient = TableClient.fromConnectionString(connectionString, "assessmentProgress");
+    const tableClient = createTableClient(connectionString, "assessmentProgress");
     const safeToken = token.replace(/[^a-zA-Z0-9_-]/g, '_');
 
     try {

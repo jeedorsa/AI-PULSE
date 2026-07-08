@@ -1,4 +1,4 @@
-const { TableClient } = require("@azure/data-tables");
+const { createTableClient } = require("../shared/tableClient");
 const { requireAdmin } = require("../shared/adminAuth");
 
 module.exports = async function (context, req) {
@@ -23,7 +23,7 @@ module.exports = async function (context, req) {
   }
 
   try {
-    const tableClient = TableClient.fromConnectionString(connectionString, "participants");
+    const tableClient = createTableClient(connectionString, "participants");
     const participants = [];
 
     for await (const entity of tableClient.listEntities()) {

@@ -1,4 +1,4 @@
-const { TableClient } = require("@azure/data-tables");
+const { createTableClient } = require("../shared/tableClient");
 const { v4: uuidv4 } = require("uuid");
 
 /**
@@ -58,7 +58,7 @@ module.exports = async function (context, req) {
   }
 
   try {
-    const participantsClient = TableClient.fromConnectionString(connectionString, "participants");
+    const participantsClient = createTableClient(connectionString, "participants");
     const partitionKey = empresa || dominio?.split(".")[0] || "open";
 
     // ── Buscar si ya existe (por email = RowKey) ──────────────────────────

@@ -1,4 +1,4 @@
-const { TableClient } = require("@azure/data-tables");
+const { createTableClient } = require("../shared/tableClient");
 const { EmailClient } = require("@azure/communication-email");
 const { requireAdmin } = require("../shared/adminAuth");
 
@@ -24,7 +24,7 @@ module.exports = async function (context, req) {
   const appBaseUrl = process.env.APP_BASE_URL || "https://red-plant-0b6124f10.azurestaticapps.net";
 
   try {
-    const tableClient = TableClient.fromConnectionString(connectionString, "participants");
+    const tableClient = createTableClient(connectionString, "participants");
     const emailClient = new EmailClient(emailConnectionString);
 
     // Buscar participante por email

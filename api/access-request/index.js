@@ -1,4 +1,4 @@
-const { TableClient } = require("@azure/data-tables");
+const { createTableClient } = require("../shared/tableClient");
 
 /**
  * POST /api/access-request
@@ -41,7 +41,7 @@ module.exports = async function (context, req) {
   }
 
   try {
-    const participantsClient = TableClient.fromConnectionString(connectionString, "participants");
+    const participantsClient = createTableClient(connectionString, "participants");
 
     // Buscar en toda la tabla por RowKey=email (scan)
     let participant = null;

@@ -1,4 +1,5 @@
-const { TableClient, odata } = require("@azure/data-tables");
+const { odata } = require("@azure/data-tables");
+const { createTableClient } = require("../shared/tableClient");
 
 module.exports = async function (context, req) {
   const headers = {
@@ -25,7 +26,7 @@ module.exports = async function (context, req) {
   }
 
   try {
-    const tableClient = TableClient.fromConnectionString(connectionString, "participants");
+    const tableClient = createTableClient(connectionString, "participants");
 
     // Validate token format (UUID v4 only) to prevent injection
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

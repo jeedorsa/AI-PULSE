@@ -1,4 +1,4 @@
-const { TableClient } = require("@azure/data-tables");
+const { createTableClient } = require("../shared/tableClient");
 const crypto = require("crypto");
 
 const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -83,7 +83,7 @@ module.exports = async function (context, req) {
   }
 
   try {
-    const participantsClient = TableClient.fromConnectionString(conn, "participants");
+    const participantsClient = createTableClient(conn, "participants");
 
     // Buscar participante por email (RowKey) — solo lectura, sin modificar nada
     let participant = null;
