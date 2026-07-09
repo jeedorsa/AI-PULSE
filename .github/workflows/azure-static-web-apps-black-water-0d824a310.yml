@@ -4,9 +4,19 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    branches:
+      - main
+      - staging
+
+permissions:
+  contents: read
+  pull-requests: write
 
 jobs:
   build_and_deploy_job:
+    if: github.event_name == 'push' || github.event.action != 'closed'
     runs-on: ubuntu-latest
     name: Build and Deploy Job
     steps:
@@ -34,6 +44,38 @@ jobs:
         run: cp staticwebapp.config.json dist/staticwebapp.config.json
 
       - name: Deploy via swa CLI
-        run: swa deploy ./dist --api-location ./api --deployment-token "$DEPLOY_TOKEN" --api-language node --api-version 20 --env production
+        id: deploy
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            ENV_NAME="${{ github.event.pull_request.number }}"
+          else
+            ENV_NAME="production"
+          fi
+          swa deploy ./dist --api-location ./api --deployment-token "$DEPLOY_TOKEN" --api-language node --api-version 20 --env "$ENV_NAME" 2>&1 | tee deploy.log
+          URL=$(grep -Eo 'https://[a-zA-Z0-9.-]*azurestaticapps\.net' deploy.log | tail -1)
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
         env:
           DEPLOY_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_BLACK_WATER_0D824A310 }}
+
+      - name: Comment preview URL on PR
+        if: github.event_name == 'pull_request' && steps.deploy.outputs.url != ''
+        run: |
+          BODY="🔗 **Preview desplegado:** ${{ steps.deploy.outputs.url }}
+
+          Este ambiente se actualiza con cada push al PR y se elimina al cerrarlo."
+          gh pr comment "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}" --edit-last --body "$BODY" \
+            || gh pr comment "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}" --body "$BODY"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  close_preview_job:
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    name: Close Preview Environment
+    steps:
+      - name: Delete preview environment
+        continue-on-error: true
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_BLACK_WATER_0D824A310 }}
+          action: "close"
