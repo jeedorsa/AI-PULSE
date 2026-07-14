@@ -1,4 +1,5 @@
 const { createTableClient } = require("../shared/tableClient");
+const { corsHeaders } = require("../shared/cors");
 const crypto = require("crypto");
 
 const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -13,12 +14,7 @@ function createSessionToken(email) {
 }
 
 module.exports = async function (context, req) {
-  const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Content-Type": "application/json",
-  };
+  const headers = corsHeaders(req, { methods: "POST, OPTIONS" });
 
   if (req.method === "OPTIONS") {
     context.res = { status: 204, headers, body: "" };

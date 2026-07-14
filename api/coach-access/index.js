@@ -1,5 +1,6 @@
 const { createTableClient } = require("../shared/tableClient");
 const { recommendationCardsFromIds } = require("../shared/aiqRubricV5");
+const { corsHeaders } = require("../shared/cors");
 const crypto = require("crypto");
 
 /**
@@ -67,12 +68,7 @@ function buildProfileFields(result) {
 }
 
 module.exports = async function (context, req) {
-  const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Content-Type": "application/json"
-  };
+  const headers = corsHeaders(req, { methods: "POST, OPTIONS" });
 
   if (req.method === "OPTIONS") { context.res = { status: 204, headers, body: "" }; return; }
 

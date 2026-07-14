@@ -28,6 +28,7 @@ export default function AccessPage() {
   const isDomainMode = !!dominio;
 
   const [email, setEmail] = useState('');
+  const [nombreInput, setNombreInput] = useState('');
   const [status, setStatus] = useState<Status>('idle');
   const [nombre, setNombre] = useState('');
 
@@ -37,7 +38,9 @@ export default function AccessPage() {
 
   const handleSubmit = async () => {
     const trimmed = email.trim().toLowerCase();
+    const trimmedNombre = nombreInput.trim();
     if (!trimmed || !trimmed.includes('@')) return;
+    if (isDomainMode && !trimmedNombre) return;
     setStatus('loading');
 
     try {
@@ -47,7 +50,7 @@ export default function AccessPage() {
         res = await fetch('/api/domain-register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: trimmed, empresa, dominio })
+          body: JSON.stringify({ email: trimmed, nombre: trimmedNombre, empresa, dominio })
         });
         data = await res.json();
 
@@ -142,6 +145,19 @@ export default function AccessPage() {
                   : 'Usa el correo con el que fuiste registrado en esta evaluación.'}
               </p>
 
+              {isDomainMode && (
+                <input
+                  type="text"
+                  value={nombreInput}
+                  onChange={e => setNombreInput(e.target.value)}
+                  onKeyDown={handleKey}
+                  placeholder="Tu nombre completo"
+                  disabled={status === 'loading'}
+                  autoFocus
+                  className="w-full bg-white border border-[#CCCCCC] rounded-[2px] px-4 py-3 font-body text-base md:text-[14px] text-[#111111] placeholder:text-[#AAAAAA] focus:outline-none focus:border-primary transition-colors disabled:bg-[#F7F7F7] disabled:text-[#AAAAAA] mb-3"
+                />
+              )}
+
               <input
                 type="email"
                 value={email}
@@ -149,14 +165,14 @@ export default function AccessPage() {
                 onKeyDown={handleKey}
                 placeholder={emailHint}
                 disabled={status === 'loading'}
-                autoFocus
+                autoFocus={!isDomainMode}
                 className="w-full bg-white border border-[#CCCCCC] rounded-[2px] px-4 py-3 font-body text-base md:text-[14px] text-[#111111] placeholder:text-[#AAAAAA] focus:outline-none focus:border-primary transition-colors disabled:bg-[#F7F7F7] disabled:text-[#AAAAAA] mb-4"
               />
 
               <Button
                 variant="primary"
                 onClick={handleSubmit}
-                disabled={status === 'loading' || !email.trim()}
+                disabled={status === 'loading' || !email.trim() || (isDomainMode && !nombreInput.trim())}
                 className="w-full min-h-[48px]"
               >
                 {status === 'loading' ? (
