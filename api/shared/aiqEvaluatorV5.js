@@ -11,7 +11,7 @@ const { AzureOpenAI } = require("openai");
 const rubric = require("./aiqRubricV5");
 const prompts = require("./aiqPromptsV5");
 
-const LLM_TIMEOUT_MS = 45000;
+const LLM_TIMEOUT_MS = 90000;
 const LLM_RETRY_BACKOFF_MS = [500, 1500];
 
 // Preguntas evaluadas por LLM (con prompt calificador propio).

@@ -136,8 +136,17 @@ module.exports = async function (context, req) {
 
       // Lock obsoleto (la evaluación anterior nunca terminó de escribir, ej.
       // crash del proceso) — lo tomamos nosotros y seguimos con el flujo normal.
+      // IMPORTANTE: partimos de {...existing} (no de un objeto pelado) porque
+      // "existing" puede ser una fila real con datos históricos, no solo un
+      // lock vacío — con "Replace" y un objeto bare se borraban esos datos
+      // antes de siquiera empezar a evaluar de nuevo. Se limpian los metadatos
+      // de solo lectura que devuelve el SDK (mismo patrón que migrateToV5.js).
+      const preserved = { ...existing };
+      delete preserved.etag;
+      delete preserved.timestamp;
+      delete preserved["odata.metadata"];
       await resultsClient.updateEntity(
-        { partitionKey, rowKey: token, status: "evaluating", lockedAt: new Date().toISOString() },
+        { ...preserved, partitionKey, rowKey: token, status: "evaluating", lockedAt: new Date().toISOString() },
         "Replace"
       );
     }
