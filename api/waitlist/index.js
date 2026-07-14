@@ -1,4 +1,4 @@
-const { TableClient } = require("@azure/data-tables");
+const { createTableClient } = require("../shared/tableClient");
 
 module.exports = async function (context, req) {
   const headers = {
@@ -27,7 +27,7 @@ module.exports = async function (context, req) {
   }
 
   try {
-    const tableClient = TableClient.fromConnectionString(connectionString, "waitlist");
+    const tableClient = createTableClient(connectionString, "waitlist");
 
     // Crear tabla si no existe
     try { await tableClient.createTable(); } catch (e) { /* ya existe */ }

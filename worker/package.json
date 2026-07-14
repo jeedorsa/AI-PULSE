@@ -5,6 +5,9 @@
   "engines": {
     "node": ">=18.0.0"
   },
+  "scripts": {
+    "start:local": "node scripts/start-local.js"
+  },
   "dependencies": {
     "@azure/data-tables": "^13.3.2",
     "@azure/storage-blob": "^12.24.0",

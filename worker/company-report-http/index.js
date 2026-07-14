@@ -131,7 +131,7 @@ FORTALEZAS:
 
 FLAGS CRÍTICOS:
 - riesgo_gobernanza_critico: brecha_gobernanza.activa Y brecha_comunicacion.activa
-- n_perfiles_con_pausa: número con "REGLA_1" en alerts
+- n_perfiles_con_pausa: número con "REGLA1_SEGURIDAD" en alerts
 
 OUTPUT JSON EXACTO:
 {

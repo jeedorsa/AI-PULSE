@@ -1,4 +1,5 @@
-const { TableClient } = require("@azure/data-tables");
+const { createTableClient } = require("../shared/tableClient");
+const { corsHeaders } = require("../shared/cors");
 const crypto = require("crypto");
 
 /**
@@ -27,12 +28,10 @@ function validateCoachToken(token, email) {
 }
 
 module.exports = async function (context, req) {
-  const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, X-Coach-Token, X-Coach-Email",
-    "Content-Type": "application/json"
-  };
+  const headers = corsHeaders(req, {
+    methods: "POST, OPTIONS",
+    extra: "X-Coach-Token, X-Coach-Email",
+  });
 
   if (req.method === "OPTIONS") { context.res = { status: 204, headers, body: "" }; return; }
 
@@ -51,8 +50,8 @@ module.exports = async function (context, req) {
   const openaiVersion    = process.env.AZURE_OPENAI_API_VERSION || "2024-12-01-preview";
 
   try {
-    const coachClient   = TableClient.fromConnectionString(conn, "coachSessions");
-    const resultsClient = TableClient.fromConnectionString(conn, "assessmentResults");
+    const coachClient   = createTableClient(conn, "coachSessions");
+    const resultsClient = createTableClient(conn, "assessmentResults");
 
     // Cargar sesión
     const session = await coachClient.getEntity(email, "session");
@@ -64,10 +63,10 @@ module.exports = async function (context, req) {
       return;
     }
 
-    // Buscar resultado y reportAnalysis
+    // Buscar resultado y reportAnalysis (RowKey es el token, email es un campo)
     let result = null;
     for await (const entity of resultsClient.listEntities({
-      queryOptions: { filter: `RowKey eq '${email}'` }
+      queryOptions: { filter: `email eq '${email}'` }
     })) { result = entity; break; }
 
     if (!result) throw new Error("Resultado no encontrado");
@@ -82,6 +81,7 @@ module.exports = async function (context, req) {
     const sectionC = result.sectionC || 0;
     const posicion = result.posicion || "";
     const empresa  = result.partitionKey || "";
+    const escalaMax = result.rubricVersion === "v5" ? 4 : 5;
 
     const prompt = `Eres el coach de AI Pulse. Genera exactamente 3 tareas de desarrollo personalizadas para este participante, basadas en su diagnóstico AIQ real.
 
@@ -90,9 +90,9 @@ PARTICIPANTE:
 - Cargo: ${posicion}
 - Empresa: ${empresa}
 - Nivel AIQ: ${nivel}
-- Bloque A (Experiencia Real): ${sectionA.toFixed(2)} / 5.0
-- Bloque B (Criterio Técnico): ${sectionB.toFixed(2)} / 5.0
-- Bloque C (Laboratorio): ${sectionC.toFixed(2)} / 5.0
+- Bloque A (Experiencia Real): ${sectionA.toFixed(2)} / ${escalaMax}.0
+- Bloque B (Criterio Técnico): ${sectionB.toFixed(2)} / ${escalaMax}.0
+- Bloque C (Laboratorio): ${sectionC.toFixed(2)} / ${escalaMax}.0
 
 ANÁLISIS DEL INFORME:
 - Fortalezas: ${JSON.stringify(analysis.fortalezas || [])}

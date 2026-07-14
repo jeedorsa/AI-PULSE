@@ -14,6 +14,7 @@ import AdminPage from './pages/AdminPage';
 import AccessPage from './pages/AccessPage';
 import CoachPage from './pages/CoachPage';
 import DashboardPage from './pages/DashboardPage';
+import LoginPage from './pages/LoginPage';
 
 const PageWrapper = ({ children }: { children: React.ReactNode }) => {
   return (
@@ -54,6 +55,8 @@ const AnimatedRoutes = () => {
         <Route path="/coach" element={<CoachPage />} />
         {/* /dashboard/:tipo — tableros analíticos (solo admin) */}
         <Route path="/dashboard/:tipo" element={<DashboardPage />} />
+        {/* /login — pantalla de inicio de sesión */}
+        <Route path="/login" element={<LoginPage />} />
       </Routes>
     </AnimatePresence>
   );

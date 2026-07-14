@@ -1,4 +1,4 @@
-const { TableClient } = require("@azure/data-tables");
+const { createTableClient } = require("../shared/tableClient");
 const { requireAdmin } = require("../shared/adminAuth");
 
 const VALID_STATUSES = ["pending", "invited", "started", "completed", "cancelled"];
@@ -25,7 +25,7 @@ module.exports = async function (context, req) {
 
   const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
   try {
-    const tableClient = TableClient.fromConnectionString(connectionString, "participants");
+    const tableClient = createTableClient(connectionString, "participants");
 
     let participant = null;
     for await (const entity of tableClient.listEntities()) {

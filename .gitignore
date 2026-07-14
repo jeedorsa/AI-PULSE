@@ -4,3 +4,11 @@ dist/
 .env.local
 .envrc
 .DS_Store
+api/local.settings.json
+api/local.settings.json.prod-backup
+worker/local.settings.json
+api/local.settings.json.*
+worker/local.settings.json.*
+api/.azurite/
+worker/.azurite/
+old_backup/

@@ -1,11 +1,9 @@
-const { TableClient, odata } = require("@azure/data-tables");
+const { odata } = require("@azure/data-tables");
+const { createTableClient } = require("../shared/tableClient");
+const { corsHeaders } = require("../shared/cors");
 
 module.exports = async function (context, req) {
-  const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Content-Type": "application/json"
-  };
+  const headers = corsHeaders(req, { methods: "GET, POST, OPTIONS" });
 
   if (req.method === "OPTIONS") {
     context.res = { status: 200, headers, body: "" };
@@ -25,7 +23,7 @@ module.exports = async function (context, req) {
   }
 
   try {
-    const tableClient = TableClient.fromConnectionString(connectionString, "participants");
+    const tableClient = createTableClient(connectionString, "participants");
 
     // Validate token format (UUID v4 only) to prevent injection
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

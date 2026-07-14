@@ -15,8 +15,8 @@ const D1_OPT = { 1: 'Nunca lo ha mencionado ni promovido', 2: 'Lo menciona ocasi
 const D1B_OPT = { 1: 'No he visto ninguna iniciativa o comunicación al respecto', 2: 'He escuchado menciones generales pero sin acciones concretas', 3: 'Hay herramientas disponibles pero no hay formación ni seguimiento', 4: 'Existe una estrategia clara con formación, seguimiento y liderazgo visible' };
 const D6_OPT = { 1: 'Sí, la conozco y sé lo que dice', 2: 'Sí, sé que existe pero no la he leído', 3: 'No sé si existe alguna política al respecto', 4: 'No sé qué es una política de uso de IA' };
 const D9_OPT = { 1: 'Me genera dudas — no sé bien qué significa para mi trabajo', 2: 'Tengo curiosidad pero todavía no sé cómo me va a afectar', 3: 'Lo veo como una oportunidad clara para crecer en mi rol', 4: 'Ya la incorporé como parte natural de cómo trabajo' };
-const NIVEL_NOMBRES = { L1: 'Novato', L2: 'Experimentador', L3: 'Practicante', L4T: 'Amplificador Técnico', L4L: 'Amplificador Estratégico' };
-const NIVEL_SIGUIENTE = { L1: 'L2', L2: 'L3', L3: 'L4T', L4T: 'L4L', L4L: 'L4L' };
+const NIVEL_NOMBRES = { L1: 'Novato', L2: 'Experimentador', L3: 'Practicante', L4: 'Amplificador' };
+const NIVEL_SIGUIENTE = { L1: 'L2', L2: 'L3', L3: 'L4', L4: 'L4' };
 
 function blobNameForEmail(email) {
   return `individual/${email.replace(/[@.]/g, '_')}.html`;
@@ -54,7 +54,7 @@ function buildPrompt(participant, answers, scores, companyDistribution) {
   const ans = (id) => resolveAnswer(id, answers[id]);
   const nivel = scores.aiqLevel;
   const nivelNombre = NIVEL_NOMBRES[nivel] || nivel;
-  const nivelSiguienteKey = NIVEL_SIGUIENTE[nivel] || 'L4L';
+  const nivelSiguienteKey = NIVEL_SIGUIENTE[nivel] || 'L4';
   const nivelSiguienteNombre = NIVEL_NOMBRES[nivelSiguienteKey] || nivelSiguienteKey;
 
   return `Eres el analista principal de AI Pulse, una consultora experta en diagnósticos de madurez en inteligencia artificial para empresas. Tu trabajo es generar el análisis narrativo personalizado de un informe AIQ individual.
@@ -116,13 +116,13 @@ Mínimo 2 fortalezas, mínimo 2 oportunidades, exactamente 3 gaps. Tono consulto
 
 function generateHTML(participant, scores, answers, analysis, companyDist) {
   const nivel = scores.aiqLevel;
-  const nivelNombre = { L1: 'Novato', L2: 'Experimentador', L3: 'Practicante', L4T: 'Amplificador Técnico', L4L: 'Amplificador Estratégico' }[nivel] || nivel;
-  const nivelSigKey = { L1: 'L2', L2: 'L3', L3: 'L4T', L4T: 'L4L', L4L: 'L4L' }[nivel];
-  const nivelSigNombre = { L1: 'Experimentador', L2: 'Practicante', L3: 'Amplificador Técnico', L4T: 'Amplificador Estratégico', L4L: 'Amplificador Estratégico' }[nivel];
+  const nivelNombre = { L1: 'Novato', L2: 'Experimentador', L3: 'Practicante', L4: 'Amplificador' }[nivel] || nivel;
+  const nivelSigKey = { L1: 'L2', L2: 'L3', L3: 'L4', L4: 'L4' }[nivel];
+  const nivelSigNombre = { L1: 'Experimentador', L2: 'Practicante', L3: 'Amplificador', L4: 'Amplificador' }[nivel];
   const fecha = new Date().toLocaleDateString('es-CL', { year: 'numeric', month: 'long', day: 'numeric' });
   const herramientas = (answers.V4?.selected || []).join(', ') || '—';
-  const niveles = ['L1', 'L2', 'L3', 'L4T', 'L4L'];
-  const nivelesNombres = { L1: 'Novato', L2: 'Experimentador', L3: 'Practicante', L4T: 'Amp. Técnico', L4L: 'Amp. Estratégico' };
+  const niveles = ['L1', 'L2', 'L3', 'L4'];
+  const nivelesNombres = { L1: 'Novato', L2: 'Experimentador', L3: 'Practicante', L4: 'Amplificador' };
 
   const barraHTML = niveles.map(n => `
     <div class="lbar-item ${n === nivel ? 'active' : niveles.indexOf(n) < niveles.indexOf(nivel) ? 'past' : ''}">
@@ -361,7 +361,7 @@ module.exports = async function (context, req) {
     const participant = { nombre: result.nombre||'', empresa: result.partitionKey||'', posicion: result.posicion||'', departamento: result.departamento||'' };
     const scores = { aiqScore: result.aiqScore||0, aiqLevel: result.aiqLevel||'L2', sectionA: result.sectionA||0, sectionB: result.sectionB||0, sectionC: result.sectionC||0 };
 
-    const companyDist = { L1:0, L2:0, L3:0, L4T:0, L4L:0, total:0 };
+    const companyDist = { L1:0, L2:0, L3:0, L4:0, total:0 };
     for await (const entity of resultsClient.listEntities({
       queryOptions: { filter: `PartitionKey eq '${participant.empresa}'` }
     })) {

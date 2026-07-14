@@ -1,4 +1,4 @@
-const { TableClient } = require("@azure/data-tables");
+const { createTableClient } = require("../shared/tableClient");
 const { EmailClient } = require("@azure/communication-email");
 const { requireAdmin } = require("../shared/adminAuth");
 
@@ -33,7 +33,7 @@ module.exports = async function (context, req) {
   }
 
   try {
-    const tableClient = TableClient.fromConnectionString(connectionString, "participants");
+    const tableClient = createTableClient(connectionString, "participants");
     const emailClient = new EmailClient(emailConnectionString);
 
     // Get all pending participants

@@ -1,4 +1,4 @@
-const { TableClient } = require("@azure/data-tables");
+const { createTableClient } = require("../shared/tableClient");
 const { v4: uuidv4 } = require("uuid");
 
 /**
@@ -26,6 +26,7 @@ module.exports = async function (context, req) {
 
   const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body || {};
   const email    = (body.email   || "").trim().toLowerCase();
+  const nombreInput = (body.nombre || "").trim();
   const empresa  = (body.empresa || "").trim();
   const dominio  = (body.dominio || "").trim().toLowerCase();
 
@@ -58,7 +59,7 @@ module.exports = async function (context, req) {
   }
 
   try {
-    const participantsClient = TableClient.fromConnectionString(connectionString, "participants");
+    const participantsClient = createTableClient(connectionString, "participants");
     const partitionKey = empresa || dominio?.split(".")[0] || "open";
 
     // ── Buscar si ya existe (por email = RowKey) ──────────────────────────
@@ -114,7 +115,7 @@ module.exports = async function (context, req) {
 
     // ── Crear nuevo participante ───────────────────────────────────────────
     const token = uuidv4();
-    const nombre = email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+    const nombre = nombreInput || email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 
     const newParticipant = {
       partitionKey,
