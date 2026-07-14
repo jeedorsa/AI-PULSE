@@ -7,7 +7,7 @@
   },
   "scripts": {
     "test": "jest",
-    "azurite": "azurite --silent --location .azurite --debug .azurite/debug.log"
+    "azurite": "azurite --silent --location .azurite --debug .azurite/debug.log --skipApiVersionCheck"
   },
   "dependencies": {
     "@azure/communication-email": "^1.0.0",

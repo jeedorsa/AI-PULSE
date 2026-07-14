@@ -15,13 +15,13 @@ const LLM_TIMEOUT_MS = 90000;
 const LLM_RETRY_BACKOFF_MS = [500, 1500];
 
 // Preguntas evaluadas por LLM (con prompt calificador propio).
-const LLM_QUESTIONS = ["E2", "E3", "E5", "B2", "B4", "C1", "C2", "C3"];
+const LLM_QUESTIONS = ["E2", "E3", "E5", "E6", "B2", "B4", "C1", "C2", "C3"];
 
 // Preguntas donde aplica Capa 3 (vacío/off-topic/≤3 palabras -> L1 directo).
-const CAPA3_QUESTIONS = new Set(["E2", "E3", "E5", "B2", "B4"]);
+const CAPA3_QUESTIONS = new Set(["E2", "E3", "E5", "E6", "B2", "B4"]);
 
 // Preguntas donde N2_short_circuit puede forzar L1 (B2 queda deliberadamente fuera).
-const N2_SHORT_CIRCUIT_QUESTIONS = new Set(["E2", "E3", "E5", "B1", "B4"]);
+const N2_SHORT_CIRCUIT_QUESTIONS = new Set(["E2", "E3", "E5", "E6", "B1", "B4"]);
 
 function isRetryableError(err) {
   const status = err && err.status;
@@ -140,7 +140,7 @@ function applyCapa15(nivel, text) {
 }
 
 /**
- * Evalúa una de las 5 preguntas abiertas con LLM (E2, E3, E5, B2, B4).
+ * Evalúa una de las 6 preguntas abiertas con LLM (E2, E3, E5, E6, B2, B4).
  */
 async function evaluateOpenQuestion(questionId, respuesta, ctx, deps) {
   if (CAPA3_QUESTIONS.has(questionId) && isCapa3Trigger(respuesta)) {
@@ -334,7 +334,7 @@ async function evaluateAssessment(answers, participant = {}, options = {}) {
   const shortCircuit = isN2ShortCircuit(V1, V2);
 
   // Lanzar las 8 llamadas LLM en paralelo (Promise.allSettled: un fallo no cancela las demás).
-  const openQuestionIds = ["E2", "E3", "E5", "B2", "B4"];
+  const openQuestionIds = ["E2", "E3", "E5", "E6", "B2", "B4"];
   const cQuestionIds = ["C1", "C2", "C3"];
 
   const settled = await Promise.allSettled([
@@ -373,6 +373,7 @@ async function evaluateAssessment(answers, participant = {}, options = {}) {
     E2: results.E2.nivel,
     E3: results.E3.nivel,
     E5: results.E5.nivel,
+    E6: results.E6.nivel,
     B1: results.B1.nivel,
     B2: results.B2.nivel,
     B4: results.B4.nivel,
@@ -382,7 +383,7 @@ async function evaluateAssessment(answers, participant = {}, options = {}) {
   };
 
   const sectionInts = {
-    A: computeSectionLevel([questionLevels.E2, questionLevels.E3, questionLevels.E5]),
+    A: computeSectionLevel([questionLevels.E2, questionLevels.E3, questionLevels.E5, questionLevels.E6]),
     B: computeSectionLevel([questionLevels.B1, questionLevels.B2, questionLevels.B4]),
     C: computeSectionLevel([questionLevels.C1, questionLevels.C2, questionLevels.C3]),
   };

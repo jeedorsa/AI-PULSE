@@ -14,7 +14,7 @@ const SECTION_WEIGHTS = { A: 0.3, B: 0.2, C: 0.5 };
 // Preguntas calificables (con nivel L1-L4) por sección, en el orden de
 // desempate del catálogo de recomendaciones (P5<P6<P7, P9<P10, P11<P12<P13).
 const SECTION_QUESTIONS = {
-  A: ["E2", "E3", "E5"],
+  A: ["E2", "E3", "E5", "E6"],
   B: ["B1", "B2", "B4"],
   C: ["C1", "C2", "C3"],
 };
@@ -30,6 +30,7 @@ const QUESTION_NUMBER = {
   C1: "P11",
   C2: "P12",
   C3: "P13",
+  E6: "P14",
 };
 
 // Rangos de nivel general a partir del puntaje final (1.0 - 4.0).
@@ -63,7 +64,7 @@ const B1_OPTION_TO_LEVEL = {
 const CHAMPION_PUNTAJE_THRESHOLD = 3.6;
 
 // Preguntas abiertas que cuentan para el flag N3 (≥50% cortas/vacías).
-const N3_QUESTIONS = ["E2", "E3", "E5", "B2", "B4"];
+const N3_QUESTIONS = ["E2", "E3", "E5", "E6", "B2", "B4"];
 
 // Preguntas de Sección C con posible flag N4 por tiempo < 10s.
 const N4_QUESTIONS = ["C1", "C2", "C3"];
@@ -74,6 +75,20 @@ const N4_QUESTIONS = ["C1", "C2", "C3"];
  * B1 (P8) queda deliberadamente fuera: el catálogo no tiene tarjetas para esa pregunta.
  */
 const RECOMMENDATION_CATALOG = {
+  E6: {
+    "t-12": {
+      headline: "Antes de seguir usando IA a diario, aclara qué es realmente un 'agente' de IA — no es lo mismo que un chatbot.",
+      body: "Busca una explicación corta (5 minutos) sobre agentes de IA: la idea clave es que un agente puede actuar por su cuenta — tomar decisiones y usar herramientas para cumplir un objetivo — en vez de solo responder una pregunta a la vez como un chat normal. Entender esta diferencia te va a ayudar a reconocer cuándo una herramienta nueva es realmente un agente y qué puede hacer por vos.",
+    },
+    "t-23": {
+      headline: "Ya distinguís un agente de un chatbot — ahora identifica un caso donde uno podría ayudarte en tu rol.",
+      body: "Pensá en una tarea repetitiva de varios pasos (armar un reporte, cruzar información de varias fuentes, hacer seguimiento a pendientes) y pregúntate si un agente podría encargarse de esos pasos sin que tengas que ir guiándolo uno por uno. No hace falta implementarlo todavía — con identificar el caso ya estás un paso más cerca de usarlo con criterio.",
+    },
+    "t-34": {
+      headline: "Prueba un agente de IA real en una tarea de tu trabajo y compará el resultado con hacerlo vos mismo paso a paso.",
+      body: "Elegí una tarea concreta (por ejemplo, investigar un tema y armar un resumen, o automatizar una serie de pasos repetitivos) y probala con un agente disponible en las herramientas que ya usás. La diferencia entre entender el concepto y dominarlo es haber visto de primera mano qué tan autónomo puede ser, y dónde todavía necesita supervisión tuya.",
+    },
+  },
   E2: {
     "t-12": {
       headline: "Esta semana, identifica UNA tarea de tu rol donde la IA podría ahorrarte tiempo y pruébala.",

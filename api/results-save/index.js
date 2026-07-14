@@ -181,6 +181,7 @@ module.exports = async function (context, req) {
       [E2 - Último entregable] ${answers.E2 || ""}
       [E3 - Reacción a resultado incorrecto] ${answers.E3 || ""}
       [E5 - Compartió sobre IA] ${answers.E5 || ""}
+      [E6 - Qué es un agente de IA] ${answers.E6 || ""}
 
       [B1 - Cómo verifica datos IA] ${answers.B1?.value || ""}
       [B2 - Info que no compartiría con IA] ${answers.B2 || ""}
@@ -247,7 +248,7 @@ module.exports = async function (context, req) {
     // Persistencia en Table Storage
     // Partir answers en bloques para evitar el límite de 32KB de Azure Table Storage
     const answersV = JSON.stringify({ V1: answers.V1, V2: answers.V2, V3: answers.V3, V4: answers.V4 });
-    const answersA = JSON.stringify({ E2: answers.E2, E3: answers.E3, E5: answers.E5 });
+    const answersA = JSON.stringify({ E2: answers.E2, E3: answers.E3, E5: answers.E5, E6: answers.E6 });
     const answersB = JSON.stringify({ B1: answers.B1, B2: answers.B2, B4: answers.B4 });
     const answersC = JSON.stringify({ C1: answers.C1, C2: answers.C2, C3: answers.C3 });
     const answersD = JSON.stringify({ D1: answers.D1, D1b: answers.D1b, D2: answers.D2, D4: answers.D4, D5: answers.D5, D6: answers.D6, D7: answers.D7, D9: answers.D9 });
