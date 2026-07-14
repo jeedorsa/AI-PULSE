@@ -4,7 +4,7 @@
  * Cada prompt está copiado literalmente del HTML de la rúbrica v5, adaptado
  * únicamente en el envoltorio arquitectónico: en vez de una única llamada
  * consolidada sobre las 21 preguntas, se hace una llamada por pregunta
- * calificable (E2, E3, E5, B2, B4, C1, C2, C3). El contenido de las reglas,
+ * calificable (E2, E3, E5, E6, B2, B4, C1, C2, C3). El contenido de las reglas,
  * la rúbrica y el formato de salida de cada pregunta NO se modifica.
  */
 
@@ -26,7 +26,7 @@ function wordCount(text) {
 
 /**
  * Construye el prompt calificador completo para una pregunta puntuable.
- * @param {string} questionId - E2 | E3 | E5 | B2 | B4 | C1 | C2 | C3
+ * @param {string} questionId - E2 | E3 | E5 | E6 | B2 | B4 | C1 | C2 | C3
  * @param {object} params - valores a interpolar en el template
  * @returns {string} prompt de usuario a enviar junto con SYSTEM_PROMPT
  */
@@ -39,6 +39,41 @@ function buildQuestionPrompt(questionId, params = {}) {
 }
 
 const PROMPT_BUILDERS = {
+  E6: ({ respuesta, V1, V2 }) => `Eres un evaluador experto del assessment AIQ. Clasifica la respuesta a P14 (E6) en nivel L1–L4.
+
+PREGUNTA:
+"¿En tus palabras, qué es un agente de IA?"
+
+RESPUESTA DEL PARTICIPANTE:
+"""
+${respuesta}
+"""
+
+CONTEXTO (para reglas):
+- V1 (relación con IA, 1–4): ${V1}
+- V2 (herramientas usadas): ${JSON.stringify(V2)}
+
+RÚBRICA:
+- L1: No sabe o da una definición incorrecta (confunde "agente" con cualquier IA o chatbot básico).
+- L2: Definición vaga — dice que "hace tareas" pero sin mencionar autonomía, uso de herramientas o un objetivo.
+- L3: Definición correcta — menciona que actúa de forma autónoma y usa herramientas/pasos para lograr un objetivo, distinguiéndolo de un chatbot simple.
+- L4: Definición completa y aplicada — además del L3, da un ejemplo concreto o cómo lo usaría/usó en su trabajo.
+
+REGLAS (aplicar EN ESTE ORDEN):
+
+1. CAPA 3 — si respuesta vacía, off-topic, o 1-3 palabras: L1 directo, terminar.
+2. N2 SHORT-CIRCUIT — si V1=1 Y V2=["Ninguna todavía"]: L1 forzado, terminar.
+3. Asignar nivel según rúbrica base.
+4. CAPA 1.5 — si lenguaje prescriptivo/abstracto ("hay que", "se debe", 3ª persona genérica sin "yo"): bajar 1 nivel.
+
+RESPONDE SOLO JSON:
+{
+  "nivel": "L1|L2|L3|L4",
+  "razonamiento": "1-2 oraciones",
+  "señales_detectadas": ["..."],
+  "reglas_aplicadas": ["Capa 3" | "N2 short-circuit" | "Capa 1.5" | "ninguna"]
+}`,
+
   E2: ({ respuesta, V1, V2 }) => `Eres un evaluador experto del assessment AIQ. Clasifica la respuesta a P5 (E2) en nivel L1–L4.
 
 PREGUNTA:
