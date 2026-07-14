@@ -1,12 +1,8 @@
 const { createAdminToken } = require("../shared/adminAuth");
+const { corsHeaders } = require("../shared/cors");
 
 module.exports = async function (context, req) {
-  const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    "Content-Type": "application/json"
-  };
+  const headers = corsHeaders(req, { methods: "POST, OPTIONS" });
 
   if (req.method === "OPTIONS") {
     context.res = { status: 200, headers, body: "" };

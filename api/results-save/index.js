@@ -141,14 +141,42 @@ module.exports = async function (context, req) {
       // lock vacío — con "Replace" y un objeto bare se borraban esos datos
       // antes de siquiera empezar a evaluar de nuevo. Se limpian los metadatos
       // de solo lectura que devuelve el SDK (mismo patrón que migrateToV5.js).
-      const preserved = { ...existing };
-      delete preserved.etag;
-      delete preserved.timestamp;
-      delete preserved["odata.metadata"];
-      await resultsClient.updateEntity(
-        { ...preserved, partitionKey, rowKey: token, status: "evaluating", lockedAt: new Date().toISOString() },
-        "Replace"
-      );
+      // OPTIMISTIC LOCK: preservamos el etag de `existing` y lo pasamos al
+      // updateEntity. Si en el ínterin (entre el último poll y este Replace)
+      // otro proceso escribió la fila — típicamente porque estaba corriendo
+      // legítimamente y terminó de evaluar justo después de que expirara
+      // nuestro deadline — Table Storage devuelve 412 PreconditionFailed y
+      // NO sobreescribimos los datos válidos que el otro dejó. En ese caso
+      // releemos, verificamos si ya es v5 (return cached) y si sigue sin
+      // serlo, reintentamos el take-over con el etag nuevo.
+      const MAX_TAKEOVER_ATTEMPTS = 3;
+      for (let attempt = 0; attempt < MAX_TAKEOVER_ATTEMPTS; attempt++) {
+        const preserved = { ...existing };
+        const priorEtag = existing.etag;
+        delete preserved.etag;
+        delete preserved.timestamp;
+        delete preserved["odata.metadata"];
+        try {
+          await resultsClient.updateEntity(
+            { ...preserved, partitionKey, rowKey: token, status: "evaluating", lockedAt: new Date().toISOString() },
+            "Replace",
+            { etag: priorEtag }
+          );
+          break;
+        } catch (err) {
+          if (err.statusCode !== 412) throw err;
+          // Otro proceso ganó la carrera y actualizó la fila. Releer y decidir.
+          existing = await resultsClient.getEntity(partitionKey, token);
+          if (existing.rubricVersion === "v5") {
+            return context.res = {
+              status: 200,
+              body: { success: true, assessmentId: token, resultado: resultadoFromEntity(existing) }
+            };
+          }
+          // Sigue sin ser v5 (legacy re-lockeado, o crash en cadena) — reintentar.
+          if (attempt === MAX_TAKEOVER_ATTEMPTS - 1) throw err;
+        }
+      }
     }
 
     const completedAt = metadata.completedAt || new Date().toISOString();

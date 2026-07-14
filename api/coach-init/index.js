@@ -1,4 +1,5 @@
 const { createTableClient } = require("../shared/tableClient");
+const { corsHeaders } = require("../shared/cors");
 const crypto = require("crypto");
 
 /**
@@ -27,12 +28,10 @@ function validateCoachToken(token, email) {
 }
 
 module.exports = async function (context, req) {
-  const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, X-Coach-Token, X-Coach-Email",
-    "Content-Type": "application/json"
-  };
+  const headers = corsHeaders(req, {
+    methods: "POST, OPTIONS",
+    extra: "X-Coach-Token, X-Coach-Email",
+  });
 
   if (req.method === "OPTIONS") { context.res = { status: 204, headers, body: "" }; return; }
 
