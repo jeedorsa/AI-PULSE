@@ -1,17 +1,7 @@
+const { odata } = require("@azure/data-tables");
 const { createTableClient } = require("../shared/tableClient");
 const { corsHeaders } = require("../shared/cors");
-const crypto = require("crypto");
-
-const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-
-function createSessionToken(email) {
-  const payload = `${email}:${Date.now()}`;
-  const sig = crypto
-    .createHmac("sha256", process.env.ADMIN_PASSWORD)
-    .update(payload)
-    .digest("hex");
-  return Buffer.from(`${payload}:${sig}`).toString("base64url");
-}
+const { createSessionToken, requireSessionSecret } = require("../shared/sessionAuth");
 
 module.exports = async function (context, req) {
   const headers = corsHeaders(req, { methods: "POST, OPTIONS" });
@@ -72,22 +62,18 @@ module.exports = async function (context, req) {
     return;
   }
 
-  if (!process.env.ADMIN_PASSWORD) {
-    context.res = {
-      status: 500,
-      headers,
-      body: JSON.stringify({ error: "Configuración de seguridad incompleta" }),
-    };
-    return;
-  }
+  if (!requireSessionSecret(context, headers)) return;
 
   try {
     const participantsClient = createTableClient(conn, "participants");
 
-    // Buscar participante por email (RowKey) — solo lectura, sin modificar nada
+    // Buscar participante por email (RowKey) — solo lectura, sin modificar nada.
+    // odata`` escapa automáticamente (mismo patrón que auth-verify.js), a
+    // diferencia de interpolar el string a mano — un email con apóstrofo
+    // (legal según RFC 5321, ej. "o'brien@x.com") no rompe el filtro.
     let participant = null;
     for await (const entity of participantsClient.listEntities({
-      queryOptions: { filter: `RowKey eq '${email}'` },
+      queryOptions: { filter: odata`RowKey eq ${email}` },
     })) {
       participant = entity;
       break;

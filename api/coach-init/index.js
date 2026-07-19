@@ -1,6 +1,6 @@
 const { createTableClient } = require("../shared/tableClient");
 const { corsHeaders } = require("../shared/cors");
-const crypto = require("crypto");
+const { validateSessionToken, requireSessionSecret } = require("../shared/sessionAuth");
 
 /**
  * POST /api/coach-init
@@ -10,22 +10,6 @@ const crypto = require("crypto");
  * Usa el reportAnalysis guardado cuando se generó el informe.
  * Si las tareas ya existen, las devuelve directamente.
  */
-
-function validateCoachToken(token, email) {
-  try {
-    const decoded = Buffer.from(token, "base64url").toString("utf8");
-    const lastColon = decoded.lastIndexOf(":");
-    const payload = decoded.slice(0, lastColon);
-    const sig     = decoded.slice(lastColon + 1);
-    const expected = crypto.createHmac("sha256", process.env.ADMIN_PASSWORD).update(payload).digest("hex");
-    if (sig !== expected) return false;
-    const parts = payload.split(":");
-    const ts = parseInt(parts[parts.length - 1], 10);
-    if (Date.now() - ts > 7 * 24 * 60 * 60 * 1000) return false;
-    const tokenEmail = parts.slice(0, -1).join(":");
-    return tokenEmail === email;
-  } catch { return false; }
-}
 
 module.exports = async function (context, req) {
   const headers = corsHeaders(req, {
@@ -38,7 +22,8 @@ module.exports = async function (context, req) {
   const email = (req.headers["x-coach-email"] || "").trim().toLowerCase();
   const token = req.headers["x-coach-token"] || "";
 
-  if (!email || !validateCoachToken(token, email)) {
+  if (!requireSessionSecret(context, headers)) return;
+  if (!email || !validateSessionToken(token, email)) {
     context.res = { status: 401, headers, body: JSON.stringify({ error: "Sesión inválida." }) };
     return;
   }

@@ -26,21 +26,21 @@ const DIM_PROFILE_LABELS: Record<DimCode, string> = {
 const DIM_LEVEL_DESC: Record<DimCode, Record<LevelCode, string>> = {
   A: {
     L1: 'Todavía no has incorporado la IA en tu día a día, o la has explorado muy brevemente. Ese es exactamente el punto de partida que este programa está diseñado para acompañar.',
-    L2: 'Ya usás la IA para tareas puntuales y genéricas, pero todavía no la conectás con problemas concretos de tu rol. El siguiente paso es identificar un caso de uso específico y repetible.',
-    L3: 'Tenés casos de uso concretos: identificás un problema o entregable real y sabés qué particularidad de la herramienta te ayuda a resolverlo. Ahora el foco es sistematizar ese uso.',
-    L4: 'Integrás la IA de forma sistémica en tu trabajo: coordinás múltiples usos o tenés un flujo ya establecido con un rol reproducible. Sos un referente para tu equipo en este eje.',
+    L2: 'Ya usas la IA para tareas puntuales y genéricas, pero todavía no la conectas con problemas concretos de tu rol. El siguiente paso es identificar un caso de uso específico y repetible.',
+    L3: 'Tienes casos de uso concretos: identificas un problema o entregable real y sabes que particularidad de la herramienta te ayuda a resolverlo. Ahora el foco es sistematizar ese uso.',
+    L4: 'Integras la IA de forma sistémica en tu trabajo: coordinas múltiples usos o tienes un flujo ya establecido con un rol reproducible. Eres un referente para tu equipo en este eje.',
   },
   B: {
-    L1: 'Todavía no tenés un criterio claro sobre qué información compartir con una IA ni cómo verificar lo que te devuelve. Construir ese criterio es la base de un uso responsable.',
-    L2: 'Tenés conciencia básica de los límites: sabés que no todo se puede compartir y que hay que verificar. El siguiente paso es hacer eso más sistemático y menos intuitivo.',
-    L3: 'Manejás categorías concretas de información sensible y tenés al menos una razón clara para no compartirlas — regulación, contrato o política. Ese criterio ya es sólido.',
-    L4: 'Distinguís con claridad qué herramienta usar según el tipo de dato (interna vs. pública) y conocés las políticas de tu empresa. Sos referente en criterio de seguridad para tu equipo.',
+    L1: 'Todavía no tienes un criterio claro sobre qué información compartir con una IA ni cómo verificar lo que te devuelve. Construir ese criterio es la base de un uso responsable.',
+    L2: 'Tienes conciencia básica de los límites: sabes que no todo se puede compartir y que hay que verificar. El siguiente paso es hacer eso más sistemático y menos intuitivo.',
+    L3: 'Manejas categorías concretas de información sensible y tienes al menos una razón clara para no compartirlas — regulación, contrato o política. Ese criterio ya es sólido.',
+    L4: 'Distingues con claridad qué herramienta usar según el tipo de dato (interna vs. pública) y conoces las políticas de tu empresa. Eres referente en criterio de seguridad para tu equipo.',
   },
   C: {
-    L1: 'Tus instrucciones a la IA son aún simples o generales, lo que limita la calidad de lo que obtenés. Aprender a escribir mejores prompts es la habilidad con mayor retorno inmediato.',
-    L2: 'Ya agregás algunos elementos de contexto a tus prompts, pero de forma genérica. El siguiente paso es ser más específico: rol, formato y restricciones concretas.',
-    L3: 'Tus prompts ya incluyen contexto, tono y restricciones claras — y en el caso de decisiones, pedís razonamiento paso a paso. Eso te da resultados consistentemente mejores.',
-    L4: 'Escribís prompts con estructura avanzada: rol específico, narrativa completa y validación del razonamiento de la IA. Sos un usuario avanzado de esta habilidad.',
+    L1: 'Tus instrucciones a la IA son aún simples o generales, lo que limita la calidad de lo que obtienes. Aprender a escribir mejores prompts es la habilidad con mayor retorno inmediato.',
+    L2: 'Ya agregas algunos elementos de contexto a tus prompts, pero de forma genérica. El siguiente paso es ser más específico: rol, formato y restricciones concretas.',
+    L3: 'Tus prompts ya incluyen contexto, tono y restricciones claras — y en el caso de decisiones, pides razonamiento paso a paso. Eso te da resultados consistentemente mejores.',
+    L4: 'Escribes prompts con estructura avanzada: rol específico, narrativa completa y validación del razonamiento de la IA. Eres un usuario avanzado de esta habilidad.',
   },
 };
 
@@ -294,7 +294,7 @@ export default function CoachPage() {
   };
   const DIM_BAR_PCT: Record<LevelCode, number> = { L1: 25, L2: 50, L3: 75, L4: 100 };
   const DIM_BAR_COLOR: Record<LevelCode, string> = {
-    L1: 'rgba(254,60,28,0.35)', L2: 'rgba(254,60,28,0.55)', L3: 'rgba(254,60,28,0.75)', L4: '#FE3C1C',
+    L1: '#FE3C1C', L2: '#FE3C1C', L3: '#FE3C1C', L4: '#FE3C1C',
   };
   const fechaPerfil = (() => {
     const fecha = profile?.completedAt ? new Date(profile.completedAt) : new Date();
@@ -308,7 +308,7 @@ export default function CoachPage() {
       <div className="bg-white border-b border-[#DADADA] px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span className="font-display text-[20px] text-primary">AIQ</span>
-          <span className="font-mono text-[9px] uppercase tracking-widest text-[#9a9a9a]">Coach Personal</span>
+          <span className="font-mono text-[9px] uppercase tracking-widest text-[#9a9a9a]">AI PULSE - DIAGNÓSTICO DE MADUREZ DE USO DE IA PERSONAL</span>
         </div>
         <button onClick={handleLogout} className="font-mono text-[9px] uppercase tracking-wider text-[#9a9a9a] hover:text-primary transition-colors">
           Cerrar sesión
@@ -365,7 +365,7 @@ export default function CoachPage() {
             {/* Encuadre */}
             <div className="bg-white rounded-[10px] py-6 px-7 border-l-4 border-primary shadow-sm">
               <p className="font-body text-[13.5px] text-[#808080] leading-[1.75] italic">
-                Este diagnóstico es el punto de partida en AI Pulse. No mide tu desempeño ni tu potencial como profesional: mide dónde estás hoy con la IA para diseñar el camino que tiene más sentido para vos. No hay respuestas correctas ni incorrectas: hay puntos de partida distintos, y todos son válidos.
+                Este diagnóstico es el punto de partida en AI Pulse. No mide tu desempeño ni tu potencial como profesional: mide dónde estás hoy con la IA para diseñar el camino que tiene más sentido para ti. No hay respuestas correctas ni incorrectas: hay puntos de partida distintos, y todos son válidos.
               </p>
               <div className="mt-3.5 flex items-center gap-2.5">
                 <div className="w-6 h-0.5 bg-primary flex-shrink-0" />

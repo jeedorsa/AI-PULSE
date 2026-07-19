@@ -1,17 +1,7 @@
+const { odata } = require("@azure/data-tables");
 const { createTableClient } = require("../shared/tableClient");
 const { corsHeaders } = require("../shared/cors");
-const crypto = require("crypto");
-
-const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-
-function createSessionToken(email) {
-  const payload = `${email}:${Date.now()}`;
-  const sig = crypto
-    .createHmac("sha256", process.env.ADMIN_PASSWORD)
-    .update(payload)
-    .digest("hex");
-  return Buffer.from(`${payload}:${sig}`).toString("base64url");
-}
+const { createSessionToken, requireSessionSecret } = require("../shared/sessionAuth");
 
 module.exports = async function (context, req) {
   const headers = corsHeaders(req, { methods: "POST, OPTIONS" });
@@ -69,7 +59,7 @@ module.exports = async function (context, req) {
   }
 
   const conn = process.env.AZURE_STORAGE_CONNECTION_STRING;
-  if (!conn || !process.env.ADMIN_PASSWORD) {
+  if (!conn) {
     context.res = {
       status: 500,
       headers,
@@ -78,18 +68,17 @@ module.exports = async function (context, req) {
     return;
   }
 
+  if (!requireSessionSecret(context, headers)) return;
+
   try {
     const participantsClient = createTableClient(conn, "participants");
 
     // Buscar participante por email (RowKey) — solo lectura, sin modificar nada.
-    // Escape OData: duplicar la comilla simple (regla de OData v3/v4) para
-    // que emails con apóstrofo — legales según RFC 5321, ej. "o'brien@x.com" —
-    // no rompan el filter y no habiliten inyección si algún día el email
-    // dejara de venir de un token verificado.
-    const rowKeyOData = email.replace(/'/g, "''");
+    // odata`` escapa automáticamente (mismo patrón que auth-verify.js/google-auth.js),
+    // en vez del escape manual — más consistente y menos propenso a error.
     let participant = null;
     for await (const entity of participantsClient.listEntities({
-      queryOptions: { filter: `RowKey eq '${rowKeyOData}'` },
+      queryOptions: { filter: odata`RowKey eq ${email}` },
     })) {
       participant = entity;
       break;

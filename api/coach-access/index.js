@@ -1,7 +1,10 @@
+const { odata } = require("@azure/data-tables");
+const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 const { createTableClient } = require("../shared/tableClient");
 const { recommendationCardsFromIds } = require("../shared/aiqRubricV5");
 const { corsHeaders } = require("../shared/cors");
-const crypto = require("crypto");
+const { createSessionToken, validateSessionToken, requireSessionSecret } = require("../shared/sessionAuth");
 
 /**
  * POST /api/coach-access
@@ -13,31 +16,29 @@ const crypto = require("crypto");
  *   { mode: "validate", email, sessionToken} → valida token activo
  */
 
-const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 días
+const BCRYPT_COST = 12;
 
-function hashPassword(password) {
+function isBcryptHash(hash) {
+  return typeof hash === "string" && hash.startsWith("$2");
+}
+
+// Hash viejo (pre-bcrypt): sha256(password + ADMIN_PASSWORD). Se mantiene
+// solo para verificar cuentas creadas antes de este cambio, una única vez
+// por cuenta — ver migración lazy en el modo "login".
+function legacyHash(password) {
   return crypto.createHash("sha256").update(password + process.env.ADMIN_PASSWORD).digest("hex");
 }
 
-function createSessionToken(email) {
-  const payload = `${email}:${Date.now()}`;
-  const sig = crypto.createHmac("sha256", process.env.ADMIN_PASSWORD).update(payload).digest("hex");
-  return Buffer.from(`${payload}:${sig}`).toString("base64url");
-}
-
-function validateSessionToken(token) {
-  try {
-    const decoded = Buffer.from(token, "base64url").toString("utf8");
-    const lastColon = decoded.lastIndexOf(":");
-    const payload = decoded.slice(0, lastColon);
-    const sig     = decoded.slice(lastColon + 1);
-    const expected = crypto.createHmac("sha256", process.env.ADMIN_PASSWORD).update(payload).digest("hex");
-    if (sig !== expected) return null;
-    const parts = payload.split(":");
-    const ts = parseInt(parts[parts.length - 1], 10);
-    if (Date.now() - ts > TOKEN_TTL_MS) return null;
-    return parts.slice(0, -1).join(":");  // email (puede tener : si el email lo tiene)
-  } catch { return null; }
+// Devuelve { valid, needsMigration }: si el hash guardado es del formato
+// viejo y la contraseña coincide, needsMigration=true para que el caller
+// re-guarde el hash en bcrypt de forma transparente (sin pedirle nada al
+// usuario).
+async function verifyPassword(password, storedHash) {
+  if (isBcryptHash(storedHash)) {
+    return { valid: await bcrypt.compare(password, storedHash), needsMigration: false };
+  }
+  const valid = legacyHash(password) === storedHash;
+  return { valid, needsMigration: valid };
 }
 
 // Campos de perfil compartidos por validate/setup/login — centralizado para
@@ -87,11 +88,13 @@ module.exports = async function (context, req) {
     return;
   }
 
+  if (!requireSessionSecret(context, headers)) return;
+
   // ── validate: verifica token y devuelve perfil completo ─────────────────
   if (mode === "validate") {
     const token = body.sessionToken || "";
-    const tokenEmail = validateSessionToken(token);
-    if (!tokenEmail || tokenEmail !== email) {
+    const tokenEmail = validateSessionToken(token, email);
+    if (!tokenEmail) {
       context.res = { status: 401, headers, body: JSON.stringify({ valid: false }) };
       return;
     }
@@ -101,7 +104,7 @@ module.exports = async function (context, req) {
       const resultsClient = createTableClient(conn, "assessmentResults");
       let result = null;
       for await (const entity of resultsClient.listEntities({
-        queryOptions: { filter: `email eq '${email}'` },
+        queryOptions: { filter: odata`email eq ${email}` },
       })) { result = entity; break; }
 
       context.res = {
@@ -124,7 +127,7 @@ module.exports = async function (context, req) {
     // Buscar resultado por email (campo, no RowKey — RowKey es el token del assessment)
     let result = null;
     for await (const entity of resultsClient.listEntities({
-      queryOptions: { filter: `email eq '${email}'` }
+      queryOptions: { filter: odata`email eq ${email}` }
     })) { result = entity; break; }
 
     if (!result) {
@@ -178,14 +181,14 @@ module.exports = async function (context, req) {
         return;
       }
       const password = body.password || "";
-      if (password.length < 6) {
-        context.res = { status: 400, headers, body: JSON.stringify({ error: "La contraseña debe tener al menos 6 caracteres." }) };
+      if (password.length < 8) {
+        context.res = { status: 400, headers, body: JSON.stringify({ error: "La contraseña debe tener al menos 8 caracteres." }) };
         return;
       }
       await coachClient.upsertEntity({
         partitionKey: email,
         rowKey:       "session",
-        passwordHash: hashPassword(password),
+        passwordHash: await bcrypt.hash(password, BCRYPT_COST),
         tasks:        "[]",
         chatHistory:  "[]",
         createdAt:    new Date().toISOString(),
@@ -211,9 +214,18 @@ module.exports = async function (context, req) {
         return;
       }
       const password = body.password || "";
-      if (hashPassword(password) !== session.passwordHash) {
+      const { valid, needsMigration } = await verifyPassword(password, session.passwordHash);
+      if (!valid) {
         context.res = { status: 401, headers, body: JSON.stringify({ error: "Contraseña incorrecta." }) };
         return;
+      }
+      if (needsMigration) {
+        // Cuenta creada antes de bcrypt — se re-hashea de forma transparente,
+        // sin pedirle al usuario que resetee su contraseña.
+        await coachClient.updateEntity(
+          { partitionKey: email, rowKey: "session", passwordHash: await bcrypt.hash(password, BCRYPT_COST) },
+          "Merge"
+        );
       }
       const sessionToken = createSessionToken(email);
       context.res = {

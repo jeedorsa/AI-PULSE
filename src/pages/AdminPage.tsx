@@ -241,6 +241,7 @@ export default function AdminPage() {
     'Casi listo, guardando informe...',
   ];
   const [filterEmpresa, setFilterEmpresa] = useState('');
+  const [filterRubricVersion, setFilterRubricVersion] = useState<'' | 'v5' | 'legacy'>('');
   const [linkEmpresa, setLinkEmpresa] = useState('');
   const [linkDominio, setLinkDominio] = useState('');
 
@@ -1403,7 +1404,12 @@ export default function AdminPage() {
           )}
 
           {/* ── REPORTERÍA TAB ───────────────────────────────────────── */}
-          {activeTab === 'reporteria' && (
+          {activeTab === 'reporteria' && (() => {
+            const matchesReporteriaFilters = (r: ResultRow) =>
+              (!filterEmpresa || r.empresa === filterEmpresa) &&
+              (!filterRubricVersion || (filterRubricVersion === 'v5' ? r.rubricVersion === 'v5' : r.rubricVersion !== 'v5'));
+
+            return (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
 
               {/* KPIs */}
@@ -1461,35 +1467,55 @@ export default function AdminPage() {
                 ) : null;
               })()}
 
-              {/* Filtro por empresa */}
+              {/* Filtro por empresa + versión de rúbrica */}
               {results.length > 0 && (() => {
                 const empresas = Array.from(new Set(results.map(r => r.empresa).filter(Boolean))).sort();
-                if (empresas.length < 2) return null;
                 return (
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono text-[8px] uppercase tracking-wider text-[#AAAAAA] whitespace-nowrap">Filtrar por empresa</span>
-                    <select
-                      value={filterEmpresa}
-                      onChange={e => setFilterEmpresa(e.target.value)}
-                      className="bg-[#F7F7F7] border border-[#CCCCCC] rounded-[2px] px-3 py-1.5 font-mono text-[11px] text-[#333333] focus:outline-none focus:border-primary/60 transition-colors"
-                    >
-                      <option value="">Todas las empresas</option>
-                      {empresas.map(emp => (
-                        <option key={emp} value={emp}>{emp}</option>
-                      ))}
-                    </select>
-                    {filterEmpresa && (
-                      <button onClick={() => setFilterEmpresa('')} className="font-mono text-[9px] text-[#AAAAAA] hover:text-primary transition-colors">
-                        × limpiar
-                      </button>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {empresas.length >= 2 && (
+                      <div className="flex items-center gap-3">
+                        <span className="font-mono text-[8px] uppercase tracking-wider text-[#AAAAAA] whitespace-nowrap">Filtrar por empresa</span>
+                        <select
+                          value={filterEmpresa}
+                          onChange={e => setFilterEmpresa(e.target.value)}
+                          className="bg-[#F7F7F7] border border-[#CCCCCC] rounded-[2px] px-3 py-1.5 font-mono text-[11px] text-[#333333] focus:outline-none focus:border-primary/60 transition-colors"
+                        >
+                          <option value="">Todas las empresas</option>
+                          {empresas.map(emp => (
+                            <option key={emp} value={emp}>{emp}</option>
+                          ))}
+                        </select>
+                        {filterEmpresa && (
+                          <button onClick={() => setFilterEmpresa('')} className="font-mono text-[9px] text-[#AAAAAA] hover:text-primary transition-colors">
+                            × limpiar
+                          </button>
+                        )}
+                      </div>
                     )}
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-[8px] uppercase tracking-wider text-[#AAAAAA] whitespace-nowrap">Filtrar por rúbrica</span>
+                      <select
+                        value={filterRubricVersion}
+                        onChange={e => setFilterRubricVersion(e.target.value as '' | 'v5' | 'legacy')}
+                        className="bg-[#F7F7F7] border border-[#CCCCCC] rounded-[2px] px-3 py-1.5 font-mono text-[11px] text-[#333333] focus:outline-none focus:border-primary/60 transition-colors"
+                      >
+                        <option value="">Todas las versiones</option>
+                        <option value="v5">Rúbrica V5</option>
+                        <option value="legacy">Legacy (pre-V5)</option>
+                      </select>
+                      {filterRubricVersion && (
+                        <button onClick={() => setFilterRubricVersion('')} className="font-mono text-[9px] text-[#AAAAAA] hover:text-primary transition-colors">
+                          × limpiar
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })()}
 
               {/* Header resultados */}
               {(() => {
-                const filtered = filterEmpresa ? results.filter(r => r.empresa === filterEmpresa) : results;
+                const filtered = results.filter(matchesReporteriaFilters);
                 return (
                   <div className="flex justify-between items-center">
                     <span className="font-mono text-[9px] text-primary uppercase tracking-wider">
@@ -1540,7 +1566,7 @@ export default function AdminPage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {(filterEmpresa ? results.filter(r => r.empresa === filterEmpresa) : results).map((r, i) => {
+                  {results.filter(matchesReporteriaFilters).map((r, i) => {
                     const isExpanded = expandedResult === r.email;
                     const levelColor = r.aiqLevel === 'L4' || r.aiqLevel === 'L4L' || r.aiqLevel === 'L4T' ? '#00AA55' : r.aiqLevel === 'L3' ? '#CC8800' : '#AAAAAA';
                     // Rúbrica v5: escala 1.0-4.0. Registros legacy (pre-migración): escala 0-5.
@@ -1696,7 +1722,8 @@ export default function AdminPage() {
                 </div>
               )}
             </motion.div>
-          )}
+            );
+          })()}
 
         </div>
       </div>
