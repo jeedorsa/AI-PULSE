@@ -40,7 +40,7 @@ export default function AccessPage() {
     const trimmed = email.trim().toLowerCase();
     const trimmedNombre = nombreInput.trim();
     if (!trimmed || !trimmed.includes('@')) return;
-    if (isDomainMode && !trimmedNombre) return;
+    if (isDomainMode && (!trimmedNombre || trimmedNombre.includes('@'))) return;
     setStatus('loading');
 
     try {
@@ -146,16 +146,23 @@ export default function AccessPage() {
               </p>
 
               {isDomainMode && (
-                <input
-                  type="text"
-                  value={nombreInput}
-                  onChange={e => setNombreInput(e.target.value)}
-                  onKeyDown={handleKey}
-                  placeholder="Tu nombre completo"
-                  disabled={status === 'loading'}
-                  autoFocus
-                  className="w-full bg-white border border-[#CCCCCC] rounded-[2px] px-4 py-3 font-body text-base md:text-[14px] text-[#111111] placeholder:text-[#AAAAAA] focus:outline-none focus:border-primary transition-colors disabled:bg-[#F7F7F7] disabled:text-[#AAAAAA] mb-3"
-                />
+                <>
+                  <input
+                    type="text"
+                    value={nombreInput}
+                    onChange={e => setNombreInput(e.target.value)}
+                    onKeyDown={handleKey}
+                    placeholder="Tu nombre completo"
+                    disabled={status === 'loading'}
+                    autoFocus
+                    className="w-full bg-white border border-[#CCCCCC] rounded-[2px] px-4 py-3 font-body text-base md:text-[14px] text-[#111111] placeholder:text-[#AAAAAA] focus:outline-none focus:border-primary transition-colors disabled:bg-[#F7F7F7] disabled:text-[#AAAAAA] mb-1"
+                  />
+                  {nombreInput.includes('@') ? (
+                    <p className="font-body text-[12px] text-primary mb-3">Ingresa tu nombre, no tu correo electrónico.</p>
+                  ) : (
+                    <div className="mb-3" />
+                  )}
+                </>
               )}
 
               <input
@@ -172,7 +179,7 @@ export default function AccessPage() {
               <Button
                 variant="primary"
                 onClick={handleSubmit}
-                disabled={status === 'loading' || !email.trim() || (isDomainMode && !nombreInput.trim())}
+                disabled={status === 'loading' || !email.trim() || (isDomainMode && (!nombreInput.trim() || nombreInput.includes('@')))}
                 className="w-full min-h-[48px]"
               >
                 {status === 'loading' ? (
