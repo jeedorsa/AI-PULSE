@@ -241,7 +241,7 @@ export default function AdminPage() {
     'Casi listo, guardando informe...',
   ];
   const [filterEmpresa, setFilterEmpresa] = useState('');
-  const [filterRubricVersion, setFilterRubricVersion] = useState<'' | 'v5' | 'legacy'>('');
+  const [filterRubricVersion, setFilterRubricVersion] = useState<'' | 'v6' | 'v5' | 'legacy'>('');
   const [linkEmpresa, setLinkEmpresa] = useState('');
   const [linkDominio, setLinkDominio] = useState('');
 
@@ -1407,7 +1407,8 @@ export default function AdminPage() {
           {activeTab === 'reporteria' && (() => {
             const matchesReporteriaFilters = (r: ResultRow) =>
               (!filterEmpresa || r.empresa === filterEmpresa) &&
-              (!filterRubricVersion || (filterRubricVersion === 'v5' ? r.rubricVersion === 'v5' : r.rubricVersion !== 'v5'));
+              (!filterRubricVersion || r.rubricVersion === filterRubricVersion ||
+                (filterRubricVersion === 'legacy' && r.rubricVersion !== 'v5' && r.rubricVersion !== 'v6'));
 
             return (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
@@ -1496,11 +1497,12 @@ export default function AdminPage() {
                       <span className="font-mono text-[8px] uppercase tracking-wider text-[#AAAAAA] whitespace-nowrap">Filtrar por rúbrica</span>
                       <select
                         value={filterRubricVersion}
-                        onChange={e => setFilterRubricVersion(e.target.value as '' | 'v5' | 'legacy')}
+                        onChange={e => setFilterRubricVersion(e.target.value as '' | 'v6' | 'v5' | 'legacy')}
                         className="bg-[#F7F7F7] border border-[#CCCCCC] rounded-[2px] px-3 py-1.5 font-mono text-[11px] text-[#333333] focus:outline-none focus:border-primary/60 transition-colors"
                       >
                         <option value="">Todas las versiones</option>
-                        <option value="v5">Rúbrica V5</option>
+                        <option value="v6">Rúbrica V6</option>
+                        <option value="v5">Rúbrica V5 (histórica)</option>
                         <option value="legacy">Legacy (pre-V5)</option>
                       </select>
                       {filterRubricVersion && (
@@ -1569,8 +1571,8 @@ export default function AdminPage() {
                   {results.filter(matchesReporteriaFilters).map((r, i) => {
                     const isExpanded = expandedResult === r.email;
                     const levelColor = r.aiqLevel === 'L4' || r.aiqLevel === 'L4L' || r.aiqLevel === 'L4T' ? '#00AA55' : r.aiqLevel === 'L3' ? '#CC8800' : '#AAAAAA';
-                    // Rúbrica v5: escala 1.0-4.0. Registros legacy (pre-migración): escala 0-5.
-                    const scoreMax = r.rubricVersion === 'v5' ? 4 : 5;
+                    // Rúbrica v5/v6: escala 1.0-4.0. Registros legacy (pre-migración): escala 0-5.
+                    const scoreMax = (r.rubricVersion === 'v5' || r.rubricVersion === 'v6') ? 4 : 5;
                     const scoreWidth = (r.aiqScore / scoreMax) * 100;
                     return (
                       <div key={i} className="border border-[#E0E0E0] rounded-[2px] overflow-hidden">

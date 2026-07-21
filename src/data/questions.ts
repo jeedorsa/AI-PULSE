@@ -80,11 +80,10 @@ export const questions = [
     type: 'open',
     text: 'Pensando en el último entregable importante que produjiste — reporte, diagnóstico, cotización, plan, presentación — ¿qué papel jugó la IA? Descríbeme exactamente cómo la usaste o por qué decidiste no usarla.',
     scoringSignals: {
-      L1: 'No usó IA o la menciona solo de forma tangencial',
-      L2: 'La usó para una parte pequeña, sin describir cómo',
-      L3: 'Describe con detalle qué herramienta usó, para qué parte y qué resultado obtuvo',
-      L4T: 'Integró IA en múltiples etapas del proceso con criterio claro',
-      L4L: 'Documenta o comparte el proceso con su equipo como práctica replicable'
+      L1: 'No usó IA, o solo la menciona de forma tangencial / vacío / off-topic',
+      L2: 'Menciona uso con tipo de output genérico (ej. "para presentaciones") sin problema o entregable concreto',
+      L3: 'Describe caso sustantivo y concreto: problema o entregable identificable + al menos una particularidad',
+      L4: 'Integración sistémica: múltiples usos coordinados en el mismo entregable o flujo establecido con rol reproducible'
     }
   },
 
@@ -94,11 +93,10 @@ export const questions = [
     type: 'open',
     text: 'Cuando la IA te da un resultado incorrecto o que no era lo que esperabas, ¿qué haces exactamente?',
     scoringSignals: {
-      L1: 'No lo nota o no sabe qué hacer',
-      L2: 'Repite la pregunta igual o abandona',
-      L3: 'Ajusta el prompt de forma intuitiva',
-      L4T: 'Aplica un proceso sistemático de corrección',
-      L4L: 'Comparte la lección con su equipo'
+      L1: 'No sabe qué hacer / no aplica porque no usa IA / vacío / off-topic',
+      L2: 'Reintenta de forma simple ("lo vuelvo a intentar", "reformulo") sin método específico',
+      L3: 'Proceso de corrección con criterio: agrega contexto, divide la tarea, especifica formato, verifica en fuentes externas',
+      L4: 'Diagnóstico sistemático: identifica causa (alucinación, contexto insuficiente, mal prompt) y tiene protocolo diferenciado'
     }
   },
 
@@ -109,14 +107,26 @@ export const questions = [
     text: '¿Has compartido algo relacionado con IA con algún compañero o equipo? Puede ser cualquier cosa — un truco que descubriste, un resultado que te sorprendió, una herramienta que probaste, o simplemente mostrarle a alguien cómo usarla. Cuéntame el caso más reciente.\n\nSi aún no lo has hecho, puedes decirlo — también es información valiosa.',
     scoringSignals: {
       L1: 'No ha compartido nada, no lo ve como parte de su rol',
-      L2: 'Compartió algo puntual de forma espontánea sin intención de enseñar',
-      L3: 'Enseñó una técnica o resolvió dudas de forma recurrente',
-      L4T: 'Creó recursos reutilizables o lideró un proceso de adopción formal',
-      L4L: 'Propuso políticas, cambió dinámicas del equipo o escaló la práctica a nivel organizacional'
+      L2: 'Compartió algo puntual de forma espontánea sin descripción específica ni impacto',
+      L3: 'Compartió intencionalmente: describe qué, a quién, con qué propósito y/o reacción generada',
+      L4: 'Lidera aprendizaje sistemático: sesiones formales, documentación, recomendaciones estructuradas'
     }
   },
 
-  // ── SECCIÓN B — CRITERIO Y CAPACIDADES TÉCNICAS (weight: 0.30) ───
+  {
+    id: 'E6',
+    section: 'A',
+    type: 'open',
+    text: '¿En tus palabras, qué es un agente de IA?',
+    scoringSignals: {
+      L1: 'No sabe o da una definición incorrecta (confunde "agente" con cualquier IA o chatbot básico)',
+      L2: 'Definición vaga — dice que "hace tareas" pero sin mencionar autonomía, uso de herramientas o un objetivo',
+      L3: 'Definición correcta — menciona que actúa de forma autónoma y usa herramientas/pasos para lograr un objetivo, distinguiéndolo de un chatbot simple',
+      L4: 'Definición completa y aplicada — además del L3, da un ejemplo concreto o cómo lo usaría/usó en su trabajo'
+    }
+  },
+
+  // ── SECCIÓN B — CRITERIO Y CAPACIDADES TÉCNICAS (weight: 0.20) ───
 
   {
     id: 'B1',
@@ -140,11 +150,10 @@ export const questions = [
     concept: 'SEGURIDAD DE DATOS',
     text: '¿Qué tipo de información de tu trabajo NO le compartirías a una herramienta de IA, y por qué?',
     scoringSignals: {
-      L1: 'No ha pensado en eso o dice que no hay problema en compartir todo',
-      L2: 'Evita datos obvios como contraseñas, sin criterio más amplio',
-      L3: 'Describe categorías concretas que protege y adapta el uso según el contexto y la herramienta',
-      L4T: 'Tiene criterio sistemático por herramienta, conoce políticas de privacidad de las plataformas que usa',
-      L4L: 'Ha propuesto o implementado criterios de seguridad para su equipo u organización'
+      L1: 'Sin conciencia de riesgo: "no evito nada", "no sé qué evitar", o declara compartir todo sin restricciones',
+      L2: 'Conciencia general: menciona "información confidencial" o "datos de clientes" sin especificar tipo ni razón',
+      L3: 'Categorías concretas (datos personales, financieros, contratos, precios, clientes identificables) + al menos una razón concreta (regulación, contrato, política)',
+      L4: 'Distingue herramientas aprobadas vs. IA pública, conoce políticas corporativas, explica el porqué del comportamiento diferenciado'
     }
   },
 
@@ -155,14 +164,14 @@ export const questions = [
     concept: 'MULTIMODALIDAD',
     text: '¿Has usado alguna vez la IA con algo que no sea texto — una imagen, un audio, un documento, una foto? Cuéntame qué hiciste.',
     scoringSignals: {
-      L1L2: 'No ha usado más allá del texto o no tiene ejemplo concreto',
-      L3: 'Describe caso específico donde combinó formatos con resultado útil',
-      L4T: 'Combina múltiples modalidades estratégicamente según el caso de uso',
-      L4L: 'Ha identificado y compartido casos de uso multimodales con su equipo'
+      L1: 'Ninguno / vacío / solo texto plano',
+      L2: 'Menciona al menos un tipo de archivo estructurado (Excel, CSV, PDF, código, imágenes) aunque sea general — datos/Excel/CSV ya cuentan como mínimo L2',
+      L3: 'Describe con especificidad: qué archivo, para qué propósito, qué obtuvo del análisis',
+      L4: 'Análisis avanzado: combina fuentes, procesamiento complejo, o flujo establecido para análisis recurrentes'
     }
   },
 
-  // ── SECCIÓN C — LABORATORIO DE EJECUCIÓN (weight: 0.40) ──────────
+  // ── SECCIÓN C — LABORATORIO DE EJECUCIÓN (weight: 0.50) ──────────
 
   {
     id: 'C1',
@@ -171,11 +180,10 @@ export const questions = [
     text: 'Escribe el prompt para pedirle a la IA que redacte un mensaje para un cliente importante informándole que su vehículo tendrá un retraso de 3 semanas.',
     scenarioText: 'Un cliente importante acaba de enterarse de que su vehículo se entregará con tres semanas de retraso. Necesitas comunicarlo de forma que preserve la relación comercial.',
     rubric: {
-      L1L2: 'Prompt de una línea sin contexto. Ej: "ayúdame a escribir un mensaje de malas noticias"',
-      L2: 'Agrega contexto básico — cliente, retraso, motivo — sin estructura clara',
-      L3: 'Define tono, audiencia, objetivo y formato esperado de forma estructurada',
-      L4T: 'Asigna rol experto, define restricciones, especifica longitud y tono con criterio',
-      L4L: 'Prompt parametrizable y reutilizable para cualquier situación similar de comunicación de crisis'
+      L1: 'Vacío, off-topic, o de una línea sin contexto. Ej: "redacta un email sobre retraso". Output resultante sería inútil',
+      L2: 'Contexto básico (retraso, VIP, 3 semanas) sin tono, propósito claro ni restricciones. Utilizable pero genérico',
+      L3: 'Al menos 3 de: tono para VIP, propósito, tipo de relación, restricciones, longitud/formato',
+      L4: 'Rol asignado (ej. "relationship manager"), personalización, estructura narrativa (empática → explicación → compensación → compromiso), restricciones avanzadas'
     }
   },
 
@@ -187,11 +195,10 @@ export const questions = [
     scenarioText: 'Un miembro de tu equipo usó este prompt y los resultados fueron inútiles. Tu tarea es reescribirlo para que produzca un output realmente aprovechable.',
     originalPrompt: 'Necesito una presentación de resultados para mi jefe, no fueron buenos, que sea profesional y corta',
     rubric: {
-      L1L2: 'Versión mejorada es marginalmente diferente al original',
-      L2: 'Separa las ideas o agrega algo de contexto pero sin estructura clara',
-      L3: 'Reestructura completamente: agrega contexto de negocio, audiencia, objetivo y formato esperado',
-      L4T: 'Además asigna rol, define restricciones y especifica el output con precisión',
-      L4L: 'Prompt mejorado es parametrizable y demuestra un sistema consciente de construcción'
+      L1: 'Repite el original o cambios triviales (ej. "...por favor")',
+      L2: 'Agrega 1-2 elementos básicos (audiencia o tema). Mejora palpable pero sigue genérico',
+      L3: 'Al menos 3 mejoras sustantivas: audiencia específica, contexto del negocio, formato/longitud, # slides, datos clave, tono',
+      L4: 'Rol asignado ("Eres consultor de comunicación ejecutiva"), contexto de negocio, estructura narrativa (problema → análisis → conclusión → próximos pasos), marcadores explícitos de slide'
     }
   },
 
@@ -202,11 +209,10 @@ export const questions = [
     text: 'Escribe un prompt para que la IA te ayude a decidir si es mejor ofrecer un descuento a un cliente que está dudando en comprar o mantener el precio — obligándola a mostrarte su razonamiento paso a paso antes de concluir.',
     scenarioText: 'Un cliente está dudando entre comprar ahora o esperar. Necesitas decidir si ofrecerle un descuento o mantener el precio. Quieres que la IA te ayude a razonar, no solo a darte una respuesta.',
     rubric: {
-      L1L2: 'Pregunta directa sin pedir razonamiento. Ej: "¿debería ofrecer un descuento?"',
-      L2: 'Pide recomendación con algunos criterios pero sin estructura de razonamiento explícita',
-      L3: 'El prompt pide explícitamente analizar factores específicos antes de concluir',
-      L4T: 'Usa framing como "piensa paso a paso", "antes de responder considera X luego Y", cadena de razonamiento',
-      L4L: 'Prompt diseñado como framework de decisión reutilizable para cualquier decisión estratégica futura'
+      L1: 'Sin CoT, prompt genérico (ej. "¿debería ofrecer descuento?")',
+      L2: 'Alguna instrucción de análisis pero SIN CoT explícito. Puede listar factores — techo L2 sin CoT, no puede subir',
+      L3: 'CoT explícito ("razona paso a paso", "analiza factor por factor", "piensa en voz alta", "primero X luego Y") + contextualiza el problema y criterios relevantes',
+      L4: 'CoT + estructura estratégica: escenarios (optimista/conservador/pesimista), identificación de supuestos, solicitud de vulnerabilidades del razonamiento, árbol de decisión'
     }
   },
 

@@ -1,17 +1,21 @@
 /**
- * aiqPromptsV5.js — Prompts calificadores de la rúbrica AIQ v5 (AI Pulse).
+ * aiqPromptsV6.js — Prompts calificadores de la rúbrica AIQ v6 (AI Pulse).
  *
- * Cada prompt está copiado literalmente del HTML de la rúbrica v5, adaptado
- * únicamente en el envoltorio arquitectónico: en vez de una única llamada
- * consolidada sobre las 21 preguntas, se hace una llamada por pregunta
- * calificable (E2, E3, E5, E6, B2, B4, C1, C2, C3). El contenido de las reglas,
- * la rúbrica y el formato de salida de cada pregunta NO se modifica.
+ * Cada prompt está copiado literalmente de tabla_rubrica_aipulse-v6.html,
+ * adaptado únicamente en el envoltorio arquitectónico: en vez de una única
+ * llamada consolidada sobre las 22 preguntas, se hace una llamada por
+ * pregunta calificable (E2, E3, E5, E6, B2, B4, C1, C2, C3). El contenido de
+ * las reglas, la rúbrica y el formato de salida de cada pregunta NO se
+ * modifica salvo por los placeholders genéricos {empresa}/{herramienta_corporativa}.
+ *
+ * Reemplazo total de aiqPromptsV5.js — no reutiliza ningún texto de v5 salvo
+ * el envoltorio (system prompt genérico, formato JSON de salida).
  */
 
 // Contexto general adaptado para llamadas por-pregunta (se envía como
 // mensaje "system" en cada llamada). Conserva el marco conceptual del AIQ
-// y los principios de evaluación del HTML; omite las instrucciones de
-// consolidación en un solo pase de 21 preguntas, que no aplican aquí.
+// y los principios de evaluación de la tabla v6; omite las instrucciones de
+// consolidación en un solo pase de 22 preguntas, que no aplican aquí.
 const SYSTEM_PROMPT = `Eres el motor de evaluación de AI Pulse, la plataforma especializada en medir el AIQ (Coeficiente de Inteligencia Artificial) de cada persona en una empresa — es una métrica individual, no organizacional.
 
 QUÉ ES EL AIQ:
@@ -33,51 +37,16 @@ function wordCount(text) {
 function buildQuestionPrompt(questionId, params = {}) {
   const builder = PROMPT_BUILDERS[questionId];
   if (!builder) {
-    throw new Error(`aiqPromptsV5: no hay prompt calificador para "${questionId}"`);
+    throw new Error(`aiqPromptsV6: no hay prompt calificador para "${questionId}"`);
   }
   return builder(params);
 }
 
 const PROMPT_BUILDERS = {
-  E6: ({ respuesta, V1, V2 }) => `Eres un evaluador experto del assessment AIQ. Clasifica la respuesta a P14 (E6) en nivel L1–L4.
-
-PREGUNTA:
-"¿En tus palabras, qué es un agente de IA?"
-
-RESPUESTA DEL PARTICIPANTE:
-"""
-${respuesta}
-"""
-
-CONTEXTO (para reglas):
-- V1 (relación con IA, 1–4): ${V1}
-- V2 (herramientas usadas): ${JSON.stringify(V2)}
-
-RÚBRICA:
-- L1: No sabe o da una definición incorrecta (confunde "agente" con cualquier IA o chatbot básico).
-- L2: Definición vaga — dice que "hace tareas" pero sin mencionar autonomía, uso de herramientas o un objetivo.
-- L3: Definición correcta — menciona que actúa de forma autónoma y usa herramientas/pasos para lograr un objetivo, distinguiéndolo de un chatbot simple.
-- L4: Definición completa y aplicada — además del L3, da un ejemplo concreto o cómo lo usaría/usó en su trabajo.
-
-REGLAS (aplicar EN ESTE ORDEN):
-
-1. CAPA 3 — si respuesta vacía, off-topic, o 1-3 palabras: L1 directo, terminar.
-2. N2 SHORT-CIRCUIT — si V1=1 Y V2=["Ninguna todavía"]: L1 forzado, terminar.
-3. Asignar nivel según rúbrica base.
-4. CAPA 1.5 — si lenguaje prescriptivo/abstracto ("hay que", "se debe", 3ª persona genérica sin "yo"): bajar 1 nivel.
-
-RESPONDE SOLO JSON:
-{
-  "nivel": "L1|L2|L3|L4",
-  "razonamiento": "1-2 oraciones",
-  "señales_detectadas": ["..."],
-  "reglas_aplicadas": ["Capa 3" | "N2 short-circuit" | "Capa 1.5" | "ninguna"]
-}`,
-
   E2: ({ respuesta, V1, V2 }) => `Eres un evaluador experto del assessment AIQ. Clasifica la respuesta a P5 (E2) en nivel L1–L4.
 
 PREGUNTA:
-"Pensando en el último entregable importante que produjiste, ¿qué papel jugó la IA? Descríbeme exactamente cómo la usaste o por qué decidiste no usarla."
+"Pensando en el último entregable importante que produjiste — reporte, diagnóstico, cotización, plan, presentación — ¿qué papel jugó la IA? Descríbeme exactamente cómo la usaste o por qué decidiste no usarla."
 
 RESPUESTA DEL PARTICIPANTE:
 """
@@ -89,10 +58,10 @@ CONTEXTO (para reglas):
 - V2 (herramientas usadas): ${JSON.stringify(V2)}
 
 RÚBRICA:
-- L1: No usó IA, o solo la menciona tangencialmente / vacío / off-topic.
-- L2: Menciona uso con output genérico ("para presentaciones", "organizar información") sin problema o entregable concreto.
-- L3: Caso sustantivo: problema o entregable identificable + una particularidad (herramienta, etapa o resultado).
-- L4: Integración sistémica: múltiples usos coordinados o flujo establecido con rol reproducible.
+- L1: No usó IA, o solo la menciona de forma tangencial / vacío / off-topic.
+- L2: Menciona uso con tipo de output genérico (ej. "para presentaciones", "organizar información") sin problema o entregable concreto.
+- L3: Describe caso sustantivo y concreto: problema o entregable identificable + al menos una particularidad (herramienta, etapa, resultado).
+- L4: Integración sistémica: múltiples usos coordinados en el mismo entregable o flujo establecido con rol reproducible.
 
 REGLAS (aplicar EN ESTE ORDEN):
 
@@ -124,10 +93,10 @@ CONTEXTO:
 - V2: ${JSON.stringify(V2)}
 
 RÚBRICA:
-- L1: No sabe qué hacer / no usa IA / vacío / off-topic.
-- L2: Reintenta simple ("lo vuelvo a intentar", "reformulo") sin método específico.
-- L3: Proceso con criterio: agrega contexto, divide la tarea, especifica formato, verifica externamente, identifica tipo de error.
-- L4: Diagnóstico sistemático: identifica causa (alucinación, contexto insuficiente, mal prompt) y tiene protocolo diferenciado.
+- L1: No sabe qué hacer / no aplica porque no usa IA / vacío / off-topic.
+- L2: Reintenta de forma simple ("lo vuelvo a intentar", "reformulo") sin método específico.
+- L3: Proceso de corrección con criterio: agrega contexto, divide la tarea, especifica formato, verifica en fuentes externas, identifica tipo de error.
+- L4: Diagnóstico sistemático: identifica causa (alucinación, contexto insuficiente, mal prompt) y tiene protocolo diferenciado según tipo de error.
 
 REGLAS (aplicar EN ESTE ORDEN):
 
@@ -147,7 +116,7 @@ RESPONDE SOLO JSON:
   E5: ({ respuesta, V1, V2 }) => `Eres un evaluador experto AIQ. Clasifica P7 (E5) en nivel L1–L4 y detecta señales Champion.
 
 PREGUNTA:
-"¿Has compartido algo relacionado con IA con algún compañero o equipo? Cuéntame el caso más reciente. Si no lo has hecho, también puedes decirlo."
+"¿Has compartido algo relacionado con IA con algún compañero o equipo? Puede ser cualquier cosa — un truco, un resultado, una herramienta, o mostrarle a alguien cómo usarla. Cuéntame el caso más reciente. Si no lo has hecho, también puedes decirlo."
 
 RESPUESTA:
 """
@@ -160,9 +129,9 @@ CONTEXTO:
 
 RÚBRICA:
 - L1: No ha compartido nada / no lo ve como parte de su rol / vacío.
-- L2: Compartió algo puntual, espontáneo, sin descripción específica ni impacto.
+- L2: Compartió algo puntual y espontáneo sin descripción del contenido específico ni impacto.
 - L3: Compartió intencionalmente: describe qué, a quién, con qué propósito y/o reacción generada.
-- L4: Lidera aprendizaje sistemático: sesiones formales, documentación, recomendaciones estructuradas.
+- L4: Lidera o facilita aprendizaje sistemático: sesiones formales, documentación, recomendaciones estructuradas.
 
 REGLAS (EN ESTE ORDEN):
 
@@ -189,7 +158,46 @@ RESPONDE SOLO JSON:
   }
 }`,
 
-  B2: ({ respuesta }) => `Eres un evaluador AIQ. P9 (B2) es la pregunta más importante de Sec. B y puede disparar la flag REGLA1_SEGURIDAD (topa el puntaje FINAL en L2).
+  E6: ({ respuesta, V1, V2 }) => `Eres un evaluador experto del assessment AIQ. Clasifica la respuesta a P8 (E6) en nivel L1–L4.
+
+PREGUNTA:
+"¿En tus palabras, qué es un agente de IA?"
+
+RESPUESTA DEL PARTICIPANTE:
+"""
+${respuesta}
+"""
+
+CONTEXTO (para reglas):
+- V1 (relación con IA, 1–4): ${V1}
+- V2 (herramientas usadas): ${JSON.stringify(V2)}
+
+RÚBRICA:
+- L1: No sabe o da una definición incorrecta (confunde "agente" con cualquier IA o chatbot básico).
+- L2: Definición vaga — dice que "hace tareas" pero sin mencionar autonomía, uso de herramientas o un objetivo.
+- L3: Definición correcta — menciona que actúa de forma autónoma y usa herramientas/pasos para lograr un objetivo, distinguiéndolo de un chatbot simple.
+- L4: Definición completa y aplicada — además del L3, da un ejemplo concreto o cómo lo usaría/usó en su trabajo.
+
+REGLAS (aplicar EN ESTE ORDEN):
+
+1. CAPA 3 — si respuesta vacía, off-topic, o 1-3 palabras: L1 directo, terminar.
+2. N2 SHORT-CIRCUIT — si V1=1 Y V2=["Ninguna todavía"]: L1 forzado, terminar.
+3. Asignar nivel según rúbrica base.
+4. CAPA 1.5 — si lenguaje prescriptivo/abstracto ("hay que", "se debe", 3ª persona genérica sin "yo"): bajar 1 nivel.
+
+NOTA: esta pregunta queda excluida del conteo del flag N3 (a diferencia de las
+demás preguntas abiertas de Sección A) — eso se resuelve en el evaluador, no
+afecta el JSON de salida de este prompt.
+
+RESPONDE SOLO JSON:
+{
+  "nivel": "L1|L2|L3|L4",
+  "razonamiento": "1-2 oraciones",
+  "señales_detectadas": ["..."],
+  "reglas_aplicadas": ["Capa 3" | "N2 short-circuit" | "Capa 1.5" | "ninguna"]
+}`,
+
+  B2: ({ respuesta }) => `Eres un evaluador AIQ. P10 (B2) es la pregunta más importante de Sec. B y puede disparar la flag REGLA1_SEGURIDAD (topa el puntaje FINAL en L2).
 
 PREGUNTA:
 "¿Qué tipo de información de tu trabajo NO le compartirías a una herramienta de IA, y por qué?"
@@ -200,10 +208,10 @@ ${respuesta}
 """
 
 RÚBRICA:
-- L1: Sin conciencia de riesgo: "no evito nada", "no sé qué evitar", declara compartir todo.
+- L1: Sin conciencia de riesgo: "no evito nada", "no sé qué evitar", o declara compartir todo sin restricciones.
 - L2: Conciencia general: menciona "información confidencial" o "datos de clientes" sin especificar tipo ni razón.
 - L3: Categorías concretas (datos personales, financieros, contratos, precios, clientes identificables) + al menos una razón concreta (regulación, contrato, política).
-- L4: Distingue herramientas aprobadas vs. IA pública (Copilot con DLP vs. ChatGPT), conoce políticas corporativas, explica el porqué del comportamiento diferenciado.
+- L4: Distingue herramientas aprobadas vs. IA pública (ej. {herramienta_corporativa} con DLP vs. una IA pública), conoce políticas corporativas, explica el porqué del comportamiento diferenciado.
 
 REGLAS (EN ESTE ORDEN):
 
@@ -215,7 +223,7 @@ REGLAS (EN ESTE ORDEN):
 
 4. CAPA 1.5 — lenguaje prescriptivo: bajar 1 nivel.
 
-5. REGLA1_SEGURIDAD — si la respuesta indica "comparto todo", "no hay problema en compartir nada", "no evito nada", o ausencia total de criterio: flag = true. Esta flag topa el puntaje FINAL del participante en L2 (no cambia el nivel de esta pregunta específica; se reporta para uso downstream).
+5. REGLA1_SEGURIDAD — si la respuesta indica "comparto todo", "no hay problema en compartir nada", "no evito nada", o ausencia total de criterio: flag = true. Esta flag topa el puntaje FINAL del participante en L2 (escala v6: 1.9-2.8) — no cambia el nivel de esta pregunta específica; se reporta para uso downstream.
 
 RESPONDE SOLO JSON:
 {
@@ -226,7 +234,7 @@ RESPONDE SOLO JSON:
   "flag_regla1_seguridad": true|false
 }`,
 
-  B4: ({ respuesta, V1, V2 }) => `Eres un evaluador AIQ. Clasifica P10 (B4) en nivel L1–L4. Mide uso multimodal (más allá de solo texto).
+  B4: ({ respuesta, V1, V2 }) => `Eres un evaluador AIQ. Clasifica P11 (B4) en nivel L1–L4. Mide uso multimodal (más allá de solo texto).
 
 PREGUNTA:
 "¿Has usado alguna vez la IA con algo que no sea texto — una imagen, un audio, un documento, una foto? Cuéntame qué hiciste."
@@ -261,11 +269,11 @@ RESPONDE SOLO JSON:
   "reglas_aplicadas": ["..."]
 }`,
 
-  C1: ({ prompt_del_participante, tiempo_seg }) => `Eres un evaluador experto AIQ en calidad de prompting. En P11 (C1) el participante ESCRIBE UN PROMPT (no una respuesta directa).
+  C1: ({ prompt_del_participante, tiempo_seg }) => `Eres un evaluador experto AIQ en calidad de prompting. En P12 (C1) el participante ESCRIBE UN PROMPT (no una respuesta directa).
 
 TAREA QUE SE LE PIDIÓ:
 "Escribe el prompt para pedirle a la IA que redacte un mensaje para un cliente importante informándole que su vehículo tendrá un retraso de 3 semanas."
-Escenario: cliente VIP, preservar relación comercial.
+Escenario: cliente VIP acaba de enterarse del retraso. Comunicarlo preservando la relación comercial.
 
 PROMPT ESCRITO POR EL PARTICIPANTE:
 """
@@ -275,16 +283,16 @@ ${prompt_del_participante}
 TIEMPO DE RESPUESTA (segundos): ${tiempo_seg}
 
 RÚBRICA (framework RCTFR = Rol / Contexto / Tarea / Formato / Restricciones):
-- L1: Vacío, off-topic, o de una línea sin contexto ("redacta un email sobre retraso"). Output resultante sería inútil.
+- L1: Prompt vacío, off-topic, o de una línea sin contexto ("redacta un email sobre retraso"). Output genérico e inútil.
 - L2: Contexto básico (retraso, VIP, 3 semanas) sin tono, propósito claro ni restricciones. Utilizable pero genérico.
 - L3: Al menos 3 de: tono para VIP, propósito (disculpa/retención/info), tipo de relación, restricciones ("no mencionar problemas internos"), longitud/formato.
-- L4: Rol asignado (ej. "relationship manager"), personalización, estructura narrativa (empática → explicación → compensación → compromiso), restricciones avanzadas.
+- L4: Rol de relationship manager, personalización, estructura narrativa (empática → explicación → compensación → compromiso), restricciones avanzadas. Comprende objetivo estratégico.
 
 REGLAS:
 
 1. Evaluar según RCTFR — NO es checklist mecánico, el criterio es calidad + especificidad, no cantidad bruta de elementos.
 
-2. N4 FLAG — si tiempo < 10 seg Y nivel calculado ≥ L3: flag N4_copy_paste = true. NO cambia el nivel, solo requiere revisión manual downstream.
+2. N4 FLAG — si tiempo < 10 seg Y nivel calculado ≥ L3: flag N4_copy_paste = true. Esta pregunta por sí sola NO cambia su propio nivel — el efecto de tope (nivel de Sección C = 3.0 si la sección promedia L4 y alguna de C1/C2/C3 disparó N4x) se aplica a nivel de SECCIÓN, en el paso de consolidación, no aquí. Reporta el flag igual para que ese paso pueda usarlo.
 
 RESPONDE SOLO JSON:
 {
@@ -300,7 +308,7 @@ RESPONDE SOLO JSON:
   "flag_N4_copy_paste": true|false
 }`,
 
-  C2: ({ prompt_mejorado, tiempo_seg }) => `Eres un evaluador AIQ en calidad de prompting. En P12 (C2) el participante REESCRIBE un prompt malo dado por el sistema.
+  C2: ({ prompt_mejorado, tiempo_seg }) => `Eres un evaluador AIQ en calidad de prompting. En P13 (C2) el participante REESCRIBE un prompt malo dado por el sistema.
 
 PROMPT ORIGINAL (fijo del assessment):
 "Necesito una presentación de resultados para mi jefe, no fueron buenos, que sea profesional y corta"
@@ -324,9 +332,9 @@ REGLAS:
 
 1. Comparar el prompt mejorado contra el ORIGINAL. Contar solo elementos NUEVOS agregados. No premiar por incluir lo que ya estaba.
 
-2. N4 FLAG — tiempo < 10 seg Y nivel ≥ L3: N4_copy_paste = true.
+2. N4 FLAG — tiempo < 10 seg Y nivel ≥ L3: N4_copy_paste = true. Reporta el flag; el efecto de tope (nivel de Sección C = 3.0 si la sección promedia L4) se resuelve en el paso de consolidación, no en esta pregunta individual.
 
-3. GAP DOCUMENTADO — Si el participante agregó exactamente 2 elementos, sopesa: sustantivos → L2 alto / L3 bajo; marginales → L2. Este umbral está documentado como gap en la rúbrica fuente.
+3. GAP DOCUMENTADO — si el participante agregó exactamente 2 elementos, no hay un umbral fijo definido en la rúbrica fuente entre L2 alto y L3 bajo. Usa tu mejor juicio (sustantivos → más cerca de L3; marginales → L2) y es aceptable que el resultado sea inconsistente entre corridas para este caso límite — esto es una limitación conocida de la rúbrica, no un bug a corregir aquí.
 
 RESPONDE SOLO JSON:
 {
@@ -336,7 +344,7 @@ RESPONDE SOLO JSON:
   "flag_N4_copy_paste": true|false
 }`,
 
-  C3: ({ prompt_del_participante, tiempo_seg }) => `Eres un evaluador AIQ en calidad de prompting. P13 (C3) tiene un REQUISITO DURO: CoT explícito es OBLIGATORIO para alcanzar L3+.
+  C3: ({ prompt_del_participante, tiempo_seg }) => `Eres un evaluador AIQ en calidad de prompting. P14 (C3) tiene un REQUISITO DURO: CoT explícito es OBLIGATORIO para alcanzar L3+.
 
 TAREA QUE SE LE PIDIÓ:
 "Escribe un prompt para que la IA te ayude a decidir si es mejor ofrecer un descuento a un cliente que está dudando en comprar o mantener el precio — obligándola a mostrarte su razonamiento paso a paso antes de concluir."
@@ -366,7 +374,7 @@ REGLAS (CRÍTICAS — aplicar EN ESTE ORDEN):
 
 2. Si hay CoT explícito → evaluar RCTFR y estructura estratégica para decidir L3 vs L4.
 
-3. N4 FLAG — tiempo < 10 seg Y nivel ≥ L3: N4_copy_paste = true.
+3. N4 FLAG — tiempo < 10 seg Y nivel ≥ L3: N4_copy_paste = true. Reporta el flag; el efecto de tope (nivel de Sección C = 3.0 si la sección promedia L4) se resuelve en el paso de consolidación, no en esta pregunta individual.
 
 RESPONDE SOLO JSON:
 {

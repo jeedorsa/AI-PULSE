@@ -1,15 +1,18 @@
 /**
- * aiqEvaluatorV5.js — Motor de evaluación AIQ, rúbrica v5.
+ * aiqEvaluatorV6.js — Motor de evaluación AIQ, rúbrica v6.
  *
  * Función pura de orquestación: recibe las respuestas de un assessment ya
  * ensambladas (ver assembleAnswers.js) y devuelve el resultado consolidado
  * según el esquema pedido. No conoce Table Storage ni ningún detalle de
- * persistencia — eso vive en results-save/index.js y en migrateToV5.js.
+ * persistencia — eso vive en results-save/index.js.
+ *
+ * Reemplazo total de aiqEvaluatorV5.js. No es una migración: los resultados
+ * ya evaluados bajo v5 no se recalculan con este motor.
  */
 
 const { AzureOpenAI } = require("openai");
-const rubric = require("./aiqRubricV5");
-const prompts = require("./aiqPromptsV5");
+const rubric = require("./aiqRubricV6");
+const prompts = require("./aiqPromptsV6");
 
 const LLM_TIMEOUT_MS = 90000;
 const LLM_RETRY_BACKOFF_MS = [500, 1500];
@@ -116,7 +119,7 @@ async function callLLMForQuestion(questionId, params, deps) {
       lastErr = err;
       // Visible en logs además del flag EVAL_ERROR_<questionId> en el resultado
       // final, para poder diagnosticar fallos de evaluación sin adivinar.
-      console.error(`aiqEvaluatorV5: fallo evaluando ${questionId} (intento ${attempt}):`, err.name, err.status || "", err.message);
+      console.error(`aiqEvaluatorV6: fallo evaluando ${questionId} (intento ${attempt}):`, err.name, err.status || "", err.message);
       if (attempt === 0 && isRetryableError(err)) {
         await sleep(LLM_RETRY_BACKOFF_MS[attempt]);
         continue;
@@ -218,20 +221,22 @@ function computeSectionLevel(levels) {
 const SECTION_TIE_BREAK_ORDER = { C: 0, A: 1, B: 2 };
 
 /**
- * Selecciona 2-3 recomendaciones_ids según las reglas 29-35 de la rúbrica v5:
- * rankear secciones por nivel (desempate C>A>B), elegir dentro de cada
- * sección la pregunta de menor nivel individual (excluyendo B1, que no tiene
- * tarjetas), sin repetir sección, y asegurar al menos una recomendación
- * hacia L4 si el nivel general es >= L3.
+ * Selecciona 2-3 recomendaciones_ids: rankear secciones por nivel (desempate
+ * C>A>B), elegir dentro de cada sección la pregunta de menor nivel individual
+ * (excluyendo B1 y E6, que no tienen tarjetas en el catálogo v6), sin repetir
+ * sección, y asegurar al menos una recomendación hacia L4 si el nivel general
+ * es >= L3.
  */
 function selectRecommendations({ sectionInts, questionLevels, nivelFinal }) {
   const sectionsRanked = ["A", "B", "C"]
     .map((s) => ({ section: s, level: sectionInts[s] }))
     .sort((a, b) => a.level - b.level || SECTION_TIE_BREAK_ORDER[a.section] - SECTION_TIE_BREAK_ORDER[b.section]);
 
+  // B1 (cerrada) y E6 (conceptual) no tienen tarjetas de recomendación en el
+  // catálogo v6 — excluidas explícitamente, a diferencia de v5 que solo excluía B1.
   function eligibleQuestions(section) {
     return rubric.SECTION_QUESTIONS[section]
-      .filter((q) => q !== "B1")
+      .filter((q) => q !== "B1" && q !== "E6")
       .filter((q) => questionLevels[q] !== undefined && rubric.LEVEL_TO_INT[questionLevels[q]] < 4)
       .sort(
         (a, b) =>
@@ -262,13 +267,13 @@ function selectRecommendations({ sectionInts, questionLevels, nivelFinal }) {
     usedSections.add(section);
   }
 
-  // Regla 32: si el nivel general es >= L3, asegurar al menos una recomendación t-34 (->L4).
+  // Si el nivel general es >= L3, asegurar al menos una recomendación t-34 (->L4).
   const nivelFinalInt = rubric.LEVEL_TO_INT[nivelFinal];
   const tieneEmpujeL4 = selected.some((s) => s.transition === "t-34");
   if (nivelFinalInt >= 3 && !tieneEmpujeL4) {
     const l3Candidates = ["A", "B", "C"].flatMap((section) =>
       rubric.SECTION_QUESTIONS[section]
-        .filter((q) => q !== "B1" && questionLevels[q] === "L3")
+        .filter((q) => q !== "B1" && q !== "E6" && questionLevels[q] === "L3")
         .map((questionId) => ({ section, questionId }))
     );
     l3Candidates.sort((a, b) => (usedSections.has(a.section) ? 1 : 0) - (usedSections.has(b.section) ? 1 : 0));
@@ -333,7 +338,7 @@ async function evaluateAssessment(answers, participant = {}, options = {}) {
 
   const shortCircuit = isN2ShortCircuit(V1, V2);
 
-  // Lanzar las 8 llamadas LLM en paralelo (Promise.allSettled: un fallo no cancela las demás).
+  // Lanzar las 9 llamadas LLM en paralelo (Promise.allSettled: un fallo no cancela las demás).
   const openQuestionIds = ["E2", "E3", "E5", "E6", "B2", "B4"];
   const cQuestionIds = ["C1", "C2", "C3"];
 
@@ -388,6 +393,28 @@ async function evaluateAssessment(answers, participant = {}, options = {}) {
     C: computeSectionLevel([questionLevels.C1, questionLevels.C2, questionLevels.C3]),
   };
 
+  // N4x#: preguntas de Sección C con tiempo < N4_TIME_THRESHOLD_SEC y nivel >= L3.
+  // Se calcula ANTES de la fórmula ponderada porque, a diferencia de v5 (donde
+  // esta flag era puramente informativa), en v6 puede topar el nivel de Sección C.
+  const n4Count = rubric.N4_QUESTIONS.filter((q) => {
+    const r = results[q];
+    const tiempo = r && r.tiempoSeg;
+    if (typeof tiempo !== "number") return false;
+    return tiempo < rubric.N4_TIME_THRESHOLD_SEC && rubric.LEVEL_TO_INT[r.nivel] >= 3;
+  }).length;
+  if (n4Count > 0) {
+    flags.add(`N4x${n4Count}`);
+  }
+
+  // Tope condicional NUEVO en v6: si Sección C calculó L4 (nivel entero 4) Y
+  // se disparó al menos una marca N4x#, forzar Sección C a nivel 3 (Practicante)
+  // ANTES de sumar la fórmula ponderada. Si Sección C quedó en L3 o menos, la
+  // flag N4x# permanece solo como alerta y no toca ningún puntaje. No se emite
+  // una flag adicional para este ajuste — solo N4x# está en la especificación.
+  if (n4Count > 0 && sectionInts.C === 4) {
+    sectionInts.C = 3;
+  }
+
   let puntaje =
     sectionInts.A * rubric.SECTION_WEIGHTS.A +
     sectionInts.B * rubric.SECTION_WEIGHTS.B +
@@ -399,38 +426,36 @@ async function evaluateAssessment(answers, participant = {}, options = {}) {
     flags.add("N2_suave");
   }
 
-  // N1: perfil desbalanceado.
+  // N1: perfil desbalanceado. Se evalúa sobre los sectionInts ya topados por
+  // N4x# (valores finales usados en la fórmula), no sobre un cálculo previo.
   const sectionValues = [sectionInts.A, sectionInts.B, sectionInts.C];
   if (Math.max(...sectionValues) - Math.min(...sectionValues) >= 2) {
     flags.add("N1");
   }
 
   // N3: >=50% de las 5 preguntas abiertas que pesan son cortas (<=5 palabras)
-  // o vacías/"."/N-A — umbral propio de N3 (rule 19), distinto al de Capa 3.
+  // o vacías/"."/N-A. CAMBIA respecto a v5: E6 queda excluida de este conteo
+  // (rubric.N3_QUESTIONS ya refleja las 5 preguntas correctas, sin E6).
   const n3Count = rubric.N3_QUESTIONS.filter((q) => isCapa3Trigger(extractOpenText(answers[q]), 5)).length;
   if (n3Count / rubric.N3_QUESTIONS.length >= 0.5) {
     flags.add("N3");
   }
 
-  // N4x#: preguntas de Sección C con tiempo < 10s y nivel >= L3.
-  const n4Count = rubric.N4_QUESTIONS.filter((q) => {
-    const r = results[q];
-    const tiempo = r && r.tiempoSeg;
-    if (typeof tiempo !== "number") return false;
-    return tiempo < 10 && rubric.LEVEL_TO_INT[r.nivel] >= 3;
-  }).length;
-  if (n4Count > 0) {
-    flags.add(`N4x${n4Count}`);
-  }
-
-  // REGLA1_SEGURIDAD: dispara en B2, topa puntaje/nivel final en L2.
+  // REGLA1_SEGURIDAD: dispara en B2, topa puntaje/nivel final en L2 (escala
+  // v6: cap = 2.8). Se aplica DESPUÉS del tope de N4x# sobre Sección C — son
+  // reglas independientes que pueden coexistir en el mismo perfil sin
+  // conflicto de precedencia: N4x# actúa sobre sectionInts.C antes de sumar
+  // la fórmula, REGLA1_SEGURIDAD actúa sobre el puntaje ya ponderado.
   if (results.B2.flag_regla1_seguridad) {
     flags.add("REGLA1_SEGURIDAD");
     puntaje = Math.min(puntaje, rubric.REGLA1_CAP_PUNTAJE);
     nivel = rubric.levelFromPuntaje(puntaje);
   }
 
-  // CANDIDATO_A_CHAMPION: interpretación estricta (puntaje + nivel(E5)=L4 + 3 señales + D5/D6).
+  // CANDIDATO_A_CHAMPION: puntaje >= 3.9 (v6) + nivel(E5)=L4 + 3 señales + D5/D6.
+  // Nota de signo: D6 usa escala INVERTIDA (1 = mejor: conoce la política y
+  // sabe qué dice; 4 = peor) a diferencia de D1/D1b/D9 donde 4 = mejor — no
+  // "corregir" este ===1 por comparación superficial con las otras preguntas D.
   const championSignals = results.E5.champion_signals;
   const tresSenalesChampion =
     championSignals && championSignals.liderazgo && championSignals.recurso_recurrente && championSignals.impacto_medible;
@@ -457,7 +482,7 @@ async function evaluateAssessment(answers, participant = {}, options = {}) {
     C: sectionInts.C,
     flags: Array.from(flags),
     recomendaciones_ids,
-    rubricVersion: "v5",
+    rubricVersion: "v6",
     perQuestionLevels: questionLevels,
   };
 }

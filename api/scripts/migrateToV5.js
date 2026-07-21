@@ -3,6 +3,16 @@
  * migrateToV5.js — Migración one-time de la tabla `assessmentResults` al
  * formato de la rúbrica v5.
  *
+ * INERTE desde el reemplazo v5 → v6: este script solo aplica al salto
+ * legacy→v5 y depende de `aiqEvaluatorV5.js`, que fue eliminado como parte
+ * de ese reemplazo (rúbrica v6 = reemplazo total, no migración). La
+ * migración v5→v6 fue una decisión de producto explícita de NO hacer
+ * recompute retroactivo — los resultados v5 existentes se dejan tal cual.
+ * Se conserva este archivo solo como referencia histórica del patrón
+ * (dry-run/backup obligatorio/batches/reporte de fallbacks); no usarlo como
+ * base para un eventual script v6 sin confirmar antes con producto que la
+ * decisión de "sin recompute" cambió.
+ *
  * Recalcula nivel/puntaje/A/B/C/flags/recomendaciones_ids para CADA
  * participante ya evaluado, usando el mismo motor (aiqEvaluatorV5) que usa
  * `results-save` para assessments nuevos, y persiste el resultado con

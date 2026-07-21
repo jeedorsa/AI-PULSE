@@ -2,7 +2,7 @@ const { odata } = require("@azure/data-tables");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const { createTableClient } = require("../shared/tableClient");
-const { recommendationCardsFromIds } = require("../shared/aiqRubricV5");
+const { recommendationCardsFromIds } = require("../shared/aiqRubricV6");
 const { corsHeaders } = require("../shared/cors");
 const { createSessionToken, validateSessionToken, requireSessionSecret } = require("../shared/sessionAuth");
 
@@ -52,6 +52,14 @@ function buildProfileFields(result) {
   let flags = [];
   try { flags = result?.alerts ? JSON.parse(result.alerts) : []; } catch {}
 
+  // El catálogo de recomendaciones v6 (aiqRubricV6.js) solo es válido para
+  // resultados evaluados con esa misma rúbrica: traducir un ID persistido
+  // bajo v5/legacy con el QUESTION_NUMBER de v6 produciría una tarjeta para
+  // una pregunta distinta a la que el participante realmente respondió (ej.
+  // P14 en v5 era E6, en v6 es C3) — silenciosamente incorrecto, no solo
+  // vacío. Por eso las filas que no son v6 degradan a recomendaciones: [].
+  const isCurrentRubric = result?.rubricVersion === "v6";
+
   return {
     nombre,
     aiqScore: result?.aiqScore || 0,
@@ -64,7 +72,7 @@ function buildProfileFields(result) {
     completedAt: result?.completedAt || "",
     rubricVersion: result?.rubricVersion || "legacy",
     flags,
-    recomendaciones: recommendationCardsFromIds(recomendacionesIds, { nombre, empresa }),
+    recomendaciones: isCurrentRubric ? recommendationCardsFromIds(recomendacionesIds, { nombre, empresa }) : [],
   };
 }
 
