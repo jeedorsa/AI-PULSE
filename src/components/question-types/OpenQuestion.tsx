@@ -1,4 +1,6 @@
 import React from 'react';
+import { usePasteGuard, PASTE_BLOCKED_MESSAGE } from '../../hooks/usePasteGuard';
+import { Toast } from '../ui/Toast';
 
 interface OpenQuestionProps {
   question: any;
@@ -7,6 +9,8 @@ interface OpenQuestionProps {
 }
 
 export const OpenQuestion: React.FC<OpenQuestionProps> = ({ question, value, onChange }) => {
+  const { blocked, onPaste, clearBlocked } = usePasteGuard();
+
   return (
     <div className="w-full space-y-4">
       <textarea
@@ -14,7 +18,9 @@ export const OpenQuestion: React.FC<OpenQuestionProps> = ({ question, value, onC
         placeholder="Escribe tu respuesta aquí..."
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
+        onPaste={onPaste}
       />
+      <Toast message={PASTE_BLOCKED_MESSAGE} isVisible={blocked} onClose={clearBlocked} />
     </div>
   );
 };
