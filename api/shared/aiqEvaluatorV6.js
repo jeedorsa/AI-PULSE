@@ -15,7 +15,23 @@ const rubric = require("./aiqRubricV6");
 const prompts = require("./aiqPromptsV6");
 
 const LLM_TIMEOUT_MS = 90000;
+// La llamada consolidada evalúa hasta 9 preguntas en 1 solo request: más
+// tokens de entrada/salida que una llamada individual, timeout proporcionalmente
+// mayor. Sigue muy por debajo del functionTimeout de la Azure Function (10 min).
+const LLM_TIMEOUT_MS_CONSOLIDATED = 150000;
 const LLM_RETRY_BACKOFF_MS = [500, 1500];
+
+// Modo de invocación al LLM: "consolidated" (default, 1 llamada para las N
+// preguntas calificables) o "legacy" (1 llamada por pregunta, comportamiento
+// pre-optimización). Sirve como palanca de reversión operativa sin deploy de
+// código: basta con fijar AIQ_LLM_MODE=legacy en la configuración de la
+// Function App. El modo consolidado además cae a "legacy" automáticamente
+// por assessment si la llamada consolidada falla por completo (ver
+// evaluateLLMQuestionsConsolidated).
+function resolveLlmMode(options) {
+  if (options.llmMode) return options.llmMode;
+  return process.env.AIQ_LLM_MODE === "legacy" ? "legacy" : "consolidated";
+}
 
 // Preguntas evaluadas por LLM (con prompt calificador propio).
 const LLM_QUESTIONS = ["E2", "E3", "E5", "E6", "B2", "B4", "C1", "C2", "C3"];
@@ -143,21 +159,16 @@ function applyCapa15(nivel, text) {
 }
 
 /**
- * Evalúa una de las 6 preguntas abiertas con LLM (E2, E3, E5, E6, B2, B4).
+ * Post-procesamiento determinístico de una pregunta abierta ya evaluada por
+ * el LLM (Capa 1.5). Independiente de si el resultado vino de una llamada
+ * individual (legacy) o de una llamada consolidada — ambos flujos convergen acá.
  */
-async function evaluateOpenQuestion(questionId, respuesta, ctx, deps) {
-  if (CAPA3_QUESTIONS.has(questionId) && isCapa3Trigger(respuesta)) {
-    return { nivel: "L1", reglas_aplicadas: ["Capa 3"], fallback: false };
-  }
-
-  const params = { respuesta, V1: ctx.V1, V2: ctx.V2 };
-  const result = await callLLMForQuestion(questionId, params, deps);
-
-  if (!result.ok) {
+function finalizeOpenQuestion(questionId, respuesta, llmResult) {
+  if (!llmResult.ok) {
     return { nivel: "L1", reglas_aplicadas: ["EVAL_ERROR"], fallback: true, questionId };
   }
 
-  const parsed = result.parsed;
+  const parsed = llmResult.parsed;
   let nivel = parsed.nivel;
   // Capa 1.5 ya se le pide al LLM que la aplique; se refuerza determinísticamente
   // solo si el LLM no reportó haberla aplicado, para no bajar el nivel dos veces.
@@ -176,23 +187,39 @@ async function evaluateOpenQuestion(questionId, respuesta, ctx, deps) {
 }
 
 /**
- * Evalúa una de las 3 preguntas prompt_input de Sección C (C1, C2, C3).
+ * Evalúa una de las 6 preguntas abiertas con LLM (E2, E3, E5, E6, B2, B4).
+ * Flujo legacy: 1 llamada individual por pregunta.
  */
-async function evaluateCQuestion(questionId, answer, deps) {
+async function evaluateOpenQuestion(questionId, respuesta, ctx, deps) {
+  if (CAPA3_QUESTIONS.has(questionId) && isCapa3Trigger(respuesta)) {
+    return { nivel: "L1", reglas_aplicadas: ["Capa 3"], fallback: false };
+  }
+
+  const params = { respuesta, V1: ctx.V1, V2: ctx.V2 };
+  const result = await callLLMForQuestion(questionId, params, deps);
+  return finalizeOpenQuestion(questionId, respuesta, result);
+}
+
+function buildCQuestionParams(questionId, answer) {
   const promptText = extractOpenText(answer);
   const tiempoSeg = typeof answer === "object" && answer !== null ? answer.time : undefined;
   const params =
     questionId === "C2"
       ? { prompt_mejorado: promptText, tiempo_seg: tiempoSeg }
       : { prompt_del_participante: promptText, tiempo_seg: tiempoSeg };
+  return { params, tiempoSeg };
+}
 
-  const result = await callLLMForQuestion(questionId, params, deps);
-
-  if (!result.ok) {
+/**
+ * Post-procesamiento determinístico de una pregunta de Sección C ya evaluada
+ * por el LLM (techo L2 de C3 sin CoT). Independiente del flujo de llamada.
+ */
+function finalizeCQuestion(questionId, llmResult, tiempoSeg) {
+  if (!llmResult.ok) {
     return { nivel: "L1", flag_N4_copy_paste: false, fallback: true, questionId, tiempoSeg };
   }
 
-  const parsed = result.parsed;
+  const parsed = llmResult.parsed;
   let nivel = parsed.nivel;
 
   // C3 — regla dura: sin CoT explícito, techo L2 sin excepción, sin importar
@@ -210,6 +237,135 @@ async function evaluateCQuestion(questionId, answer, deps) {
     fallback: false,
     tiempoSeg,
   };
+}
+
+/**
+ * Evalúa una de las 3 preguntas prompt_input de Sección C (C1, C2, C3).
+ * Flujo legacy: 1 llamada individual por pregunta.
+ */
+async function evaluateCQuestion(questionId, answer, deps) {
+  const { params, tiempoSeg } = buildCQuestionParams(questionId, answer);
+  const result = await callLLMForQuestion(questionId, params, deps);
+  return finalizeCQuestion(questionId, result, tiempoSeg);
+}
+
+/**
+ * Llama al LLM UNA sola vez con las N preguntas calificables restantes
+ * (después de descartar las que ya cayeron en Capa 3, sin LLM) empaquetadas
+ * en un único prompt consolidado. 1 reintento con el mismo criterio que
+ * callLLMForQuestion. Nunca lanza: si agota los reintentos, devuelve
+ * { ok: false } para que el llamador aplique el fallback a modo legacy.
+ */
+async function callLLMConsolidated(paramsByQuestion, deps) {
+  const callLLM = deps.callLLM;
+  let lastErr;
+  for (let attempt = 0; attempt <= 1; attempt++) {
+    try {
+      const userPrompt = prompts.buildConsolidatedPrompt(paramsByQuestion);
+      const raw = await withTimeout(
+        callLLM({ system: prompts.CONSOLIDATED_SYSTEM_PROMPT, user: userPrompt, questionId: "CONSOLIDATED" }),
+        LLM_TIMEOUT_MS_CONSOLIDATED,
+        "CONSOLIDATED"
+      );
+      const clean = String(raw || "").replace(/```json|```/g, "").trim();
+      const parsed = JSON.parse(clean);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error("Respuesta LLM consolidada no es un objeto JSON");
+      }
+      return { ok: true, parsed };
+    } catch (err) {
+      lastErr = err;
+      console.error(`aiqEvaluatorV6: fallo evaluación consolidada (intento ${attempt}):`, err.name, err.status || "", err.message);
+      if (attempt === 0 && isRetryableError(err)) {
+        await sleep(LLM_RETRY_BACKOFF_MS[attempt]);
+        continue;
+      }
+      break;
+    }
+  }
+  return { ok: false, error: lastErr };
+}
+
+/**
+ * Extrae el sub-resultado de una pregunta puntual desde el JSON consolidado.
+ * Si la clave falta o no trae un "nivel" válido, se trata como fallo
+ * puntual de ESA pregunta (mismo criterio que un fallo individual en el
+ * flujo legacy) sin invalidar el resto del assessment.
+ */
+function extractSubResult(parsedConsolidated, questionId) {
+  const sub = parsedConsolidated ? parsedConsolidated[questionId] : undefined;
+  if (!sub || !rubric.LEVEL_TO_INT[sub.nivel]) {
+    return { ok: false };
+  }
+  return { ok: true, parsed: sub };
+}
+
+/**
+ * Evalúa las preguntas LLM-calificables en 1 sola llamada consolidada
+ * (reemplaza las 9 llamadas individuales del flujo legacy por 1 sola,
+ * eliminando el overhead de system prompt + boilerplate repetido 9x).
+ *
+ * Red de seguridad: si la llamada consolidada falla por completo (timeout,
+ * error de red, o JSON top-level ilegible tras el reintento), se cae
+ * automáticamente al flujo legacy (1 llamada por pregunta) SOLO para este
+ * assessment — nunca deja el assessment sin evaluar. Si la llamada
+ * consolidada responde pero a una pregunta puntual le falta su clave o
+ * viene inválida, esa pregunta puntual cae a fallback L1 (igual que un
+ * fallo individual en legacy) sin afectar a las demás.
+ */
+async function evaluateLLMQuestionsConsolidated(openQuestionIds, cQuestionIds, ctx, answers, deps) {
+  const results = {};
+
+  const openToEvaluate = openQuestionIds.filter((q) => {
+    const respuesta = extractOpenText(answers[q]);
+    if (CAPA3_QUESTIONS.has(q) && isCapa3Trigger(respuesta)) {
+      results[q] = { nivel: "L1", reglas_aplicadas: ["Capa 3"], fallback: false };
+      return false;
+    }
+    return true;
+  });
+
+  const paramsByQuestion = {};
+  openToEvaluate.forEach((q) => {
+    paramsByQuestion[q] = { respuesta: extractOpenText(answers[q]), V1: ctx.V1, V2: ctx.V2 };
+  });
+  const cParams = {};
+  cQuestionIds.forEach((q) => {
+    const { params, tiempoSeg } = buildCQuestionParams(q, answers[q]);
+    cParams[q] = { params, tiempoSeg };
+    paramsByQuestion[q] = params;
+  });
+
+  const toEvaluate = [...openToEvaluate, ...cQuestionIds];
+  if (toEvaluate.length === 0) {
+    return results;
+  }
+
+  const consolidated = await callLLMConsolidated(paramsByQuestion, deps);
+
+  if (!consolidated.ok) {
+    // La llamada consolidada falló por completo -> red de seguridad: flujo
+    // legacy 1 llamada por pregunta, solo para las preguntas pendientes.
+    const settled = await Promise.allSettled(toEvaluate.map((q) => callLLMForQuestion(q, paramsByQuestion[q], deps)));
+    toEvaluate.forEach((q, idx) => {
+      const settledResult = settled[idx];
+      const llmResult = settledResult.status === "fulfilled" ? settledResult.value : { ok: false, error: settledResult.reason };
+      results[q] = openToEvaluate.includes(q)
+        ? finalizeOpenQuestion(q, extractOpenText(answers[q]), llmResult)
+        : finalizeCQuestion(q, llmResult, cParams[q].tiempoSeg);
+    });
+    return results;
+  }
+
+  openToEvaluate.forEach((q) => {
+    const sub = extractSubResult(consolidated.parsed, q);
+    results[q] = finalizeOpenQuestion(q, extractOpenText(answers[q]), sub);
+  });
+  cQuestionIds.forEach((q) => {
+    const sub = extractSubResult(consolidated.parsed, q);
+    results[q] = finalizeCQuestion(q, sub, cParams[q].tiempoSeg);
+  });
+  return results;
 }
 
 function computeSectionLevel(levels) {
@@ -312,7 +468,7 @@ function selectRecommendations({ sectionInts, questionLevels, nivelFinal }) {
 async function evaluateAssessment(answers, participant = {}, options = {}) {
   const callLLM =
     options.callLLM ||
-    (async ({ system, user }) => {
+    (async ({ system, user, questionId }) => {
       const client = getAzureOpenAIClient();
       const deployment = process.env.AZURE_OPENAI_DEPLOYMENT;
       const completion = await client.chat.completions.create({
@@ -324,7 +480,12 @@ async function evaluateAssessment(answers, participant = {}, options = {}) {
         // El deployment configurado puede ser un modelo de razonamiento
         // (consume tokens ocultos de "thinking" antes del JSON visible),
         // por eso el presupuesto es generoso: no es solo para el output.
-        max_completion_tokens: 2000,
+        // La llamada consolidada empaqueta hasta 9 preguntas en 1 request,
+        // por lo que necesita más presupuesto de salida que una individual.
+        // Valor inicial conservador: monitorear tokens reales en Application
+        // Insights y ajustar una vez que haya datos de producción del modo
+        // consolidado (no se calibra a ciegas por pregunta sin telemetría real).
+        max_completion_tokens: questionId === "CONSOLIDATED" ? 9000 : 2000,
       });
       return completion.choices[0]?.message?.content || "";
     });
@@ -338,26 +499,35 @@ async function evaluateAssessment(answers, participant = {}, options = {}) {
 
   const shortCircuit = isN2ShortCircuit(V1, V2);
 
-  // Lanzar las 9 llamadas LLM en paralelo (Promise.allSettled: un fallo no cancela las demás).
   const openQuestionIds = ["E2", "E3", "E5", "E6", "B2", "B4"];
   const cQuestionIds = ["C1", "C2", "C3"];
 
-  const settled = await Promise.allSettled([
-    ...openQuestionIds.map((q) => evaluateOpenQuestion(q, extractOpenText(answers[q]), ctx, deps)),
-    ...cQuestionIds.map((q) => evaluateCQuestion(q, answers[q], deps)),
-  ]);
-
+  const llmMode = resolveLlmMode(options);
   const results = {};
   const flags = new Set();
 
-  [...openQuestionIds, ...cQuestionIds].forEach((questionId, idx) => {
-    const settledResult = settled[idx];
-    if (settledResult.status === "fulfilled") {
-      results[questionId] = settledResult.value;
-    } else {
-      results[questionId] = { nivel: "L1", fallback: true };
-    }
-    if (results[questionId].fallback) {
+  if (llmMode === "legacy") {
+    // Flujo pre-optimización: 1 llamada individual por pregunta en paralelo
+    // (Promise.allSettled: un fallo no cancela las demás). Se conserva como
+    // red de reversión operativa (AIQ_LLM_MODE=legacy) y como fallback
+    // automático del modo consolidado ante fallo total (ver más abajo).
+    const settled = await Promise.allSettled([
+      ...openQuestionIds.map((q) => evaluateOpenQuestion(q, extractOpenText(answers[q]), ctx, deps)),
+      ...cQuestionIds.map((q) => evaluateCQuestion(q, answers[q], deps)),
+    ]);
+
+    [...openQuestionIds, ...cQuestionIds].forEach((questionId, idx) => {
+      const settledResult = settled[idx];
+      results[questionId] = settledResult.status === "fulfilled" ? settledResult.value : { nivel: "L1", fallback: true };
+    });
+  } else {
+    // Flujo consolidado (default): 1 sola llamada al LLM para todas las
+    // preguntas calificables del assessment en vez de 9 independientes.
+    Object.assign(results, await evaluateLLMQuestionsConsolidated(openQuestionIds, cQuestionIds, ctx, answers, deps));
+  }
+
+  [...openQuestionIds, ...cQuestionIds].forEach((questionId) => {
+    if (results[questionId] && results[questionId].fallback) {
       flags.add(`EVAL_ERROR_${questionId}`);
     }
   });

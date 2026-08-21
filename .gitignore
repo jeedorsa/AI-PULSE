@@ -13,3 +13,5 @@ worker/local.settings.json.*
 api/.azurite/
 worker/.azurite/
 old_backup/
+CLAUDE.md
+package-lock.json

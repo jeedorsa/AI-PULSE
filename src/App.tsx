@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-route
 import { AnimatePresence, motion } from 'motion/react';
 import { useAssessmentStore } from './store/useAssessmentStore';
 import LandingPage from './pages/LandingPage';
-import GatePage from './pages/GatePage';
+//import GatePage from './pages/GatePage';
 import AssessmentPage from './pages/AssessmentPage';
 import CheckpointPage from './pages/CheckpointPage';
 import ProcessingPage from './pages/ProcessingPage';
@@ -41,7 +41,7 @@ const AnimatedRoutes = () => {
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
         <Route path="/" element={<PageWrapper><LandingPage /></PageWrapper>} />
-        <Route path="/gate" element={<PageWrapper><GatePage /></PageWrapper>} />
+        {/* <Route path="/gate" element={<PageWrapper><GatePage /></PageWrapper>} /> */}
         <Route path="/assessment" element={<PageWrapper><AssessmentPage /></PageWrapper>} />
         <Route path="/checkpoint/:id" element={<PageWrapper><CheckpointPage /></PageWrapper>} />
         <Route path="/processing" element={<PageWrapper><ProcessingPage /></PageWrapper>} />

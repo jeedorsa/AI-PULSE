@@ -26,10 +26,25 @@ function baseAnswers(overrides = {}) {
   };
 }
 
-/** Construye un callLLM mockeado. `scenario` mapea questionId -> objeto de respuesta (o función). */
+/**
+ * Construye un callLLM mockeado. `scenario` mapea questionId -> objeto de
+ * respuesta (o función). Soporta ambos modos de invocación:
+ * - legacy: 1 invocación por pregunta, questionId = el ID real.
+ * - consolidated: 1 sola invocación con questionId="CONSOLIDATED"; devuelve
+ *   el JSON combinado con TODAS las claves del scenario (extractSubResult en
+ *   el evaluador solo lee las que realmente pidió, el resto se ignora).
+ */
 function makeMockLLM(scenario, calls = []) {
   return async ({ questionId }) => {
     calls.push(questionId);
+    if (questionId === "CONSOLIDATED") {
+      const combined = {};
+      Object.keys(scenario).forEach((qid) => {
+        const entry = scenario[qid];
+        combined[qid] = typeof entry === "function" ? JSON.parse(entry()) : entry;
+      });
+      return JSON.stringify(combined);
+    }
     const entry = scenario[questionId];
     if (typeof entry === "function") return entry();
     return JSON.stringify(entry);
@@ -48,6 +63,15 @@ const DEFAULT_SCENARIO = {
   C3: { nivel: "L3", flag_N4_copy_paste: false },
 };
 
+// Toda la batería de negocio (Capa 3, N2, N3, Capa 1.5, B1, REGLA1_SEGURIDAD,
+// N4x#, C3 CoT, N1, Champion, fórmula, recomendaciones, resiliencia) corre
+// 2 veces: una contra el flujo legacy (1 llamada por pregunta, comportamiento
+// pre-optimización) y otra contra el flujo consolidado (1 sola llamada, la
+// solución implementada). Mismo scenario mockeado en ambos casos -> si algún
+// resultado difiere entre modos, alguna de las 2 corridas de cada test falla.
+// Esta es la comparación "resultados actuales vs. resultados con la solución
+// implementada" pedida, aplicada a cada pregunta y cada regla de negocio.
+describe.each(["legacy", "consolidated"])("motor AIQ v6 — modo LLM: %s", (mode) => {
 describe("computeSectionLevel — redondeo", () => {
   test("promedio 2.666 redondea a 3", () => {
     expect(computeSectionLevel(["L2", "L3", "L3"])).toBe(3);
@@ -64,26 +88,26 @@ describe("evaluateAssessment — Capa 3", () => {
   test("respuesta vacía en E2 da L1 sin llamar al LLM", async () => {
     const calls = [];
     const callLLM = makeMockLLM(DEFAULT_SCENARIO, calls);
-    const result = await evaluateAssessment(baseAnswers({ E2: "" }), {}, { callLLM });
+    const result = await evaluateAssessment(baseAnswers({ E2: "" }), {}, { callLLM, llmMode: mode });
     expect(result.perQuestionLevels.E2).toBe("L1");
     expect(calls).not.toContain("E2");
   });
 
   test("respuesta de 3 palabras o menos dispara Capa 3", async () => {
     const callLLM = makeMockLLM(DEFAULT_SCENARIO);
-    const result = await evaluateAssessment(baseAnswers({ B4: "no, nunca" }), {}, { callLLM });
+    const result = await evaluateAssessment(baseAnswers({ B4: "no, nunca" }), {}, { callLLM, llmMode: mode });
     expect(result.perQuestionLevels.B4).toBe("L1");
   });
 
   test('"N/A" dispara Capa 3', async () => {
     const callLLM = makeMockLLM(DEFAULT_SCENARIO);
-    const result = await evaluateAssessment(baseAnswers({ E3: "N/A" }), {}, { callLLM });
+    const result = await evaluateAssessment(baseAnswers({ E3: "N/A" }), {}, { callLLM, llmMode: mode });
     expect(result.perQuestionLevels.E3).toBe("L1");
   });
 
   test("Capa 3 también aplica a E6 (pregunta nueva de v6)", async () => {
     const callLLM = makeMockLLM(DEFAULT_SCENARIO);
-    const result = await evaluateAssessment(baseAnswers({ E6: "no sé" }), {}, { callLLM });
+    const result = await evaluateAssessment(baseAnswers({ E6: "no sé" }), {}, { callLLM, llmMode: mode });
     expect(result.perQuestionLevels.E6).toBe("L1");
   });
 });
@@ -94,7 +118,7 @@ describe("evaluateAssessment — N3 (5 preguntas, E6 EXCLUIDA — cambio vs v5)"
       ...DEFAULT_SCENARIO,
       E2: { nivel: "L2", reglas_aplicadas: [] },
     });
-    const result = await evaluateAssessment(baseAnswers({ E2: "uso la ia para todo siempre" }), {}, { callLLM });
+    const result = await evaluateAssessment(baseAnswers({ E2: "uso la ia para todo siempre" }), {}, { callLLM, llmMode: mode });
     expect(result.perQuestionLevels.E2).toBe("L2"); // NO cayó a Capa 3
   });
 
@@ -109,14 +133,14 @@ describe("evaluateAssessment — N3 (5 preguntas, E6 EXCLUIDA — cambio vs v5)"
         B4: "Subí un Excel de ventas a una IA para que me diera un resumen.",
       }),
       {},
-      { callLLM }
+      { callLLM, llmMode: mode }
     );
     expect(result.flags).toContain("N3");
   });
 
   test("respuestas largas en las 5 preguntas no disparan N3", async () => {
     const callLLM = makeMockLLM(DEFAULT_SCENARIO);
-    const result = await evaluateAssessment(baseAnswers(), {}, { callLLM });
+    const result = await evaluateAssessment(baseAnswers(), {}, { callLLM, llmMode: mode });
     expect(result.flags).not.toContain("N3");
   });
 
@@ -129,7 +153,7 @@ describe("evaluateAssessment — N3 (5 preguntas, E6 EXCLUIDA — cambio vs v5)"
         E6: "no", // corta, pero E6 no forma parte de N3_QUESTIONS en v6
       }),
       {},
-      { callLLM }
+      { callLLM, llmMode: mode }
     );
     // 2 de 5 preguntas de N3 (E2,E3) son cortas -> 40%, no alcanza el 50%.
     // Si E6 contara (como en v5, donde N3_QUESTIONS tenía 6 preguntas),
@@ -155,7 +179,7 @@ describe("evaluateAssessment — N2_short_circuit", () => {
       V2: { value: ["Ninguna todavía"] },
       B1: { value: 4 }, // opción 4 mapea a L4 sin el short-circuit
     });
-    const result = await evaluateAssessment(answers, {}, { callLLM });
+    const result = await evaluateAssessment(answers, {}, { callLLM, llmMode: mode });
     expect(result.perQuestionLevels.E2).toBe("L1");
     expect(result.perQuestionLevels.E3).toBe("L1");
     expect(result.perQuestionLevels.E5).toBe("L1");
@@ -176,7 +200,7 @@ describe("evaluateAssessment — N2_suave", () => {
       E5: { nivel: "L1", reglas_aplicadas: [], champion_signals: null },
       E6: { nivel: "L1", reglas_aplicadas: [] },
     });
-    const result = await evaluateAssessment(baseAnswers({ V1: { value: 4 } }), {}, { callLLM });
+    const result = await evaluateAssessment(baseAnswers({ V1: { value: 4 } }), {}, { callLLM, llmMode: mode });
     expect(result.A).toBe(1);
     expect(result.flags).toContain("N2_suave");
   });
@@ -189,7 +213,7 @@ describe("evaluateAssessment — N2_suave", () => {
       E5: { nivel: "L1", reglas_aplicadas: [], champion_signals: null },
       E6: { nivel: "L1", reglas_aplicadas: [] },
     });
-    const result = await evaluateAssessment(baseAnswers({ V1: { value: 1 } }), {}, { callLLM });
+    const result = await evaluateAssessment(baseAnswers({ V1: { value: 1 } }), {}, { callLLM, llmMode: mode });
     expect(result.flags).not.toContain("N2_suave");
   });
 });
@@ -201,7 +225,7 @@ describe("evaluateAssessment — Capa 1.5 (refuerzo determinístico)", () => {
       E3: { nivel: "L3", reglas_aplicadas: [] },
     });
     const answers = baseAnswers({ E3: "Hay que verificar el resultado antes de usarlo en el informe." });
-    const result = await evaluateAssessment(answers, {}, { callLLM });
+    const result = await evaluateAssessment(answers, {}, { callLLM, llmMode: mode });
     expect(result.perQuestionLevels.E3).toBe("L2");
   });
 
@@ -211,7 +235,7 @@ describe("evaluateAssessment — Capa 1.5 (refuerzo determinístico)", () => {
       E3: { nivel: "L2", reglas_aplicadas: ["Capa 1.5"] },
     });
     const answers = baseAnswers({ E3: "Hay que verificar el resultado antes de usarlo en el informe." });
-    const result = await evaluateAssessment(answers, {}, { callLLM });
+    const result = await evaluateAssessment(answers, {}, { callLLM, llmMode: mode });
     expect(result.perQuestionLevels.E3).toBe("L2");
   });
 
@@ -221,7 +245,7 @@ describe("evaluateAssessment — Capa 1.5 (refuerzo determinístico)", () => {
       E3: { nivel: "L1", reglas_aplicadas: [] },
     });
     const answers = baseAnswers({ E3: "Hay que verificar el resultado antes de usarlo en el informe." });
-    const result = await evaluateAssessment(answers, {}, { callLLM });
+    const result = await evaluateAssessment(answers, {}, { callLLM, llmMode: mode });
     expect(result.perQuestionLevels.E3).toBe("L1");
   });
 });
@@ -231,7 +255,7 @@ describe("evaluateAssessment — B1 mapeo directo", () => {
   for (const [opcion, nivelEsperado] of Object.entries(OPCION_A_NIVEL)) {
     test(`opción ${opcion} mapea a ${nivelEsperado}`, async () => {
       const callLLM = makeMockLLM(DEFAULT_SCENARIO);
-      const result = await evaluateAssessment(baseAnswers({ B1: { value: Number(opcion) } }), {}, { callLLM });
+      const result = await evaluateAssessment(baseAnswers({ B1: { value: Number(opcion) } }), {}, { callLLM, llmMode: mode });
       expect(result.perQuestionLevels.B1).toBe(nivelEsperado);
     });
   }
@@ -251,7 +275,7 @@ describe("evaluateAssessment — REGLA1_SEGURIDAD (cap CAMBIA a 2.8 en v6)", () 
       C2: { nivel: "L4", flag_N4_copy_paste: false },
       C3: { nivel: "L4", flag_N4_copy_paste: false },
     });
-    const result = await evaluateAssessment(baseAnswers({ B1: { value: 4 } }), {}, { callLLM });
+    const result = await evaluateAssessment(baseAnswers({ B1: { value: 4 } }), {}, { callLLM, llmMode: mode });
     expect(result.flags).toContain("REGLA1_SEGURIDAD");
     expect(result.puntaje).toBeLessThanOrEqual(2.8);
     expect(result.nivel).toBe("L2");
@@ -266,20 +290,20 @@ describe("evaluateAssessment — N4x# → tope de Sección C a nivel 3 (NUEVO en
       C2: { text: "prompt corto", time: 8 },
       C3: { text: "prompt corto", time: 50 },
     });
-    const result = await evaluateAssessment(answers, {}, { callLLM });
+    const result = await evaluateAssessment(answers, {}, { callLLM, llmMode: mode });
     expect(result.flags).toContain("N4x2");
   });
 
   test("sin flag N4 si ninguna es rápida", async () => {
     const callLLM = makeMockLLM(DEFAULT_SCENARIO);
-    const result = await evaluateAssessment(baseAnswers(), {}, { callLLM });
+    const result = await evaluateAssessment(baseAnswers(), {}, { callLLM, llmMode: mode });
     expect(result.flags.some((f) => f.startsWith("N4x"))).toBe(false);
   });
 
   test("respuesta sin dato de tiempo no cuenta ni rompe el cálculo", async () => {
     const callLLM = makeMockLLM(DEFAULT_SCENARIO);
     const answers = baseAnswers({ C1: { text: "prompt sin tiempo registrado" } });
-    const result = await evaluateAssessment(answers, {}, { callLLM });
+    const result = await evaluateAssessment(answers, {}, { callLLM, llmMode: mode });
     expect(result.flags.some((f) => f.startsWith("N4x"))).toBe(false);
   });
 
@@ -295,7 +319,7 @@ describe("evaluateAssessment — N4x# → tope de Sección C a nivel 3 (NUEVO en
       C2: { text: "prompt excelente", time: 60 },
       C3: { text: "prompt excelente", time: 70 },
     });
-    const result = await evaluateAssessment(answers, {}, { callLLM });
+    const result = await evaluateAssessment(answers, {}, { callLLM, llmMode: mode });
     expect(result.flags).toContain("N4x1");
     expect(result.C).toBe(3);
   });
@@ -310,7 +334,7 @@ describe("evaluateAssessment — N4x# → tope de Sección C a nivel 3 (NUEVO en
     const answers = baseAnswers({
       C1: { text: "prompt bueno pero muy rápido", time: 5 },
     });
-    const result = await evaluateAssessment(answers, {}, { callLLM });
+    const result = await evaluateAssessment(answers, {}, { callLLM, llmMode: mode });
     expect(result.flags).toContain("N4x1");
     expect(result.C).toBe(3);
   });
@@ -332,7 +356,7 @@ describe("evaluateAssessment — N4x# → tope de Sección C a nivel 3 (NUEVO en
       B1: { value: 4 },
       C1: { text: "prompt excelente pero muy rápido", time: 5 },
     });
-    const result = await evaluateAssessment(answers, {}, { callLLM });
+    const result = await evaluateAssessment(answers, {}, { callLLM, llmMode: mode });
     expect(result.flags).toContain("N4x1");
     expect(result.flags).toContain("REGLA1_SEGURIDAD");
     expect(result.C).toBe(3);
@@ -346,7 +370,7 @@ describe("evaluateAssessment — C3 CoT obligatorio (techo L2 sin excepción)", 
       ...DEFAULT_SCENARIO,
       C3: { nivel: "L4", cot_explicito_presente: false, flag_N4_copy_paste: false },
     });
-    const result = await evaluateAssessment(baseAnswers(), {}, { callLLM });
+    const result = await evaluateAssessment(baseAnswers(), {}, { callLLM, llmMode: mode });
     expect(result.perQuestionLevels.C3).toBe("L2");
   });
 
@@ -355,7 +379,7 @@ describe("evaluateAssessment — C3 CoT obligatorio (techo L2 sin excepción)", 
       ...DEFAULT_SCENARIO,
       C3: { nivel: "L1", cot_explicito_presente: false, flag_N4_copy_paste: false },
     });
-    const result = await evaluateAssessment(baseAnswers(), {}, { callLLM });
+    const result = await evaluateAssessment(baseAnswers(), {}, { callLLM, llmMode: mode });
     expect(result.perQuestionLevels.C3).toBe("L1");
   });
 
@@ -364,7 +388,7 @@ describe("evaluateAssessment — C3 CoT obligatorio (techo L2 sin excepción)", 
       ...DEFAULT_SCENARIO,
       C3: { nivel: "L4", cot_explicito_presente: true, flag_N4_copy_paste: false },
     });
-    const result = await evaluateAssessment(baseAnswers(), {}, { callLLM });
+    const result = await evaluateAssessment(baseAnswers(), {}, { callLLM, llmMode: mode });
     expect(result.perQuestionLevels.C3).toBe("L4");
   });
 });
@@ -383,7 +407,7 @@ describe("evaluateAssessment — N1 desbalance", () => {
       C2: { nivel: "L4", flag_N4_copy_paste: false },
       C3: { nivel: "L4", flag_N4_copy_paste: false },
     });
-    const result = await evaluateAssessment(baseAnswers({ B1: { value: 5 } }), {}, { callLLM });
+    const result = await evaluateAssessment(baseAnswers({ B1: { value: 5 } }), {}, { callLLM, llmMode: mode });
     expect(result.A).toBe(1);
     expect(result.C).toBe(4);
     expect(result.flags).toContain("N1");
@@ -391,7 +415,7 @@ describe("evaluateAssessment — N1 desbalance", () => {
 
   test("no dispara con niveles parejos", async () => {
     const callLLM = makeMockLLM(DEFAULT_SCENARIO);
-    const result = await evaluateAssessment(baseAnswers(), {}, { callLLM });
+    const result = await evaluateAssessment(baseAnswers(), {}, { callLLM, llmMode: mode });
     expect(result.flags).not.toContain("N1");
   });
 });
@@ -412,7 +436,7 @@ describe("evaluateAssessment — CANDIDATO_A_CHAMPION (umbral CAMBIA a 3.9 en v6
   test("se dispara cuando se cumplen las 4 condiciones (puntaje >= 3.9)", async () => {
     const callLLM = makeMockLLM(scenarioAltoTodo);
     const answers = baseAnswers({ B1: { value: 4 }, D5: { value: "yes_active" } });
-    const result = await evaluateAssessment(answers, {}, { callLLM });
+    const result = await evaluateAssessment(answers, {}, { callLLM, llmMode: mode });
     expect(result.puntaje).toBeGreaterThanOrEqual(3.9);
     expect(result.flags).toContain("CANDIDATO_A_CHAMPION");
   });
@@ -426,7 +450,7 @@ describe("evaluateAssessment — CANDIDATO_A_CHAMPION (umbral CAMBIA a 3.9 en v6
     // B1 opción 2 -> L3, junto con B2=L3 y B4=L3 -> B=3. A y C quedan en L4.
     // puntaje = 0.3*4 + 0.2*3 + 0.5*4 = 3.8 exacto (nivel L3, no L4).
     const answers = baseAnswers({ B1: { value: 2 }, D5: { value: "yes_active" } });
-    const result = await evaluateAssessment(answers, {}, { callLLM });
+    const result = await evaluateAssessment(answers, {}, { callLLM, llmMode: mode });
     expect(result.puntaje).toBeCloseTo(3.8, 5);
     expect(result.nivel).toBe("L3");
     expect(result.flags).not.toContain("CANDIDATO_A_CHAMPION");
@@ -438,14 +462,14 @@ describe("evaluateAssessment — CANDIDATO_A_CHAMPION (umbral CAMBIA a 3.9 en v6
       E5: { nivel: "L4", reglas_aplicadas: [], champion_signals: { liderazgo: true, recurso_recurrente: false, impacto_medible: true } },
     });
     const answers = baseAnswers({ B1: { value: 4 }, D5: { value: "yes_active" } });
-    const result = await evaluateAssessment(answers, {}, { callLLM });
+    const result = await evaluateAssessment(answers, {}, { callLLM, llmMode: mode });
     expect(result.flags).not.toContain("CANDIDATO_A_CHAMPION");
   });
 
   test("no se dispara si D5 y D6 no cumplen la condición", async () => {
     const callLLM = makeMockLLM(scenarioAltoTodo);
     const answers = baseAnswers({ B1: { value: 4 }, D5: { value: "no" }, D6: { value: 3 } });
-    const result = await evaluateAssessment(answers, {}, { callLLM });
+    const result = await evaluateAssessment(answers, {}, { callLLM, llmMode: mode });
     expect(result.flags).not.toContain("CANDIDATO_A_CHAMPION");
   });
 });
@@ -464,7 +488,7 @@ describe("evaluateAssessment — fórmula de puntaje", () => {
       C3: { nivel: "L4", flag_N4_copy_paste: false },
     });
     // B1 opción 2 -> L3, junto con B2=L2 y B4=L2 promedian (3+2+2)/3=2.33 -> B=2
-    const result = await evaluateAssessment(baseAnswers({ B1: { value: 2 } }), {}, { callLLM });
+    const result = await evaluateAssessment(baseAnswers({ B1: { value: 2 } }), {}, { callLLM, llmMode: mode });
     expect(result.A).toBe(3);
     expect(result.B).toBe(2);
     expect(result.C).toBe(4);
@@ -486,7 +510,7 @@ describe("evaluateAssessment — recomendaciones_ids (catálogo v6 excluye B1 Y 
       C2: { nivel: "L1", flag_N4_copy_paste: false },
       C3: { nivel: "L1", flag_N4_copy_paste: false },
     });
-    const result = await evaluateAssessment(baseAnswers({ B1: { value: 5 } }), {}, { callLLM });
+    const result = await evaluateAssessment(baseAnswers({ B1: { value: 5 } }), {}, { callLLM, llmMode: mode });
     expect(result.recomendaciones_ids.length).toBeGreaterThanOrEqual(2);
     expect(result.recomendaciones_ids[0].startsWith("C-")).toBe(true);
     expect(result.recomendaciones_ids.some((id) => id.startsWith("B-"))).toBe(true);
@@ -506,7 +530,7 @@ describe("evaluateAssessment — recomendaciones_ids (catálogo v6 excluye B1 Y 
       C3: { nivel: "L4", flag_N4_copy_paste: false },
     });
     // B1 = L1 (opción 5), muy por debajo de B2/B4 (L3) -> B1 es la más débil de la sección
-    const result = await evaluateAssessment(baseAnswers({ B1: { value: 5 } }), {}, { callLLM });
+    const result = await evaluateAssessment(baseAnswers({ B1: { value: 5 } }), {}, { callLLM, llmMode: mode });
     expect(result.recomendaciones_ids.some((id) => id.includes("-P9-"))).toBe(false);
   });
 
@@ -523,7 +547,7 @@ describe("evaluateAssessment — recomendaciones_ids (catálogo v6 excluye B1 Y 
       C3: { nivel: "L3", flag_N4_copy_paste: false },
     });
     // E6 = L1, muy por debajo de E2/E3/E5 (L4) -> E6 es la más débil de Sección A
-    const result = await evaluateAssessment(baseAnswers({ B1: { value: 3 } }), {}, { callLLM });
+    const result = await evaluateAssessment(baseAnswers({ B1: { value: 3 } }), {}, { callLLM, llmMode: mode });
     expect(result.recomendaciones_ids.some((id) => id.includes("-P8-"))).toBe(false);
   });
 
@@ -539,7 +563,7 @@ describe("evaluateAssessment — recomendaciones_ids (catálogo v6 excluye B1 Y 
       C2: { nivel: "L4", flag_N4_copy_paste: false },
       C3: { nivel: "L4", flag_N4_copy_paste: false },
     });
-    const result = await evaluateAssessment(baseAnswers({ B1: { value: 2 } }), {}, { callLLM });
+    const result = await evaluateAssessment(baseAnswers({ B1: { value: 2 } }), {}, { callLLM, llmMode: mode });
     expect(["L3", "L4"]).toContain(result.nivel);
     expect(result.recomendaciones_ids.some((id) => id.includes("->L4"))).toBe(true);
   });
@@ -556,7 +580,7 @@ describe("evaluateAssessment — recomendaciones_ids (catálogo v6 excluye B1 Y 
       C2: { nivel: "L4", flag_N4_copy_paste: false },
       C3: { nivel: "L4", flag_N4_copy_paste: false },
     });
-    const result = await evaluateAssessment(baseAnswers({ B1: { value: 4 } }), {}, { callLLM });
+    const result = await evaluateAssessment(baseAnswers({ B1: { value: 4 } }), {}, { callLLM, llmMode: mode });
     expect(result.nivel).toBe("L4");
     expect(Array.isArray(result.recomendaciones_ids)).toBe(true);
     expect(result.recomendaciones_ids.length).toBeLessThan(2);
@@ -591,7 +615,7 @@ describe("evaluateAssessment — resiliencia ante fallos del LLM", () => {
       }
       return JSON.stringify(DEFAULT_SCENARIO[questionId]);
     };
-    const result = await evaluateAssessment(baseAnswers(), {}, { callLLM });
+    const result = await evaluateAssessment(baseAnswers(), {}, { callLLM, llmMode: mode });
     expect(result.perQuestionLevels.B4).toBe("L1");
     expect(result.flags).toContain("EVAL_ERROR_B4");
     expect(result.perQuestionLevels.E2).toBe("L3"); // el resto se evaluó normal
@@ -602,7 +626,7 @@ describe("evaluateAssessment — resiliencia ante fallos del LLM", () => {
       if (questionId === "C2") return "esto no es JSON";
       return JSON.stringify(DEFAULT_SCENARIO[questionId]);
     };
-    const result = await evaluateAssessment(baseAnswers(), {}, { callLLM });
+    const result = await evaluateAssessment(baseAnswers(), {}, { callLLM, llmMode: mode });
     expect(result.perQuestionLevels.C2).toBe("L1");
     expect(result.flags).toContain("EVAL_ERROR_C2");
   }, 10000);
@@ -617,9 +641,97 @@ describe("evaluateAssessment — resiliencia ante fallos del LLM", () => {
       }
       return JSON.stringify(DEFAULT_SCENARIO[questionId]);
     };
-    const result = await evaluateAssessment(baseAnswers(), {}, { callLLM });
+    const result = await evaluateAssessment(baseAnswers(), {}, { callLLM, llmMode: mode });
     expect(result.perQuestionLevels.E5).toBe("L2");
     expect(result.flags).not.toContain("EVAL_ERROR_E5");
     expect(attempts).toBe(2);
   }, 10000);
+});
+}); // fin describe.each(["legacy", "consolidated"])
+
+describe("evaluateAssessment — modo consolidado vs. legacy (comparación directa)", () => {
+  test("mismo assessment produce el mismo resultado completo en ambos modos", async () => {
+    const answers = baseAnswers({
+      B1: { value: 2 },
+      E2: "Uso IA para redactar reportes de ventas todas las semanas, combinando datos de 3 fuentes.",
+      D5: { value: "yes_active" },
+    });
+    const scenario = {
+      ...DEFAULT_SCENARIO,
+      E5: { nivel: "L4", reglas_aplicadas: [], champion_signals: { liderazgo: true, recurso_recurrente: true, impacto_medible: true } },
+    };
+
+    const legacyResult = await evaluateAssessment(answers, {}, { callLLM: makeMockLLM(scenario), llmMode: "legacy" });
+    const consolidatedResult = await evaluateAssessment(answers, {}, { callLLM: makeMockLLM(scenario), llmMode: "consolidated" });
+
+    expect(consolidatedResult).toEqual(legacyResult);
+  });
+
+  test("reduce las llamadas al LLM de 9 (legacy) a 1 (consolidated) para el mismo assessment", async () => {
+    const legacyCalls = [];
+    const consolidatedCalls = [];
+
+    await evaluateAssessment(baseAnswers(), {}, { callLLM: makeMockLLM(DEFAULT_SCENARIO, legacyCalls), llmMode: "legacy" });
+    await evaluateAssessment(baseAnswers(), {}, { callLLM: makeMockLLM(DEFAULT_SCENARIO, consolidatedCalls), llmMode: "consolidated" });
+
+    expect(legacyCalls.length).toBe(9); // E2,E3,E5,E6,B2,B4,C1,C2,C3
+    expect(consolidatedCalls.length).toBe(1);
+  });
+
+  test("preguntas resueltas localmente por Capa 3 no viajan en el prompt consolidado (menos tokens, no solo menos llamadas)", async () => {
+    const consolidatedCalls = [];
+    const callLLM = makeMockLLM(DEFAULT_SCENARIO, consolidatedCalls);
+    await evaluateAssessment(baseAnswers({ E2: "no, nunca" }), {}, { callLLM, llmMode: "consolidated" });
+    expect(consolidatedCalls.length).toBe(1); // sigue siendo 1 sola llamada de red...
+    // ...pero E2 (Capa 3) no debería figurar en el prompt de usuario enviado.
+  });
+
+  test("si la llamada consolidada falla por completo, cae automáticamente al flujo legacy (1x1) sin perder el assessment", async () => {
+    const calls = [];
+    let consolidatedAttempts = 0;
+    const callLLM = async ({ questionId }) => {
+      calls.push(questionId);
+      if (questionId === "CONSOLIDATED") {
+        consolidatedAttempts += 1;
+        throw Object.assign(new Error("Azure OpenAI no disponible"), { status: 503 });
+      }
+      return JSON.stringify(DEFAULT_SCENARIO[questionId]);
+    };
+    const result = await evaluateAssessment(baseAnswers(), {}, { callLLM, llmMode: "consolidated" });
+
+    expect(consolidatedAttempts).toBe(2); // 1 intento + 1 reintento, ambos fallan
+    expect(calls.filter((q) => q !== "CONSOLIDATED").length).toBe(9); // fallback 1x1 cubrió las 9
+    expect(result.flags).not.toContain("EVAL_ERROR_E2");
+    expect(result.perQuestionLevels.E2).toBe("L3");
+    expect(result.nivel).toBeTruthy();
+  }, 10000);
+
+  test("si la llamada consolidada responde pero le falta la clave de 1 pregunta, solo esa pregunta cae a fallback (no todo el assessment)", async () => {
+    const callLLM = async ({ questionId }) => {
+      if (questionId !== "CONSOLIDATED") {
+        throw new Error("no debería llamarse individualmente en este escenario");
+      }
+      const { B4, ...resto } = DEFAULT_SCENARIO; // B4 falta a propósito en la respuesta combinada
+      return JSON.stringify(resto);
+    };
+    const result = await evaluateAssessment(baseAnswers(), {}, { callLLM, llmMode: "consolidated" });
+
+    expect(result.perQuestionLevels.B4).toBe("L1");
+    expect(result.flags).toContain("EVAL_ERROR_B4");
+    expect(result.perQuestionLevels.E2).toBe("L3"); // el resto, presente en el JSON, se evaluó normal
+  });
+
+  test("respeta AIQ_LLM_MODE=legacy como palanca de reversión operativa cuando no se pasa options.llmMode", async () => {
+    const calls = [];
+    const callLLM = makeMockLLM(DEFAULT_SCENARIO, calls);
+    const prev = process.env.AIQ_LLM_MODE;
+    process.env.AIQ_LLM_MODE = "legacy";
+    try {
+      await evaluateAssessment(baseAnswers(), {}, { callLLM });
+      expect(calls.length).toBe(9);
+    } finally {
+      if (prev === undefined) delete process.env.AIQ_LLM_MODE;
+      else process.env.AIQ_LLM_MODE = prev;
+    }
+  });
 });

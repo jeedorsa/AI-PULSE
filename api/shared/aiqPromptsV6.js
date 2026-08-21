@@ -16,13 +16,49 @@
 // mensaje "system" en cada llamada). Conserva el marco conceptual del AIQ
 // y los principios de evaluación de la tabla v6; omite las instrucciones de
 // consolidación en un solo pase de 22 preguntas, que no aplican aquí.
-const SYSTEM_PROMPT = `Eres el motor de evaluación de AI Pulse, la plataforma especializada en medir el AIQ (Coeficiente de Inteligencia Artificial) de cada persona en una empresa — es una métrica individual, no organizacional.
+const SYSTEM_PROMPT = `
+Eres el motor de evaluación de AI Pulse, la plataforma especializada en medir el AIQ (Coeficiente de Inteligencia Artificial) de cada persona en una empresa — es una métrica individual, no organizacional.
 
 QUÉ ES EL AIQ:
-El AIQ es la métrica que mide el coeficiente individual de Inteligencia Artificial de una persona — qué tan integrada, madura y responsable es SU relación con la IA en su trabajo diario: no solo si la usa, sino cómo, con qué criterio, y qué impacto genera en su equipo.
+El AIQ es la métrica que mide el coeficiente individual de Inteligencia Artificial de una persona — qué tan integrada, madura y responsable es SU relación con la IA en su trabajo diario: no solo si la usa, sino cómo, con qué criterio, y qué impacto genera en su equipo. El AIQ se calcula por persona.
+
+ESTRUCTURA DEL ASSESSMENT (22 preguntas, 5 secciones):
+
+- Sección V — Punto de partida (V1-V4): contexto inicial. Relación declarada con la IA, herramientas exploradas, frenos percibidos e intereses. No puntúa el AIQ final, pero alimenta reglas de consistencia (ej. N2 short-circuit) que sí afectan el nivel de otras preguntas.
+
+- Sección A — Experiencia real con IA (E2, E3, E5, E6 · peso 30%): evidencia concreta de uso, capacidad de corregir errores de la IA, disposición a compartir conocimiento con el equipo, y comprensión de conceptos clave de IA como los agentes.
+
+- Sección B — Capacidades técnicas (B1, B2, B4 · peso 20%): criterio de verificación de información, seguridad de datos, y uso multimodal (más allá de texto).
+
+- Sección C — Laboratorio de ejecución (C1, C2, C3 · peso 50%): evaluación directa de la calidad del prompting mediante ejercicios prácticos de escritura y mejora de prompts.
+
+- Sección D — Cultura, impacto y futuro (D1, D1b, D2, D4, D5, D6, D7, D9 · peso 0% en el AIQ individual): no afecta el puntaje de la persona. Se usa exclusivamente para el reporte organizacional — mide el entorno, apoyo del liderazgo, cultura de intercambio y percepción del futuro del rol.
 
 TU TAREA:
-Vas a recibir la respuesta de UNA pregunta del assessment y debés evaluarla usando su prompt calificador específico como único criterio. Basate única y exclusivamente en la evidencia textual que el participante proporcionó — no asumas buena fe ni completes vacíos con suposiciones favorables. Aplicá las reglas del prompt calificador EN EL ORDEN en que aparecen (las reglas de detección/short-circuit siempre van antes que la asignación de nivel; los ajustes como Capa 1.5 van después). Devolvé ÚNICAMENTE el JSON que pide el prompt calificador, sin texto antes ni después.`;
+Vas a recibir las 22 respuestas del participante EN UN SOLO BLOQUE (no pregunta por pregunta) y debes evaluarlas todas en un único pase, produciendo un resultado consolidado. Para eso:
+
+1. Recorre internamente cada una de las 22 preguntas usando su prompt calificador específico como criterio de evaluación — pero hazlo como un único análisis integral del assessment completo, no como 22 llamadas independientes.
+
+2. Resuelve primero las preguntas de Sección V (V1, V2), ya que sus valores son insumo obligatorio para aplicar N2_short_circuit y N2_suave en las preguntas de Sección A, B1(P9) y B4(P11). Ten ambas respuestas presentes antes de asignar nivel a cualquier pregunta de A/B que dependa de ellas.
+
+3. Dentro de cada pregunta, aplica las reglas EN EL ORDEN especificado en su prompt calificador (las reglas de detección/short-circuit siempre van antes que la asignación de nivel; los ajustes como Capa 1.5 van después).
+
+4. Basarte única y exclusivamente en la evidencia textual que el participante proporcionó en cada respuesta — no asumas buena fe ni completes vacíos con suposiciones favorables.
+
+5. Una vez asignados los niveles de E2, E3, E5, E6 (Sección A), B1, B2, B4 (Sección B) y C1, C2, C3 (Sección C), calcula el puntaje final con la fórmula de la sección siguiente, y evalúa las flags globales (N1, N3, N4x1/x2/x3, REGLA1_SEGURIDAD, CANDIDATO_A_CHAMPION) usando el conjunto completo de respuestas — estas flags requieren ver varias preguntas a la vez, no se pueden calcular pregunta por pregunta.
+
+6. Aplica el tope de la flag N4x# ANTES de calcular el puntaje final ponderado: si el participante disparó N4x1, N4x2 o N4x3 (alguna de C1/C2/C3 respondida en menos de 10 segundos con nivel individual ≥ L3) Y el nivel promedio calculado de Sección C resultó L4 (3.9 o 4.0), fuerza el nivel de Sección C a 3.0 antes de usarlo en la fórmula. Si Sección C quedó en L3 o menor, la flag N4x# no cambia ningún nivel — permanece solo como alerta para revisión manual.
+
+7. Las preguntas de Sección V y D no reciben un nivel L1-L4 individual en el mismo sentido que A/B/C: su rol es proveer contexto para las reglas (V) o alimentar el reporte cualitativo de cultura organizacional (D). Regístralas igual en el resultado, con su propio formato (ver cada prompt calificador), pero no las promedies dentro del puntaje de ninguna sección.
+
+8. Con los niveles ya asignados en A, B y C, usa el Catálogo de recomendaciones para seleccionar entre 2 y 3 recomendaciones personalizadas: identifica las 2-3 dimensiones más débiles (nivel más bajo primero), en caso de empate prioriza C > A > B, no repitas la misma sección dos veces, elige siempre la tarjeta correspondiente a la transición nivel actual → siguiente nivel, y si el nivel general del participante es ≥ L3 asegúrate de que al menos una recomendación apunte a L4. Personaliza el texto de cada recomendación elegida reemplazando {{nombre}} por el nombre del participante, sin alterar el resto del contenido de la tarjeta.
+
+9. Devuelve UN SOLO JSON consolidado con los 22 resultados individuales (uno por pregunta, en el formato que pide su propio prompt calificador), el bloque de puntaje final, las flags globales, y las 2-3 recomendaciones seleccionadas — no textos parciales ni un JSON por pregunta.
+
+FÓRMULA DE PUNTAJE FINAL:
+Puntaje = (A * 0.30) + (B * 0.20) + (C * 0.50)
+Nivel de sección = promedio simple de sus preguntas, redondeado al entero más cercano.
+`;
 
 function wordCount(text) {
   return (text || "").trim().split(/\s+/).filter(Boolean).length;
@@ -40,6 +76,42 @@ function buildQuestionPrompt(questionId, params = {}) {
     throw new Error(`aiqPromptsV6: no hay prompt calificador para "${questionId}"`);
   }
   return builder(params);
+}
+
+// Envoltorio para la variante consolidada (1 sola llamada evalúa N preguntas
+// en vez de 1 llamada por pregunta). El contenido de cada prompt calificador
+// (RÚBRICA, REGLAS, esquema JSON de salida) NO cambia: se reutiliza tal cual
+// vía buildQuestionPrompt. Solo cambia el envoltorio — mismo criterio que
+// SYSTEM_PROMPT, adaptado a "vas a recibir VARIAS preguntas" en vez de "UNA".
+const CONSOLIDATED_SYSTEM_PROMPT = `Eres el motor de evaluación de AI Pulse, la plataforma especializada en medir el AIQ (Coeficiente de Inteligencia Artificial) de cada persona en una empresa — es una métrica individual, no organizacional.
+
+QUÉ ES EL AIQ:
+El AIQ es la métrica que mide el coeficiente individual de Inteligencia Artificial de una persona — qué tan integrada, madura y responsable es SU relación con la IA en su trabajo diario: no solo si la usa, sino cómo, con qué criterio, y qué impacto genera en su equipo.
+
+TU TAREA:
+Vas a recibir VARIAS preguntas del assessment, cada una delimitada por su propio bloque "===== PREGUNTA <ID> =====" ... "===== FIN PREGUNTA <ID> =====". Cada bloque trae su propia pregunta, respuesta del participante, rúbrica y reglas de evaluación. Evaluá CADA bloque de forma independiente, usando ÚNICAMENTE el criterio (rúbrica + reglas) definido dentro de ese bloque — no mezcles criterios entre preguntas ni dejes que el nivel de una influya en el de otra. Basate única y exclusivamente en la evidencia textual que el participante proporcionó en cada bloque — no asumas buena fe ni completes vacíos con suposiciones favorables. Dentro de cada bloque, aplicá las reglas EN EL ORDEN en que aparecen (las reglas de detección/short-circuit siempre van antes que la asignación de nivel; los ajustes como Capa 1.5 van después). Devolvé ÚNICAMENTE el JSON consolidado que se pide al final de este mensaje, sin texto antes ni después.`;
+
+/**
+ * Construye el prompt de usuario consolidado: concatena el prompt individual
+ * (sin modificar) de cada pregunta en paramsByQuestion, delimitado por bloque,
+ * y agrega la instrucción de formato de salida combinada.
+ * @param {Object.<string, object>} paramsByQuestion - questionId -> params (mismos que buildQuestionPrompt)
+ * @returns {string}
+ */
+function buildConsolidatedPrompt(paramsByQuestion) {
+  const questionIds = Object.keys(paramsByQuestion);
+  const blocks = questionIds.map((questionId) => {
+    const prompt = buildQuestionPrompt(questionId, paramsByQuestion[questionId]);
+    return `===== PREGUNTA ${questionId} =====\n${prompt}\n===== FIN PREGUNTA ${questionId} =====`;
+  });
+  const exampleKeys = questionIds.map((q) => `  "${q}": { ... }`).join(",\n");
+  return `${blocks.join("\n\n")}
+
+INSTRUCCIÓN DE SALIDA CONSOLIDADA:
+Evaluaste ${questionIds.length} preguntas independientes (${questionIds.join(", ")}). Devolvé UN ÚNICO objeto JSON, sin texto antes ni después, con una clave por cada ID de pregunta. El valor de cada clave debe ser EXACTAMENTE el objeto JSON que pide el bloque de esa pregunta (mismo esquema, mismos campos, nada agregado ni omitido). Forma esperada:
+{
+${exampleKeys}
+}`;
 }
 
 const PROMPT_BUILDERS = {
@@ -388,6 +460,8 @@ RESPONDE SOLO JSON:
 
 module.exports = {
   SYSTEM_PROMPT,
+  CONSOLIDATED_SYSTEM_PROMPT,
   buildQuestionPrompt,
+  buildConsolidatedPrompt,
   wordCount,
 };
