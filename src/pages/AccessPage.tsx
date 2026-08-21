@@ -5,7 +5,7 @@ import { useAssessmentStore } from '../store/useAssessmentStore';
 import { Navbar } from '../components/ui/Navbar';
 import { Button } from '../components/ui/Button';
 
-type Status = 'idle' | 'loading' | 'not_found' | 'completed' | 'domain_mismatch' | 'cancelled' | 'error';
+type Status = 'idle' | 'loading' | 'not_found' | 'completed' | 'domain_mismatch' | 'cancelled' | 'company_disabled' | 'error';
 
 /**
  * AccessPage — soporta 3 modos de entrada:
@@ -72,6 +72,7 @@ export default function AccessPage() {
         }
       }
 
+      if (res.status === 403 && data.code === 'company_disabled') { setStatus('company_disabled'); return; }
       if (res.status === 403) { setStatus('cancelled'); return; }
       if (!res.ok) { setStatus('error'); return; }
 
@@ -268,6 +269,24 @@ export default function AccessPage() {
               >
                 ← Usar otro correo
               </button>
+            </motion.div>
+          )}
+
+          {/* ── company_disabled ── */}
+          {status === 'company_disabled' && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="flex flex-col items-center text-center"
+            >
+              <div className="w-12 h-12 rounded-full bg-[rgba(254,60,28,0.08)] border border-[rgba(254,60,28,0.2)] flex items-center justify-center mb-5">
+                <span className="text-primary text-[20px] leading-none">!</span>
+              </div>
+              <h2 className="font-display text-[28px] text-[#111111] mb-3">Acceso no disponible</h2>
+              <p className="font-body text-[14px] font-light text-[#555555] leading-[1.6]">
+                El acceso a esta evaluación fue desactivado temporalmente para tu empresa. Contacta al administrador si crees que es un error.
+              </p>
             </motion.div>
           )}
 

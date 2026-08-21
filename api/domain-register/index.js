@@ -1,4 +1,5 @@
 const { createTableClient } = require("../shared/tableClient");
+const { isCompanyEnabled } = require("../shared/companyAccess");
 const { v4: uuidv4 } = require("uuid");
 
 /**
@@ -94,6 +95,17 @@ module.exports = async function (context, req) {
 
       // En progreso — devolver token existente para retomar
       if (existing.status !== "started") {
+        const enabled = await isCompanyEnabled(connectionString, partitionKey);
+        if (!enabled) {
+          context.res = {
+            status: 403, headers,
+            body: JSON.stringify({
+              error: "El acceso para tu empresa fue desactivado temporalmente. Contacta al administrador.",
+              code: "company_disabled"
+            })
+          };
+          return;
+        }
         existing.status = "started";
         await participantsClient.updateEntity(existing, "Merge");
       }
@@ -108,6 +120,19 @@ module.exports = async function (context, req) {
           departamento: existing.departamento || "",
           completed:    false,
           isNew:        false
+        })
+      };
+      return;
+    }
+
+    // ── Empresa desactivada → bloquear nuevos inicios ──────────────────────
+    const companyEnabled = await isCompanyEnabled(connectionString, partitionKey);
+    if (!companyEnabled) {
+      context.res = {
+        status: 403, headers,
+        body: JSON.stringify({
+          error: "El acceso para tu empresa fue desactivado temporalmente. Contacta al administrador.",
+          code: "company_disabled"
         })
       };
       return;

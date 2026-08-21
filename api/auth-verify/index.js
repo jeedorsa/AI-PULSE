@@ -1,6 +1,7 @@
 const { odata } = require("@azure/data-tables");
 const { createTableClient } = require("../shared/tableClient");
 const { corsHeaders } = require("../shared/cors");
+const { isCompanyEnabled } = require("../shared/companyAccess");
 
 module.exports = async function (context, req) {
   const headers = corsHeaders(req, { methods: "GET, POST, OPTIONS" });
@@ -61,6 +62,21 @@ module.exports = async function (context, req) {
     if (participant.status === "completed") {
       context.res = { status: 409, headers, body: JSON.stringify({ error: "Este diagnóstico ya fue completado. Contacta al administrador si necesitas acceso nuevamente." }) };
       return;
+    }
+
+    // Empresa desactivada → bloquear nuevos inicios (quien ya está "started" puede continuar)
+    if (participant.status !== "started") {
+      const enabled = await isCompanyEnabled(connectionString, participant.empresa || participant.partitionKey);
+      if (!enabled) {
+        context.res = {
+          status: 403, headers,
+          body: JSON.stringify({
+            error: "El acceso para tu empresa fue desactivado temporalmente. Contacta al administrador.",
+            code: "company_disabled"
+          })
+        };
+        return;
+      }
     }
 
     // GET = token validation (masked email), POST = email confirmation
