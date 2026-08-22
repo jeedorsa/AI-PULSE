@@ -15,7 +15,7 @@ export const PromptingIDE: React.FC<PromptingIDEProps> = ({ question, value, onC
   const [text, setText] = useState(value?.text || '');
   const [isFocused, setIsFocused] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
-  const { blocked: pasteBlocked, onPaste, clearBlocked: clearPasteBlocked } = usePasteGuard();
+  const { blocked: pasteBlocked, guardProps, clearBlocked: clearPasteBlocked } = usePasteGuard();
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -123,7 +123,7 @@ export const PromptingIDE: React.FC<PromptingIDEProps> = ({ question, value, onC
             onChange={(e) => setText(e.target.value)}
             onFocus={handleFocus}
             onBlur={handleBlur}
-            onPaste={onPaste}
+            {...guardProps}
           />
         </div>
         <Toast message={PASTE_BLOCKED_MESSAGE} isVisible={pasteBlocked} onClose={clearPasteBlocked} />
@@ -170,7 +170,7 @@ export const PromptingIDE: React.FC<PromptingIDEProps> = ({ question, value, onC
                 onChange={(e) => setText(e.target.value)}
                 onFocus={handleFocus}
                 onBlur={handleBlur}
-                onPaste={onPaste}
+                {...guardProps}
                 placeholder="Escribe tu prompt aquí..."
                 className="w-full bg-transparent border-none outline-none resize-none font-mono text-base md:text-[11.5px] text-[#CCCCCC] leading-[1.75] min-h-[140px] placeholder-[#555555]"
               />

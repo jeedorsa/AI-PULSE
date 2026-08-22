@@ -83,7 +83,7 @@ module.exports = async function (context, req) {
 
     // ── Empresa desactivada → bloquear nuevos inicios ──────────────────────
     if (participant.status === "pending" || participant.status === "invited") {
-      const enabled = await isCompanyEnabled(connectionString, participant.partitionKey);
+      const enabled = await isCompanyEnabled(connectionString, participant.partitionKey, context.log);
       if (!enabled) {
         context.res = {
           status: 403, headers,

@@ -29,7 +29,9 @@ module.exports = async function (context, req) {
 
     context.res = { status: 200, headers, body: JSON.stringify({ success: true, empresa, enabled }) };
   } catch (err) {
+    // El detalle del error se queda en el log: devolverlo al cliente filtra
+    // información de la infraestructura (nombres de tabla, endpoints, cuenta).
     context.log.error("company-update error:", err);
-    context.res = { status: 500, headers, body: JSON.stringify({ error: err.message }) };
+    context.res = { status: 500, headers, body: JSON.stringify({ error: "No se pudo actualizar la empresa" }) };
   }
 };

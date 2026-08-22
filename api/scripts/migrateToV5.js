@@ -40,7 +40,24 @@ const fs = require("fs");
 const path = require("path");
 const { createTableClient } = require("../shared/tableClient");
 const { assembleAnswers } = require("../shared/assembleAnswers");
-const { evaluateAssessment } = require("../shared/aiqEvaluatorV5");
+// El motor v5 fue eliminado en el reemplazo v5 -> v6. El require queda
+// diferido para que ejecutar este script falle con el mensaje de abajo, y no
+// con un MODULE_NOT_FOUND que no explica nada.
+function cargarMotorV5() {
+  try {
+    return require("../shared/aiqEvaluatorV5").evaluateAssessment;
+  } catch (err) {
+    console.error(
+      "\nEste script está INERTE: migra legacy -> v5 y depende de aiqEvaluatorV5.js,\n" +
+      "que se eliminó al reemplazar la rúbrica v5 por la v6.\n\n" +
+      "La migración v5 -> v6 fue una decisión de producto explícita de NO recomputar\n" +
+      "los resultados existentes. Si esa decisión cambió, escribe un script nuevo\n" +
+      "sobre aiqEvaluatorV6 usando este como referencia del patrón (dry-run, backup\n" +
+      "obligatorio, batches, reporte de fallbacks).\n"
+    );
+    process.exit(1);
+  }
+}
 
 function loadLocalSettingsIntoEnv() {
   const settingsPath = path.join(__dirname, "..", "local.settings.json");
@@ -104,7 +121,7 @@ async function migrateOne(client, entity, { dryRun }) {
     empresa: entity.partitionKey || "",
   };
 
-  const resultado = await evaluateAssessment(answers, participant);
+  const resultado = await cargarMotorV5()(answers, participant);
 
   const fallbackFlags = (resultado.flags || []).filter((f) => f.startsWith("EVAL_ERROR_"));
 
@@ -144,6 +161,10 @@ async function migrateOne(client, entity, { dryRun }) {
 }
 
 async function main() {
+  // Se comprueba de entrada, no al migrar el primer participante: si el motor
+  // v5 ya no está, hay que decirlo antes de leer nada de la base.
+  cargarMotorV5();
+
   loadLocalSettingsIntoEnv();
   const args = parseArgs(process.argv);
 

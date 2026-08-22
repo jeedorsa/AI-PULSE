@@ -66,7 +66,7 @@ module.exports = async function (context, req) {
 
     // Empresa desactivada → bloquear nuevos inicios (quien ya está "started" puede continuar)
     if (participant.status !== "started") {
-      const enabled = await isCompanyEnabled(connectionString, participant.empresa || participant.partitionKey);
+      const enabled = await isCompanyEnabled(connectionString, participant.empresa || participant.partitionKey, context.log);
       if (!enabled) {
         context.res = {
           status: 403, headers,

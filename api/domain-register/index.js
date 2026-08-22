@@ -95,7 +95,7 @@ module.exports = async function (context, req) {
 
       // En progreso — devolver token existente para retomar
       if (existing.status !== "started") {
-        const enabled = await isCompanyEnabled(connectionString, partitionKey);
+        const enabled = await isCompanyEnabled(connectionString, partitionKey, context.log);
         if (!enabled) {
           context.res = {
             status: 403, headers,
@@ -126,7 +126,7 @@ module.exports = async function (context, req) {
     }
 
     // ── Empresa desactivada → bloquear nuevos inicios ──────────────────────
-    const companyEnabled = await isCompanyEnabled(connectionString, partitionKey);
+    const companyEnabled = await isCompanyEnabled(connectionString, partitionKey, context.log);
     if (!companyEnabled) {
       context.res = {
         status: 403, headers,

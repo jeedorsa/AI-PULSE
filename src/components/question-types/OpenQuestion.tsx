@@ -9,7 +9,7 @@ interface OpenQuestionProps {
 }
 
 export const OpenQuestion: React.FC<OpenQuestionProps> = ({ question, value, onChange }) => {
-  const { blocked, onPaste, clearBlocked } = usePasteGuard();
+  const { blocked, guardProps, clearBlocked } = usePasteGuard();
 
   return (
     <div className="w-full space-y-4">
@@ -18,7 +18,7 @@ export const OpenQuestion: React.FC<OpenQuestionProps> = ({ question, value, onC
         placeholder="Escribe tu respuesta aquí..."
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
-        onPaste={onPaste}
+        {...guardProps}
       />
       <Toast message={PASTE_BLOCKED_MESSAGE} isVisible={blocked} onClose={clearBlocked} />
     </div>
