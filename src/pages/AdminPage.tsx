@@ -14,7 +14,13 @@ interface ParticipantRow {
   status?: string;
 }
 
-type AdminTab = 'upload' | 'participants' | 'invitations' | 'reporteria' | 'links' | 'archivos' | 'preguntas';
+type AdminTab = 'upload' | 'participants' | 'empresas' | 'invitations' | 'reporteria' | 'links' | 'archivos' | 'preguntas';
+
+interface CompanyRow {
+  empresa: string;
+  enabled: boolean;
+  totalParticipantes: number;
+}
 
 const ADMIN_TOKEN_KEY = 'aipulse_admin_token';
 
@@ -145,6 +151,8 @@ export default function AdminPage() {
 
   const [activeTab, setActiveTab] = useState<AdminTab>('upload');
   const [participants, setParticipants] = useState<ParticipantRow[]>([]);
+  const [companies, setCompanies] = useState<CompanyRow[]>([]);
+  const [togglingCompany, setTogglingCompany] = useState<string | null>(null);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
   const [uploadMessage, setUploadMessage] = useState('');
   const [sendingStatus, setSendingStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
@@ -241,7 +249,7 @@ export default function AdminPage() {
     'Casi listo, guardando informe...',
   ];
   const [filterEmpresa, setFilterEmpresa] = useState('');
-  const [filterRubricVersion, setFilterRubricVersion] = useState<'' | 'v5' | 'legacy'>('');
+  const [filterRubricVersion, setFilterRubricVersion] = useState<'' | 'v6' | 'v5' | 'legacy'>('');
   const [linkEmpresa, setLinkEmpresa] = useState('');
   const [linkDominio, setLinkDominio] = useState('');
 
@@ -512,6 +520,23 @@ export default function AdminPage() {
       else { const d = await res.json(); alert(`Error: ${d.error}`); }
     } catch { alert('Error al actualizar status'); }
   };
+
+  const handleToggleCompany = async (empresa: string, enabled: boolean) => {
+    setTogglingCompany(empresa);
+    try {
+      const res = await fetch('/api/company-update', {
+        method: 'POST',
+        headers: adminHeaders(),
+        body: JSON.stringify({ empresa, enabled })
+      });
+      if (res.ok) fetchCompanies();
+      else { const d = await res.json(); alert(`Error: ${d.error}`); }
+    } catch {
+      alert('Error al actualizar empresa');
+    } finally {
+      setTogglingCompany(null);
+    }
+  };
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Check if we have a stored token on mount
@@ -698,9 +723,30 @@ export default function AdminPage() {
     }
   };
 
+  const fetchCompanies = async () => {
+    try {
+      const response = await fetch('/api/companies-list', {
+        headers: adminHeaders(),
+      });
+
+      if (response.status === 401) {
+        handleUnauthorized();
+        return;
+      }
+
+      const data = await response.json();
+      if (data.companies) {
+        setCompanies(data.companies);
+      }
+    } catch (err) {
+      console.error('Fetch companies error:', err);
+    }
+  };
+
   const tabs: { id: AdminTab; label: string }[] = [
     { id: 'upload', label: 'Cargar Excel' },
     { id: 'participants', label: 'Participantes' },
+    { id: 'empresas', label: 'Empresas' },
     { id: 'invitations', label: 'Invitaciones' },
     { id: 'links', label: 'Links de Acceso' },
     { id: 'reporteria', label: 'Reportería' },
@@ -846,6 +892,7 @@ export default function AdminPage() {
                 onClick={() => {
                   setActiveTab(tab.id);
                   if (tab.id === 'participants') fetchParticipants();
+                  if (tab.id === 'empresas') fetchCompanies();
                   if (tab.id === 'reporteria') { fetchResults(); fetchParticipants(); }
                   if (tab.id === 'archivos') fetchCompanyFiles();
                   if (tab.id === 'preguntas') fetchQuestionsConfig();
@@ -1079,6 +1126,74 @@ export default function AdminPage() {
                                   ↺ Reenviar
                                 </button>
                               )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* Empresas Tab */}
+          {activeTab === 'empresas' && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              {companies.length === 0 ? (
+                <div className="text-center py-16">
+                  <p className="font-body text-[14px] text-[#AAAAAA]">
+                    No hay empresas cargadas. Sube un Excel de participantes primero.
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-[#F7F7F7] border border-[#E0E0E0] rounded-[2px] overflow-hidden">
+                  <div className="px-5 py-3 border-b border-[#E0E0E0] flex justify-between items-center gap-3 flex-wrap">
+                    <span className="font-mono text-[9px] text-primary uppercase tracking-wider">
+                      {companies.length} empresas
+                    </span>
+                    <Button
+                      variant="ghost"
+                      onClick={fetchCompanies}
+                      className="text-[9px] h-7 px-3"
+                    >
+                      Actualizar
+                    </Button>
+                  </div>
+                  <p className="font-body text-[12px] font-light text-[#666666] leading-[1.6] px-5 pt-4">
+                    Desactivar una empresa bloquea <strong>nuevos inicios</strong> de la prueba (por link directo, whitelist o dominio abierto). Quien ya esté respondiendo puede terminar y enviar sin problema.
+                  </p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="border-b border-[#E0E0E0]">
+                          {['Empresa', 'Participantes', 'Estado'].map((col) => (
+                            <th key={col} className="font-mono text-[8px] text-[#AAAAAA] uppercase tracking-wider py-2 px-3">
+                              {col}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {companies.map((c) => (
+                          <tr key={c.empresa} className="border-b border-[#EEEEEE] hover:bg-[#EFEFEF]">
+                            <td className="font-body text-[11px] text-[#111111] font-medium py-2 px-3">{c.empresa}</td>
+                            <td className="font-body text-[11px] text-[#666666] py-2 px-3">{c.totalParticipantes}</td>
+                            <td className="py-2 px-3">
+                              <button
+                                onClick={() => handleToggleCompany(c.empresa, !c.enabled)}
+                                disabled={togglingCompany === c.empresa}
+                                className={`font-mono text-[8px] uppercase tracking-wider px-3 py-1 rounded-[2px] border transition-colors disabled:opacity-50 ${
+                                  c.enabled
+                                    ? 'text-[#00AA55] border-[rgba(0,170,85,0.30)] hover:bg-[rgba(0,170,85,0.08)]'
+                                    : 'text-[#FF3C3C] border-[rgba(255,60,60,0.30)] hover:bg-[rgba(255,60,60,0.08)]'
+                                }`}
+                              >
+                                {togglingCompany === c.empresa ? '...' : c.enabled ? '✓ Activa' : '✕ Desactivada'}
+                              </button>
                             </td>
                           </tr>
                         ))}
@@ -1407,7 +1522,8 @@ export default function AdminPage() {
           {activeTab === 'reporteria' && (() => {
             const matchesReporteriaFilters = (r: ResultRow) =>
               (!filterEmpresa || r.empresa === filterEmpresa) &&
-              (!filterRubricVersion || (filterRubricVersion === 'v5' ? r.rubricVersion === 'v5' : r.rubricVersion !== 'v5'));
+              (!filterRubricVersion || r.rubricVersion === filterRubricVersion ||
+                (filterRubricVersion === 'legacy' && r.rubricVersion !== 'v5' && r.rubricVersion !== 'v6'));
 
             return (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
@@ -1496,11 +1612,12 @@ export default function AdminPage() {
                       <span className="font-mono text-[8px] uppercase tracking-wider text-[#AAAAAA] whitespace-nowrap">Filtrar por rúbrica</span>
                       <select
                         value={filterRubricVersion}
-                        onChange={e => setFilterRubricVersion(e.target.value as '' | 'v5' | 'legacy')}
+                        onChange={e => setFilterRubricVersion(e.target.value as '' | 'v6' | 'v5' | 'legacy')}
                         className="bg-[#F7F7F7] border border-[#CCCCCC] rounded-[2px] px-3 py-1.5 font-mono text-[11px] text-[#333333] focus:outline-none focus:border-primary/60 transition-colors"
                       >
                         <option value="">Todas las versiones</option>
-                        <option value="v5">Rúbrica V5</option>
+                        <option value="v6">Rúbrica V6</option>
+                        <option value="v5">Rúbrica V5 (histórica)</option>
                         <option value="legacy">Legacy (pre-V5)</option>
                       </select>
                       {filterRubricVersion && (
@@ -1569,8 +1686,8 @@ export default function AdminPage() {
                   {results.filter(matchesReporteriaFilters).map((r, i) => {
                     const isExpanded = expandedResult === r.email;
                     const levelColor = r.aiqLevel === 'L4' || r.aiqLevel === 'L4L' || r.aiqLevel === 'L4T' ? '#00AA55' : r.aiqLevel === 'L3' ? '#CC8800' : '#AAAAAA';
-                    // Rúbrica v5: escala 1.0-4.0. Registros legacy (pre-migración): escala 0-5.
-                    const scoreMax = r.rubricVersion === 'v5' ? 4 : 5;
+                    // Rúbrica v5/v6: escala 1.0-4.0. Registros legacy (pre-migración): escala 0-5.
+                    const scoreMax = (r.rubricVersion === 'v5' || r.rubricVersion === 'v6') ? 4 : 5;
                     const scoreWidth = (r.aiqScore / scoreMax) * 100;
                     return (
                       <div key={i} className="border border-[#E0E0E0] rounded-[2px] overflow-hidden">

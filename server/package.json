@@ -1,0 +1,15 @@
+{
+  "name": "ai-pulse-server",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Host Express que ejecuta las Azure Functions de AI Pulse fuera de Azure (despliegue en EC2)",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "express": "^4.21.2"
+  }
+}

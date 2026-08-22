@@ -2,6 +2,7 @@ const { createTableClient } = require("../shared/tableClient");
 const { BlobServiceClient } = require("@azure/storage-blob");
 const { requireAdmin } = require("../shared/adminAuth");
 
+const { chatCompletion } = require("../shared/llmClient");
 function blobNameForEmail(email) {
   return `individual/${email.replace(/[@.]/g, '_')}.html`;
 }
@@ -321,19 +322,14 @@ module.exports = async function (context, req) {
     context.log.info(`Llamando OpenAI: endpoint=${openaiEndpoint} deployment=${openaiDeployment} version=${openaiVersion}`);
     context.log.info(`Config keys presentes: key=${!!openaiKey} conn=${!!connectionString}`);
     const prompt = buildPrompt(participant, answers, scores, companyDist);
-    const url = `${openaiEndpoint.replace(/\/$/, '')}/openai/deployments/${openaiDeployment}/chat/completions?api-version=${openaiVersion}`;
 
-    const aiResponse = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'api-key': openaiKey },
-      body: JSON.stringify({
+    const aiResponse = await chatCompletion({
         messages: [
           { role: 'system', content: 'Eres el analista principal de AI Pulse. Generas análisis precisos, concretos y personalizados. Respondes SOLO con JSON válido, sin markdown.' },
           { role: 'user', content: prompt }
         ],
         max_completion_tokens: 20000
-      })
-    });
+      });
 
     if (!aiResponse.ok) {
       const errBody = await aiResponse.text();

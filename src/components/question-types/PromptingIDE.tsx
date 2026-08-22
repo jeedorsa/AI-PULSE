@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { PromptCursor } from '../ui/PromptCursor';
+import { Toast } from '../ui/Toast';
+import { usePasteGuard, PASTE_BLOCKED_MESSAGE } from '../../hooks/usePasteGuard';
 import { useAssessmentStore } from '../../store/useAssessmentStore';
 
 interface PromptingIDEProps {
@@ -13,6 +15,7 @@ export const PromptingIDE: React.FC<PromptingIDEProps> = ({ question, value, onC
   const [text, setText] = useState(value?.text || '');
   const [isFocused, setIsFocused] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
+  const { blocked: pasteBlocked, guardProps, clearBlocked: clearPasteBlocked } = usePasteGuard();
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -108,79 +111,87 @@ export const PromptingIDE: React.FC<PromptingIDEProps> = ({ question, value, onC
   // Special case for C5 (Narrative)
   if (question.type === 'narrative') {
     return (
-      <div className="w-full">
-        <div className="font-mono text-[9px] text-[#AAAAAA] mb-2">
-          Cuéntame cómo gestionas tus prompts
+      <>
+        <div className="w-full">
+          <div className="font-mono text-[9px] text-[#AAAAAA] mb-2">
+            Cuéntame cómo gestionas tus prompts
+          </div>
+          <textarea
+            className="w-full bg-[#050505] border border-[#CCCCCC] rounded-[2px] p-4 text-[#555555] font-mono text-[11.5px] leading-[1.75] focus:border-primary outline-none resize-none min-h-[120px]"
+            placeholder="Describe tu sistema de organización, si tienes uno..."
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+            {...guardProps}
+          />
         </div>
-        <textarea
-          className="w-full bg-[#050505] border border-[#CCCCCC] rounded-[2px] p-4 text-[#555555] font-mono text-[11.5px] leading-[1.75] focus:border-primary outline-none resize-none min-h-[120px]"
-          placeholder="Describe tu sistema de organización, si tienes uno..."
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
-        />
-      </div>
+        <Toast message={PASTE_BLOCKED_MESSAGE} isVisible={pasteBlocked} onClose={clearPasteBlocked} />
+      </>
     );
   }
 
   return (
-    <div className="w-full">
-      {/* Scenario Card */}
-      <div className="bg-[#E5E5E5] border border-[#CCCCCC] border-l-[3px] border-l-primary px-5 py-4 rounded-[2px] mb-5">
-        <div className="font-mono text-[8px] uppercase text-primary tracking-[0.2em] mb-2">
-          Escenario {question.id}
-        </div>
-        <p className="font-body text-[13px] text-[#555555] leading-[1.6] font-normal">
-          {question.scenarioText}
-        </p>
+    <>
+      <div className="w-full">
+        {/* Scenario Card */}
+        <div className="bg-[#E5E5E5] border border-[#CCCCCC] border-l-[3px] border-l-primary px-5 py-4 rounded-[2px] mb-5">
+          <div className="font-mono text-[8px] uppercase text-primary tracking-[0.2em] mb-2">
+            Escenario {question.id}
+          </div>
+          <p className="font-body text-[13px] text-[#555555] leading-[1.6] font-normal">
+            {question.scenarioText}
+          </p>
 
-        {/* C3 Special Case */}
-        {question.originalPrompt && (
-          <div className="bg-[#0a0a0a] border-l-2 border-[#CCCCCC] px-[14px] py-[10px] rounded-[2px] mt-2">
-            <div className="font-mono text-[7.5px] text-[#AAAAAA] mb-1">
-              PROMPT A MEJORAR
+          {/* C3 Special Case */}
+          {question.originalPrompt && (
+            <div className="bg-[#0a0a0a] border-l-2 border-[#CCCCCC] px-[14px] py-[10px] rounded-[2px] mt-2">
+              <div className="font-mono text-[7.5px] text-[#AAAAAA] mb-1">
+                PROMPT A MEJORAR
+              </div>
+              <p className="font-mono text-[10.5px] text-[#666666] italic leading-[1.6]">
+                "{question.originalPrompt}"
+              </p>
             </div>
-            <p className="font-mono text-[10.5px] text-[#666666] italic leading-[1.6]">
-              "{question.originalPrompt}"
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* IDE Input */}
-      <div className={`
-        bg-[#050505] border rounded-[2px] p-4 relative transition-colors duration-200
-        ${isFocused ? 'border-primary' : 'border-[#CCCCCC]'}
-      `}>
-        <div className="flex items-start">
-          <span className="text-primary mr-2 font-mono text-[11.5px] mt-[2px]">{'>'}</span>
-          <div className="flex-1 relative">
-            <textarea
-              ref={textareaRef}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onFocus={handleFocus}
-              onBlur={handleBlur}
-              placeholder="Escribe tu prompt aquí..."
-              className="w-full bg-transparent border-none outline-none resize-none font-mono text-base md:text-[11.5px] text-[#CCCCCC] leading-[1.75] min-h-[140px] placeholder-[#555555]"
-            />
-          </div>
+          )}
         </div>
 
-        {/* Footer */}
-        <div className="flex justify-between items-center mt-2 pt-2 border-t border-[#222222] gap-2">
-          <span className="font-mono text-[9px] text-[#555555] hidden md:block">
-            Incluye: rol · contexto · formato · restricciones
-          </span>
-          <span className="font-mono text-[9px] text-[#555555] md:hidden">
-            rol · contexto · formato · restricciones
-          </span>
-          <span className="font-mono text-[10px] text-[#555555] shrink-0">
-            ⏱ {formatTime(elapsedTime)}
-          </span>
+        {/* IDE Input */}
+        <div className={`
+          bg-[#050505] border rounded-[2px] p-4 relative transition-colors duration-200
+          ${isFocused ? 'border-primary' : 'border-[#CCCCCC]'}
+        `}>
+          <div className="flex items-start">
+            <span className="text-primary mr-2 font-mono text-[11.5px] mt-[2px]">{'>'}</span>
+            <div className="flex-1 relative">
+              <textarea
+                ref={textareaRef}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onFocus={handleFocus}
+                onBlur={handleBlur}
+                {...guardProps}
+                placeholder="Escribe tu prompt aquí..."
+                className="w-full bg-transparent border-none outline-none resize-none font-mono text-base md:text-[11.5px] text-[#CCCCCC] leading-[1.75] min-h-[140px] placeholder-[#555555]"
+              />
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="flex justify-between items-center mt-2 pt-2 border-t border-[#222222] gap-2">
+            <span className="font-mono text-[9px] text-[#555555] hidden md:block">
+              Incluye: rol · contexto · formato · restricciones
+            </span>
+            <span className="font-mono text-[9px] text-[#555555] md:hidden">
+              rol · contexto · formato · restricciones
+            </span>
+            <span className="font-mono text-[10px] text-[#555555] shrink-0">
+              ⏱ {formatTime(elapsedTime)}
+            </span>
+          </div>
         </div>
       </div>
-    </div>
+      <Toast message={PASTE_BLOCKED_MESSAGE} isVisible={pasteBlocked} onClose={clearPasteBlocked} />
+    </>
   );
 };

@@ -1,18 +1,37 @@
 /**
- * aiqEvaluatorV5.js — Motor de evaluación AIQ, rúbrica v5.
+ * aiqEvaluatorV6.js — Motor de evaluación AIQ, rúbrica v6.
  *
  * Función pura de orquestación: recibe las respuestas de un assessment ya
  * ensambladas (ver assembleAnswers.js) y devuelve el resultado consolidado
  * según el esquema pedido. No conoce Table Storage ni ningún detalle de
- * persistencia — eso vive en results-save/index.js y en migrateToV5.js.
+ * persistencia — eso vive en results-save/index.js.
+ *
+ * Reemplazo total de aiqEvaluatorV5.js. No es una migración: los resultados
+ * ya evaluados bajo v5 no se recalculan con este motor.
  */
 
-const { AzureOpenAI } = require("openai");
-const rubric = require("./aiqRubricV5");
-const prompts = require("./aiqPromptsV5");
+const { chatTexto } = require("./llmClient");
+const rubric = require("./aiqRubricV6");
+const prompts = require("./aiqPromptsV6");
 
 const LLM_TIMEOUT_MS = 90000;
+// La llamada consolidada evalúa hasta 9 preguntas en 1 solo request: más
+// tokens de entrada/salida que una llamada individual, timeout proporcionalmente
+// mayor. Sigue muy por debajo del functionTimeout de la Azure Function (10 min).
+const LLM_TIMEOUT_MS_CONSOLIDATED = 150000;
 const LLM_RETRY_BACKOFF_MS = [500, 1500];
+
+// Modo de invocación al LLM: "consolidated" (default, 1 llamada para las N
+// preguntas calificables) o "legacy" (1 llamada por pregunta, comportamiento
+// pre-optimización). Sirve como palanca de reversión operativa sin deploy de
+// código: basta con fijar AIQ_LLM_MODE=legacy en la configuración de la
+// Function App. El modo consolidado además cae a "legacy" automáticamente
+// por assessment si la llamada consolidada falla por completo (ver
+// evaluateLLMQuestionsConsolidated).
+function resolveLlmMode(options) {
+  if (options.llmMode) return options.llmMode;
+  return process.env.AIQ_LLM_MODE === "legacy" ? "legacy" : "consolidated";
+}
 
 // Preguntas evaluadas por LLM (con prompt calificador propio).
 const LLM_QUESTIONS = ["E2", "E3", "E5", "E6", "B2", "B4", "C1", "C2", "C3"];
@@ -39,16 +58,6 @@ function withTimeout(promise, ms, label) {
     timer = setTimeout(() => reject(new Error(`Timeout (${ms}ms) llamando a Azure OpenAI para ${label}`)), ms);
   });
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
-}
-
-function getAzureOpenAIClient() {
-  const apiKey = process.env.AZURE_OPENAI_API_KEY;
-  const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
-  const apiVersion = process.env.AZURE_OPENAI_API_VERSION || "2024-12-01-preview";
-  if (!apiKey || !endpoint) {
-    throw new Error("Variables Azure OpenAI no configuradas (AZURE_OPENAI_API_KEY/ENDPOINT)");
-  }
-  return new AzureOpenAI({ endpoint, apiKey, apiVersion });
 }
 
 /**
@@ -116,7 +125,7 @@ async function callLLMForQuestion(questionId, params, deps) {
       lastErr = err;
       // Visible en logs además del flag EVAL_ERROR_<questionId> en el resultado
       // final, para poder diagnosticar fallos de evaluación sin adivinar.
-      console.error(`aiqEvaluatorV5: fallo evaluando ${questionId} (intento ${attempt}):`, err.name, err.status || "", err.message);
+      console.error(`aiqEvaluatorV6: fallo evaluando ${questionId} (intento ${attempt}):`, err.name, err.status || "", err.message);
       if (attempt === 0 && isRetryableError(err)) {
         await sleep(LLM_RETRY_BACKOFF_MS[attempt]);
         continue;
@@ -140,21 +149,16 @@ function applyCapa15(nivel, text) {
 }
 
 /**
- * Evalúa una de las 6 preguntas abiertas con LLM (E2, E3, E5, E6, B2, B4).
+ * Post-procesamiento determinístico de una pregunta abierta ya evaluada por
+ * el LLM (Capa 1.5). Independiente de si el resultado vino de una llamada
+ * individual (legacy) o de una llamada consolidada — ambos flujos convergen acá.
  */
-async function evaluateOpenQuestion(questionId, respuesta, ctx, deps) {
-  if (CAPA3_QUESTIONS.has(questionId) && isCapa3Trigger(respuesta)) {
-    return { nivel: "L1", reglas_aplicadas: ["Capa 3"], fallback: false };
-  }
-
-  const params = { respuesta, V1: ctx.V1, V2: ctx.V2 };
-  const result = await callLLMForQuestion(questionId, params, deps);
-
-  if (!result.ok) {
+function finalizeOpenQuestion(questionId, respuesta, llmResult) {
+  if (!llmResult.ok) {
     return { nivel: "L1", reglas_aplicadas: ["EVAL_ERROR"], fallback: true, questionId };
   }
 
-  const parsed = result.parsed;
+  const parsed = llmResult.parsed;
   let nivel = parsed.nivel;
   // Capa 1.5 ya se le pide al LLM que la aplique; se refuerza determinísticamente
   // solo si el LLM no reportó haberla aplicado, para no bajar el nivel dos veces.
@@ -173,23 +177,39 @@ async function evaluateOpenQuestion(questionId, respuesta, ctx, deps) {
 }
 
 /**
- * Evalúa una de las 3 preguntas prompt_input de Sección C (C1, C2, C3).
+ * Evalúa una de las 6 preguntas abiertas con LLM (E2, E3, E5, E6, B2, B4).
+ * Flujo legacy: 1 llamada individual por pregunta.
  */
-async function evaluateCQuestion(questionId, answer, deps) {
+async function evaluateOpenQuestion(questionId, respuesta, ctx, deps) {
+  if (CAPA3_QUESTIONS.has(questionId) && isCapa3Trigger(respuesta)) {
+    return { nivel: "L1", reglas_aplicadas: ["Capa 3"], fallback: false };
+  }
+
+  const params = { respuesta, V1: ctx.V1, V2: ctx.V2 };
+  const result = await callLLMForQuestion(questionId, params, deps);
+  return finalizeOpenQuestion(questionId, respuesta, result);
+}
+
+function buildCQuestionParams(questionId, answer) {
   const promptText = extractOpenText(answer);
   const tiempoSeg = typeof answer === "object" && answer !== null ? answer.time : undefined;
   const params =
     questionId === "C2"
       ? { prompt_mejorado: promptText, tiempo_seg: tiempoSeg }
       : { prompt_del_participante: promptText, tiempo_seg: tiempoSeg };
+  return { params, tiempoSeg };
+}
 
-  const result = await callLLMForQuestion(questionId, params, deps);
-
-  if (!result.ok) {
+/**
+ * Post-procesamiento determinístico de una pregunta de Sección C ya evaluada
+ * por el LLM (techo L2 de C3 sin CoT). Independiente del flujo de llamada.
+ */
+function finalizeCQuestion(questionId, llmResult, tiempoSeg) {
+  if (!llmResult.ok) {
     return { nivel: "L1", flag_N4_copy_paste: false, fallback: true, questionId, tiempoSeg };
   }
 
-  const parsed = result.parsed;
+  const parsed = llmResult.parsed;
   let nivel = parsed.nivel;
 
   // C3 — regla dura: sin CoT explícito, techo L2 sin excepción, sin importar
@@ -209,6 +229,135 @@ async function evaluateCQuestion(questionId, answer, deps) {
   };
 }
 
+/**
+ * Evalúa una de las 3 preguntas prompt_input de Sección C (C1, C2, C3).
+ * Flujo legacy: 1 llamada individual por pregunta.
+ */
+async function evaluateCQuestion(questionId, answer, deps) {
+  const { params, tiempoSeg } = buildCQuestionParams(questionId, answer);
+  const result = await callLLMForQuestion(questionId, params, deps);
+  return finalizeCQuestion(questionId, result, tiempoSeg);
+}
+
+/**
+ * Llama al LLM UNA sola vez con las N preguntas calificables restantes
+ * (después de descartar las que ya cayeron en Capa 3, sin LLM) empaquetadas
+ * en un único prompt consolidado. 1 reintento con el mismo criterio que
+ * callLLMForQuestion. Nunca lanza: si agota los reintentos, devuelve
+ * { ok: false } para que el llamador aplique el fallback a modo legacy.
+ */
+async function callLLMConsolidated(paramsByQuestion, deps) {
+  const callLLM = deps.callLLM;
+  let lastErr;
+  for (let attempt = 0; attempt <= 1; attempt++) {
+    try {
+      const userPrompt = prompts.buildConsolidatedPrompt(paramsByQuestion);
+      const raw = await withTimeout(
+        callLLM({ system: prompts.CONSOLIDATED_SYSTEM_PROMPT, user: userPrompt, questionId: "CONSOLIDATED" }),
+        LLM_TIMEOUT_MS_CONSOLIDATED,
+        "CONSOLIDATED"
+      );
+      const clean = String(raw || "").replace(/```json|```/g, "").trim();
+      const parsed = JSON.parse(clean);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error("Respuesta LLM consolidada no es un objeto JSON");
+      }
+      return { ok: true, parsed };
+    } catch (err) {
+      lastErr = err;
+      console.error(`aiqEvaluatorV6: fallo evaluación consolidada (intento ${attempt}):`, err.name, err.status || "", err.message);
+      if (attempt === 0 && isRetryableError(err)) {
+        await sleep(LLM_RETRY_BACKOFF_MS[attempt]);
+        continue;
+      }
+      break;
+    }
+  }
+  return { ok: false, error: lastErr };
+}
+
+/**
+ * Extrae el sub-resultado de una pregunta puntual desde el JSON consolidado.
+ * Si la clave falta o no trae un "nivel" válido, se trata como fallo
+ * puntual de ESA pregunta (mismo criterio que un fallo individual en el
+ * flujo legacy) sin invalidar el resto del assessment.
+ */
+function extractSubResult(parsedConsolidated, questionId) {
+  const sub = parsedConsolidated ? parsedConsolidated[questionId] : undefined;
+  if (!sub || !rubric.LEVEL_TO_INT[sub.nivel]) {
+    return { ok: false };
+  }
+  return { ok: true, parsed: sub };
+}
+
+/**
+ * Evalúa las preguntas LLM-calificables en 1 sola llamada consolidada
+ * (reemplaza las 9 llamadas individuales del flujo legacy por 1 sola,
+ * eliminando el overhead de system prompt + boilerplate repetido 9x).
+ *
+ * Red de seguridad: si la llamada consolidada falla por completo (timeout,
+ * error de red, o JSON top-level ilegible tras el reintento), se cae
+ * automáticamente al flujo legacy (1 llamada por pregunta) SOLO para este
+ * assessment — nunca deja el assessment sin evaluar. Si la llamada
+ * consolidada responde pero a una pregunta puntual le falta su clave o
+ * viene inválida, esa pregunta puntual cae a fallback L1 (igual que un
+ * fallo individual en legacy) sin afectar a las demás.
+ */
+async function evaluateLLMQuestionsConsolidated(openQuestionIds, cQuestionIds, ctx, answers, deps) {
+  const results = {};
+
+  const openToEvaluate = openQuestionIds.filter((q) => {
+    const respuesta = extractOpenText(answers[q]);
+    if (CAPA3_QUESTIONS.has(q) && isCapa3Trigger(respuesta)) {
+      results[q] = { nivel: "L1", reglas_aplicadas: ["Capa 3"], fallback: false };
+      return false;
+    }
+    return true;
+  });
+
+  const paramsByQuestion = {};
+  openToEvaluate.forEach((q) => {
+    paramsByQuestion[q] = { respuesta: extractOpenText(answers[q]), V1: ctx.V1, V2: ctx.V2 };
+  });
+  const cParams = {};
+  cQuestionIds.forEach((q) => {
+    const { params, tiempoSeg } = buildCQuestionParams(q, answers[q]);
+    cParams[q] = { params, tiempoSeg };
+    paramsByQuestion[q] = params;
+  });
+
+  const toEvaluate = [...openToEvaluate, ...cQuestionIds];
+  if (toEvaluate.length === 0) {
+    return results;
+  }
+
+  const consolidated = await callLLMConsolidated(paramsByQuestion, deps);
+
+  if (!consolidated.ok) {
+    // La llamada consolidada falló por completo -> red de seguridad: flujo
+    // legacy 1 llamada por pregunta, solo para las preguntas pendientes.
+    const settled = await Promise.allSettled(toEvaluate.map((q) => callLLMForQuestion(q, paramsByQuestion[q], deps)));
+    toEvaluate.forEach((q, idx) => {
+      const settledResult = settled[idx];
+      const llmResult = settledResult.status === "fulfilled" ? settledResult.value : { ok: false, error: settledResult.reason };
+      results[q] = openToEvaluate.includes(q)
+        ? finalizeOpenQuestion(q, extractOpenText(answers[q]), llmResult)
+        : finalizeCQuestion(q, llmResult, cParams[q].tiempoSeg);
+    });
+    return results;
+  }
+
+  openToEvaluate.forEach((q) => {
+    const sub = extractSubResult(consolidated.parsed, q);
+    results[q] = finalizeOpenQuestion(q, extractOpenText(answers[q]), sub);
+  });
+  cQuestionIds.forEach((q) => {
+    const sub = extractSubResult(consolidated.parsed, q);
+    results[q] = finalizeCQuestion(q, sub, cParams[q].tiempoSeg);
+  });
+  return results;
+}
+
 function computeSectionLevel(levels) {
   const ints = levels.map((l) => rubric.LEVEL_TO_INT[l]);
   const avg = ints.reduce((a, b) => a + b, 0) / ints.length;
@@ -218,20 +367,22 @@ function computeSectionLevel(levels) {
 const SECTION_TIE_BREAK_ORDER = { C: 0, A: 1, B: 2 };
 
 /**
- * Selecciona 2-3 recomendaciones_ids según las reglas 29-35 de la rúbrica v5:
- * rankear secciones por nivel (desempate C>A>B), elegir dentro de cada
- * sección la pregunta de menor nivel individual (excluyendo B1, que no tiene
- * tarjetas), sin repetir sección, y asegurar al menos una recomendación
- * hacia L4 si el nivel general es >= L3.
+ * Selecciona 2-3 recomendaciones_ids: rankear secciones por nivel (desempate
+ * C>A>B), elegir dentro de cada sección la pregunta de menor nivel individual
+ * (excluyendo B1 y E6, que no tienen tarjetas en el catálogo v6), sin repetir
+ * sección, y asegurar al menos una recomendación hacia L4 si el nivel general
+ * es >= L3.
  */
 function selectRecommendations({ sectionInts, questionLevels, nivelFinal }) {
   const sectionsRanked = ["A", "B", "C"]
     .map((s) => ({ section: s, level: sectionInts[s] }))
     .sort((a, b) => a.level - b.level || SECTION_TIE_BREAK_ORDER[a.section] - SECTION_TIE_BREAK_ORDER[b.section]);
 
+  // B1 (cerrada) y E6 (conceptual) no tienen tarjetas de recomendación en el
+  // catálogo v6 — excluidas explícitamente, a diferencia de v5 que solo excluía B1.
   function eligibleQuestions(section) {
     return rubric.SECTION_QUESTIONS[section]
-      .filter((q) => q !== "B1")
+      .filter((q) => q !== "B1" && q !== "E6")
       .filter((q) => questionLevels[q] !== undefined && rubric.LEVEL_TO_INT[questionLevels[q]] < 4)
       .sort(
         (a, b) =>
@@ -262,13 +413,13 @@ function selectRecommendations({ sectionInts, questionLevels, nivelFinal }) {
     usedSections.add(section);
   }
 
-  // Regla 32: si el nivel general es >= L3, asegurar al menos una recomendación t-34 (->L4).
+  // Si el nivel general es >= L3, asegurar al menos una recomendación t-34 (->L4).
   const nivelFinalInt = rubric.LEVEL_TO_INT[nivelFinal];
   const tieneEmpujeL4 = selected.some((s) => s.transition === "t-34");
   if (nivelFinalInt >= 3 && !tieneEmpujeL4) {
     const l3Candidates = ["A", "B", "C"].flatMap((section) =>
       rubric.SECTION_QUESTIONS[section]
-        .filter((q) => q !== "B1" && questionLevels[q] === "L3")
+        .filter((q) => q !== "B1" && q !== "E6" && questionLevels[q] === "L3")
         .map((questionId) => ({ section, questionId }))
     );
     l3Candidates.sort((a, b) => (usedSections.has(a.section) ? 1 : 0) - (usedSections.has(b.section) ? 1 : 0));
@@ -302,27 +453,23 @@ function selectRecommendations({ sectionInts, questionLevels, nivelFinal }) {
  * Punto de entrada principal. `answers` es el objeto ya ensamblado
  * {V1, V2, E2, E3, ..., D5, D6, ...} y `participant` trae {nombre, email, empresa}.
  * `options.callLLM` permite inyectar un cliente mockeado en tests; por defecto
- * llama a Azure OpenAI.
+ * usa el proveedor configurado en AIQ_LLM_PROVIDER (Azure OpenAI o Bedrock).
  */
 async function evaluateAssessment(answers, participant = {}, options = {}) {
   const callLLM =
     options.callLLM ||
-    (async ({ system, user }) => {
-      const client = getAzureOpenAIClient();
-      const deployment = process.env.AZURE_OPENAI_DEPLOYMENT;
-      const completion = await client.chat.completions.create({
-        model: deployment,
+    (async ({ system, user, questionId }) =>
+      chatTexto({
         messages: [
           { role: "system", content: system },
           { role: "user", content: user },
         ],
-        // El deployment configurado puede ser un modelo de razonamiento
-        // (consume tokens ocultos de "thinking" antes del JSON visible),
-        // por eso el presupuesto es generoso: no es solo para el output.
-        max_completion_tokens: 2000,
-      });
-      return completion.choices[0]?.message?.content || "";
-    });
+        // El modelo configurado puede ser de razonamiento (consume tokens
+        // ocultos de "thinking" antes del JSON visible), por eso el presupuesto
+        // es generoso: no es solo para el output. La llamada consolidada
+        // empaqueta hasta 9 preguntas en 1 request, así que necesita más.
+        max_completion_tokens: questionId === "CONSOLIDATED" ? 9000 : 2000,
+      }));
   const deps = { callLLM };
 
   const V1 = extractAnswerValue(answers.V1);
@@ -333,26 +480,35 @@ async function evaluateAssessment(answers, participant = {}, options = {}) {
 
   const shortCircuit = isN2ShortCircuit(V1, V2);
 
-  // Lanzar las 8 llamadas LLM en paralelo (Promise.allSettled: un fallo no cancela las demás).
   const openQuestionIds = ["E2", "E3", "E5", "E6", "B2", "B4"];
   const cQuestionIds = ["C1", "C2", "C3"];
 
-  const settled = await Promise.allSettled([
-    ...openQuestionIds.map((q) => evaluateOpenQuestion(q, extractOpenText(answers[q]), ctx, deps)),
-    ...cQuestionIds.map((q) => evaluateCQuestion(q, answers[q], deps)),
-  ]);
-
+  const llmMode = resolveLlmMode(options);
   const results = {};
   const flags = new Set();
 
-  [...openQuestionIds, ...cQuestionIds].forEach((questionId, idx) => {
-    const settledResult = settled[idx];
-    if (settledResult.status === "fulfilled") {
-      results[questionId] = settledResult.value;
-    } else {
-      results[questionId] = { nivel: "L1", fallback: true };
-    }
-    if (results[questionId].fallback) {
+  if (llmMode === "legacy") {
+    // Flujo pre-optimización: 1 llamada individual por pregunta en paralelo
+    // (Promise.allSettled: un fallo no cancela las demás). Se conserva como
+    // red de reversión operativa (AIQ_LLM_MODE=legacy) y como fallback
+    // automático del modo consolidado ante fallo total (ver más abajo).
+    const settled = await Promise.allSettled([
+      ...openQuestionIds.map((q) => evaluateOpenQuestion(q, extractOpenText(answers[q]), ctx, deps)),
+      ...cQuestionIds.map((q) => evaluateCQuestion(q, answers[q], deps)),
+    ]);
+
+    [...openQuestionIds, ...cQuestionIds].forEach((questionId, idx) => {
+      const settledResult = settled[idx];
+      results[questionId] = settledResult.status === "fulfilled" ? settledResult.value : { nivel: "L1", fallback: true };
+    });
+  } else {
+    // Flujo consolidado (default): 1 sola llamada al LLM para todas las
+    // preguntas calificables del assessment en vez de 9 independientes.
+    Object.assign(results, await evaluateLLMQuestionsConsolidated(openQuestionIds, cQuestionIds, ctx, answers, deps));
+  }
+
+  [...openQuestionIds, ...cQuestionIds].forEach((questionId) => {
+    if (results[questionId] && results[questionId].fallback) {
       flags.add(`EVAL_ERROR_${questionId}`);
     }
   });
@@ -388,6 +544,28 @@ async function evaluateAssessment(answers, participant = {}, options = {}) {
     C: computeSectionLevel([questionLevels.C1, questionLevels.C2, questionLevels.C3]),
   };
 
+  // N4x#: preguntas de Sección C con tiempo < N4_TIME_THRESHOLD_SEC y nivel >= L3.
+  // Se calcula ANTES de la fórmula ponderada porque, a diferencia de v5 (donde
+  // esta flag era puramente informativa), en v6 puede topar el nivel de Sección C.
+  const n4Count = rubric.N4_QUESTIONS.filter((q) => {
+    const r = results[q];
+    const tiempo = r && r.tiempoSeg;
+    if (typeof tiempo !== "number") return false;
+    return tiempo < rubric.N4_TIME_THRESHOLD_SEC && rubric.LEVEL_TO_INT[r.nivel] >= 3;
+  }).length;
+  if (n4Count > 0) {
+    flags.add(`N4x${n4Count}`);
+  }
+
+  // Tope condicional NUEVO en v6: si Sección C calculó L4 (nivel entero 4) Y
+  // se disparó al menos una marca N4x#, forzar Sección C a nivel 3 (Practicante)
+  // ANTES de sumar la fórmula ponderada. Si Sección C quedó en L3 o menos, la
+  // flag N4x# permanece solo como alerta y no toca ningún puntaje. No se emite
+  // una flag adicional para este ajuste — solo N4x# está en la especificación.
+  if (n4Count > 0 && sectionInts.C === 4) {
+    sectionInts.C = 3;
+  }
+
   let puntaje =
     sectionInts.A * rubric.SECTION_WEIGHTS.A +
     sectionInts.B * rubric.SECTION_WEIGHTS.B +
@@ -399,38 +577,36 @@ async function evaluateAssessment(answers, participant = {}, options = {}) {
     flags.add("N2_suave");
   }
 
-  // N1: perfil desbalanceado.
+  // N1: perfil desbalanceado. Se evalúa sobre los sectionInts ya topados por
+  // N4x# (valores finales usados en la fórmula), no sobre un cálculo previo.
   const sectionValues = [sectionInts.A, sectionInts.B, sectionInts.C];
   if (Math.max(...sectionValues) - Math.min(...sectionValues) >= 2) {
     flags.add("N1");
   }
 
   // N3: >=50% de las 5 preguntas abiertas que pesan son cortas (<=5 palabras)
-  // o vacías/"."/N-A — umbral propio de N3 (rule 19), distinto al de Capa 3.
+  // o vacías/"."/N-A. CAMBIA respecto a v5: E6 queda excluida de este conteo
+  // (rubric.N3_QUESTIONS ya refleja las 5 preguntas correctas, sin E6).
   const n3Count = rubric.N3_QUESTIONS.filter((q) => isCapa3Trigger(extractOpenText(answers[q]), 5)).length;
   if (n3Count / rubric.N3_QUESTIONS.length >= 0.5) {
     flags.add("N3");
   }
 
-  // N4x#: preguntas de Sección C con tiempo < 10s y nivel >= L3.
-  const n4Count = rubric.N4_QUESTIONS.filter((q) => {
-    const r = results[q];
-    const tiempo = r && r.tiempoSeg;
-    if (typeof tiempo !== "number") return false;
-    return tiempo < 10 && rubric.LEVEL_TO_INT[r.nivel] >= 3;
-  }).length;
-  if (n4Count > 0) {
-    flags.add(`N4x${n4Count}`);
-  }
-
-  // REGLA1_SEGURIDAD: dispara en B2, topa puntaje/nivel final en L2.
+  // REGLA1_SEGURIDAD: dispara en B2, topa puntaje/nivel final en L2 (escala
+  // v6: cap = 2.8). Se aplica DESPUÉS del tope de N4x# sobre Sección C — son
+  // reglas independientes que pueden coexistir en el mismo perfil sin
+  // conflicto de precedencia: N4x# actúa sobre sectionInts.C antes de sumar
+  // la fórmula, REGLA1_SEGURIDAD actúa sobre el puntaje ya ponderado.
   if (results.B2.flag_regla1_seguridad) {
     flags.add("REGLA1_SEGURIDAD");
     puntaje = Math.min(puntaje, rubric.REGLA1_CAP_PUNTAJE);
     nivel = rubric.levelFromPuntaje(puntaje);
   }
 
-  // CANDIDATO_A_CHAMPION: interpretación estricta (puntaje + nivel(E5)=L4 + 3 señales + D5/D6).
+  // CANDIDATO_A_CHAMPION: puntaje >= 3.9 (v6) + nivel(E5)=L4 + 3 señales + D5/D6.
+  // Nota de signo: D6 usa escala INVERTIDA (1 = mejor: conoce la política y
+  // sabe qué dice; 4 = peor) a diferencia de D1/D1b/D9 donde 4 = mejor — no
+  // "corregir" este ===1 por comparación superficial con las otras preguntas D.
   const championSignals = results.E5.champion_signals;
   const tresSenalesChampion =
     championSignals && championSignals.liderazgo && championSignals.recurso_recurrente && championSignals.impacto_medible;
@@ -457,7 +633,7 @@ async function evaluateAssessment(answers, participant = {}, options = {}) {
     C: sectionInts.C,
     flags: Array.from(flags),
     recomendaciones_ids,
-    rubricVersion: "v5",
+    rubricVersion: "v6",
     perQuestionLevels: questionLevels,
   };
 }

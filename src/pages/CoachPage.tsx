@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 
 const LEVEL_NAMES: Record<string, string> = {
@@ -315,7 +316,26 @@ export default function CoachPage() {
         </button>
       </div>
 
-      <div className="max-w-[720px] mx-auto px-4 py-8">
+      <div className="max-w-[1120px] mx-auto px-4 py-8 flex items-start gap-6">
+
+        {/* Sidebar izquierdo — acceso al banco de prompts */}
+        <aside className="hidden lg:flex flex-col shrink-0 w-[320px] sticky top-8 gap-4 bg-white rounded-[10px] border-l-4 border-primary shadow-sm px-7 py-6">
+          <div className="w-9 h-9 rounded-full bg-primary/10 border border-primary/25 flex items-center justify-center text-[18px]">💡</div>
+          <div>
+            <div className="font-mono text-[9px] font-extrabold uppercase tracking-[0.18em] text-[#808080] mb-2">Recurso</div>
+            <p className="font-body text-[13px] text-[#808080] leading-[1.6]">
+              Explora prompts listos para usar, organizados según tu nivel AIQ y tu rol, para aplicar la IA en tu trabajo diario.
+            </p>
+          </div>
+          <Link
+            to="/banco-prompts"
+            className="min-h-[44px] px-3 flex items-center justify-center text-center bg-primary text-white font-mono text-[10px] uppercase tracking-wider rounded-[2px] hover:bg-primary/90 transition-colors"
+          >
+            Ir a mi banco de prompts
+          </Link>
+        </aside>
+
+        <div className="flex-1 min-w-0 max-w-[720px] mx-auto">
 
         <div className="space-y-4">
 
@@ -409,6 +429,8 @@ export default function CoachPage() {
             </div>
 
           </motion.div>
+        </div>
+
         </div>
 
       </div>

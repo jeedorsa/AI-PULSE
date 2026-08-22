@@ -13,3 +13,8 @@ worker/local.settings.json.*
 api/.azurite/
 worker/.azurite/
 old_backup/
+CLAUDE.md
+package-lock.json
+
+# Respaldos de migración de datos (contienen datos personales)
+backup-*.json

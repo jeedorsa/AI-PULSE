@@ -1,4 +1,6 @@
 const { createTableClient } = require("../shared/tableClient");
+const { isCompanyEnabled } = require("../shared/companyAccess");
+const { corsHeaders } = require("../shared/cors");
 
 /**
  * POST /api/access-request
@@ -11,12 +13,7 @@ const { createTableClient } = require("../shared/tableClient");
  * Anti-repetición: status=completed bloquea cualquier intento de reingreso.
  */
 module.exports = async function (context, req) {
-  const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Content-Type": "application/json"
-  };
+  const headers = corsHeaders(req, { methods: "POST, OPTIONS" });
 
   if (req.method === "OPTIONS") {
     context.res = { status: 204, headers, body: "" };
@@ -82,6 +79,21 @@ module.exports = async function (context, req) {
         })
       };
       return;
+    }
+
+    // ── Empresa desactivada → bloquear nuevos inicios ──────────────────────
+    if (participant.status === "pending" || participant.status === "invited") {
+      const enabled = await isCompanyEnabled(connectionString, participant.partitionKey, context.log);
+      if (!enabled) {
+        context.res = {
+          status: 403, headers,
+          body: JSON.stringify({
+            error: "El acceso para tu empresa fue desactivado temporalmente. Contacta al administrador.",
+            code: "company_disabled"
+          })
+        };
+        return;
+      }
     }
 
     // Marcar como started si aún no lo está

@@ -9,6 +9,7 @@
 const { TableClient } = require("@azure/data-tables");
 const { BlobServiceClient } = require("@azure/storage-blob");
 
+const { chatCompletion } = require("../shared/llmClient");
 function blobNameForEmpresa(empresa) {
   return `company/${empresa.replace(/[^a-zA-Z0-9]/g, '_')}.html`;
 }
@@ -268,20 +269,16 @@ OUTPUT JSON EXACTO:
 }
 
 // ─── Llamada a Azure OpenAI con retry ────────────────────────────────────
-async function callOpenAI(url, key, systemMsg, userMsg, attempt = 1) {
+async function callOpenAI(systemMsg, userMsg, attempt = 1) {
   const MAX_ATTEMPTS = 3;
   try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'api-key': key },
-      body: JSON.stringify({
+    const res = await chatCompletion({
         messages: [
           { role: 'system', content: systemMsg },
           { role: 'user',   content: userMsg }
         ],
         max_completion_tokens: 20000
-      })
-    });
+      });
     if (!res.ok) {
       const err = await res.text();
       throw new Error(`Azure OpenAI ${res.status}: ${err.slice(0, 300)}`);
@@ -304,7 +301,7 @@ async function callOpenAI(url, key, systemMsg, userMsg, attempt = 1) {
     if (attempt < MAX_ATTEMPTS) {
       const delay = attempt * 8000; // 8s, 16s entre intentos
       await new Promise(r => setTimeout(r, delay));
-      return callOpenAI(url, key, systemMsg, userMsg, attempt + 1);
+      return callOpenAI(systemMsg, userMsg, attempt + 1);
     }
     throw err;
   }
@@ -693,7 +690,6 @@ module.exports = async function (context, req) {
   const apiKey      = process.env.AZURE_OPENAI_API_KEY;
   const deployment  = process.env.AZURE_OPENAI_DEPLOYMENT;
   const apiVersion  = process.env.AZURE_OPENAI_API_VERSION || "2025-04-01-preview";
-  const openaiUrl   = `${apiEndpoint.replace(/\/$/, '')}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
   const systemMsg   = 'Eres el analizador Enterprise de AI Pulse. Respondes SOLO con JSON válido, sin markdown ni texto extra. Usa siempre tuteo (tú/tu/tus/te) — nunca usted/su/sus.';
 
   try {
@@ -730,13 +726,13 @@ module.exports = async function (context, req) {
 
     context.log.info(`[company-report-http] ${participantes.length} participantes — ejecutando 3 prompts`);
 
-    const jsonEnterprise = await callOpenAI(openaiUrl, apiKey, systemMsg, buildPrompt1(empresa, participantes));
+    const jsonEnterprise = await callOpenAI(systemMsg, buildPrompt1(empresa, participantes));
     context.log.info('[company-report-http] Prompt 1 OK');
 
-    const jsonAnalisis = await callOpenAI(openaiUrl, apiKey, systemMsg, buildPrompt2(jsonEnterprise));
+    const jsonAnalisis = await callOpenAI(systemMsg, buildPrompt2(jsonEnterprise));
     context.log.info('[company-report-http] Prompt 2 OK');
 
-    const jsonPlan = await callOpenAI(openaiUrl, apiKey, systemMsg, buildPrompt3(jsonEnterprise, jsonAnalisis));
+    const jsonPlan = await callOpenAI(systemMsg, buildPrompt3(jsonEnterprise, jsonAnalisis));
     context.log.info('[company-report-http] Prompt 3 OK');
 
     const html = generateHTML(empresa, jsonEnterprise, jsonAnalisis, jsonPlan, participantes);

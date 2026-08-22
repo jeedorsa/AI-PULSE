@@ -9,6 +9,7 @@
 const { TableClient } = require("@azure/data-tables");
 const { BlobServiceClient } = require("@azure/storage-blob");
 
+const { chatCompletion } = require("../shared/llmClient");
 const V1_OPT = { 1: 'Aún no la he usado ni explorado', 2: 'La he probado pero no le he encontrado utilidad real en mi trabajo', 3: 'La uso de vez en cuando para tareas puntuales', 4: 'La uso regularmente y forma parte de cómo trabajo' };
 const B1_OPT = { 1: 'La acepto si suena lógica o coherente con lo que sé', 2: 'La busco en Google u otra fuente que tengo a mano', 3: 'Verifico cuando voy a usarlo para tomar una decisión o compartirlo', 4: 'La contrasto siempre con una fuente confiable antes de usarla', 5: 'Generalmente la uso sin verificar, no siempre sé cómo hacerlo' };
 const D1_OPT = { 1: 'Nunca lo ha mencionado ni promovido', 2: 'Lo menciona ocasionalmente pero sin acciones concretas', 3: 'Me ha dado espacio o recursos para explorarlo', 4: 'Lo promueve activamente y da el ejemplo' };
@@ -371,23 +372,18 @@ module.exports = async function (context, req) {
     }
 
     const prompt = buildPrompt(participant, answers, scores, companyDist);
-    const url = `${openaiEndpoint.replace(/\/$/, '')}/openai/deployments/${openaiDeploy}/chat/completions?api-version=${openaiVersion}`;
 
     let analysis;
     let lastErr;
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
-        const aiResponse = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'api-key': openaiKey },
-          body: JSON.stringify({
+        const aiResponse = await chatCompletion({
             messages: [
               { role: 'system', content: 'Eres el analista principal de AI Pulse. Respondes SOLO con JSON válido, sin markdown. Usa siempre tuteo (tú/tu/tus/te) — nunca usted/su/sus.' },
               { role: 'user', content: prompt }
             ],
             max_completion_tokens: 20000
-          })
-        });
+          });
         if (!aiResponse.ok) {
           const errBody = await aiResponse.text();
           throw new Error(`OpenAI ${aiResponse.status}: ${errBody.slice(0, 200)}`);

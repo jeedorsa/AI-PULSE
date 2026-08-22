@@ -3,7 +3,7 @@ const { SearchClient, AzureKeyCredential } = require("@azure/search-documents");
 const { EmailClient } = require("@azure/communication-email");
 const { v4: uuidv4 } = require("uuid");
 const { createTableClient } = require("../shared/tableClient");
-const { evaluateAssessment } = require("../shared/aiqEvaluatorV5");
+const { evaluateAssessment } = require("../shared/aiqEvaluatorV6");
 
 // Esquema público exacto del resultado (ver plan): nombre/email/empresa/nivel/
 // puntaje/A/B/C/flags/recomendaciones_ids. rubricVersion/perQuestionLevels son
@@ -110,12 +110,12 @@ module.exports = async function (context, req) {
     }
 
     // ──────────────────────────────────────────────────────────────
-    // IDEMPOTENCIA + LOCK: si este token ya fue evaluado bajo la rúbrica v5,
+    // IDEMPOTENCIA + LOCK: si este token ya fue evaluado bajo la rúbrica v6,
     // no se vuelve a evaluar (el LLM no es determinista entre corridas) —
     // se devuelve el resultado ya persistido, sin repetir efectos
     // secundarios (email, encolado de informe, embeddings). Si otra request
     // concurrente para el mismo token está evaluando en este momento, se
-    // espera su resultado en vez de disparar 8 llamadas LLM duplicadas.
+    // espera su resultado en vez de disparar 9 llamadas LLM duplicadas.
     // ──────────────────────────────────────────────────────────────
     const gotLock = await acquireEvalLock(resultsClient, partitionKey, token);
 
@@ -127,7 +127,7 @@ module.exports = async function (context, req) {
         existing = await resultsClient.getEntity(partitionKey, token);
       }
 
-      if (existing.rubricVersion === "v5") {
+      if (existing.rubricVersion === "v6") {
         return context.res = {
           status: 200,
           body: { success: true, assessmentId: token, resultado: resultadoFromEntity(existing) }
@@ -147,7 +147,7 @@ module.exports = async function (context, req) {
       // legítimamente y terminó de evaluar justo después de que expirara
       // nuestro deadline — Table Storage devuelve 412 PreconditionFailed y
       // NO sobreescribimos los datos válidos que el otro dejó. En ese caso
-      // releemos, verificamos si ya es v5 (return cached) y si sigue sin
+      // releemos, verificamos si ya es v6 (return cached) y si sigue sin
       // serlo, reintentamos el take-over con el etag nuevo.
       const MAX_TAKEOVER_ATTEMPTS = 3;
       for (let attempt = 0; attempt < MAX_TAKEOVER_ATTEMPTS; attempt++) {
@@ -167,13 +167,13 @@ module.exports = async function (context, req) {
           if (err.statusCode !== 412) throw err;
           // Otro proceso ganó la carrera y actualizó la fila. Releer y decidir.
           existing = await resultsClient.getEntity(partitionKey, token);
-          if (existing.rubricVersion === "v5") {
+          if (existing.rubricVersion === "v6") {
             return context.res = {
               status: 200,
               body: { success: true, assessmentId: token, resultado: resultadoFromEntity(existing) }
             };
           }
-          // Sigue sin ser v5 (legacy re-lockeado, o crash en cadena) — reintentar.
+          // Sigue sin ser v6 (legacy/v5 re-lockeado, o crash en cadena) — reintentar.
           if (attempt === MAX_TAKEOVER_ATTEMPTS - 1) throw err;
         }
       }
@@ -188,7 +188,7 @@ module.exports = async function (context, req) {
     const durationMinutes = metadata.durationMinutes != null ? safeNumber(metadata.durationMinutes, null) : null;
 
     // ──────────────────────────────────────────────────────────────
-    // EVALUACIÓN AIQ — rúbrica v5 (motor server-side, ver api/shared/aiqEvaluatorV5.js)
+    // EVALUACIÓN AIQ — rúbrica v6 (motor server-side, ver api/shared/aiqEvaluatorV6.js)
     // ──────────────────────────────────────────────────────────────
     const resultado = await evaluateAssessment(answers, {
       nombre: participant.nombre || "",
@@ -295,7 +295,7 @@ module.exports = async function (context, req) {
       sectionC: resultado.C,
       alerts: JSON.stringify(resultado.flags),
       recomendacionesIds: JSON.stringify(resultado.recomendaciones_ids),
-      rubricVersion: "v5",
+      rubricVersion: "v6",
       answersV,
       answersA,
       answersB,
