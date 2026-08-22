@@ -224,9 +224,18 @@ solo: todas las preguntas caían en `EVAL_ERROR` → L1 → puntajes falsamente 
 - **Reintentos con backoff exponencial y jitter** ante `ThrottlingException`
   (`BEDROCK_MAX_REINTENTOS`, default 5: 1s, 2s, 4s, 8s, 16s).
 
-Con eso un assessment completa sin errores en ~16 s. El techo práctico es de
-**~1 assessment por minuto**; suficiente para validar, insuficiente para producción
-con volumen. Subir esa cuota es el paso pendiente antes de mover tráfico real.
+Con eso un assessment completa sin errores en ~16 s.
+
+**La llamada consolidada de la rúbrica v6 resuelve el problema de fondo:** empaqueta
+las 9 preguntas en **1 solo request**. Medido en la instancia: 1 llamada al LLM por
+assessment, 0 fallos. Con los mismos 10 rpm el techo pasa de ~1 a **~10 assessments
+por minuto**. Si la llamada consolidada falla, el motor cae a modo legacy (9 llamadas)
+y ahí el límite de concurrencia vuelve a ser lo que evita el throttling.
+
+Solicitudes de aumento de cuota abiertas el 22-ago (estado `PENDING`):
+`9234807573b74e5b8932578d82b6266dgoU8ufux` y `66eb823df4cd4627ae1ad03943687da6GLI0a8v3`,
+ambas pidiendo 12000 (la API no acepta pedir menos que el default de 10000). La vía
+rápida es un caso de soporte: *Service limit increase* está incluido en el plan Basic.
 
 ---
 
