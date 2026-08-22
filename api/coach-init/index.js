@@ -2,6 +2,8 @@ const { createTableClient } = require("../shared/tableClient");
 const { corsHeaders } = require("../shared/cors");
 const { validateSessionToken, requireSessionSecret } = require("../shared/sessionAuth");
 
+const { chatCompletion } = require("../shared/llmClient");
+
 /**
  * POST /api/coach-init
  * Headers: X-Coach-Token + X-Coach-Email
@@ -101,18 +103,13 @@ Responde SOLO con JSON válido:
   { "id": "t3", ... }
 ]`;
 
-    const url = `${openaiEndpoint.replace(/\/$/, "")}/openai/deployments/${openaiDeployment}/chat/completions?api-version=${openaiVersion}`;
-    const aiRes = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "api-key": openaiKey },
-      body: JSON.stringify({
+    const aiRes = await chatCompletion({
         messages: [
           { role: "system", content: "Eres el coach de AI Pulse. Respondes SOLO con JSON válido, sin markdown." },
           { role: "user", content: prompt }
         ],
         max_completion_tokens: 20000
-      })
-    });
+      });
 
     if (!aiRes.ok) throw new Error(`Azure OpenAI error ${aiRes.status}`);
     const aiData = await aiRes.json();

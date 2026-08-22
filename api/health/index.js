@@ -1,3 +1,5 @@
+const { chatCompletion, proveedorActivo, modeloActivo } = require("../shared/llmClient");
+
 module.exports = async function (context, req) {
   const endpoint   = process.env.AZURE_OPENAI_ENDPOINT   || "";
   const key        = process.env.AZURE_OPENAI_API_KEY     || "";
@@ -5,21 +7,19 @@ module.exports = async function (context, req) {
   const version    = process.env.AZURE_OPENAI_API_VERSION || "";
   const storage    = process.env.AZURE_STORAGE_CONNECTION_STRING || "";
 
-  // Intentar una llamada real a Azure OpenAI con 1 token para verificar conectividad
+  // Llamada real de 1 token contra el proveedor activo, para verificar conectividad.
   let openai_status = "not_tested";
   let openai_error  = null;
 
-  if (endpoint && key && deployment) {
+  const proveedor = proveedorActivo();
+  const configurado = proveedor === "bedrock" ? true : !!(endpoint && key && deployment);
+
+  if (configurado) {
     try {
-      const url = `${endpoint.replace(/\/$/, "")}/openai/deployments/${deployment}/chat/completions?api-version=${version || "2024-12-01-preview"}`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "api-key": key },
-        body: JSON.stringify({
+      const res = await chatCompletion({
           messages: [{ role: "user", content: "di ok" }],
           max_completion_tokens: 5
-        })
-      });
+        });
       if (res.ok) {
         openai_status = "ok";
       } else {
@@ -40,6 +40,11 @@ module.exports = async function (context, req) {
       status:           "Function OK",
       node_version:     process.version,
       timestamp:        new Date().toISOString(),
+      llm: {
+        proveedor:                    proveedor,
+        modelo:                       modeloActivo(),
+        estado:                       openai_status,
+      },
       env: {
         azure_openai_key_exists:      !!key,
         azure_openai_endpoint:        endpoint ? endpoint.slice(0, 50) + "..." : "MISSING",

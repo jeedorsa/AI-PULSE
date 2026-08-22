@@ -12,6 +12,8 @@
 const { TableClient } = require("@azure/data-tables");
 const { BlobServiceClient } = require("@azure/storage-blob");
 
+const { chatCompletion } = require("../shared/llmClient");
+
 // ── Constantes (idénticas a api/report-generate/index.js) ────────
 const V2_OPT = { 1: 'Colaborador individual', 2: 'Manager o Líder de equipo', 3: 'Director', 4: 'VP o C-Suite' };
 const V3_OPT = { 1: 'Menos de 1 año', 2: '1 a 3 años', 3: '3 a 5 años', 4: 'Más de 5 años' };
@@ -627,19 +629,14 @@ module.exports = async function (context, queueMessage) {
   // 4. Llamar Azure OpenAI
   context.log.info(`[report-processor] Llamando OpenAI para ${email}`);
   const prompt = buildPrompt(participant, answers, scores, companyDist);
-  const url = `${openaiEndpoint.replace(/\/$/, '')}/openai/deployments/${openaiDeployment}/chat/completions?api-version=${openaiVersion}`;
 
-  const aiResponse = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'api-key': openaiKey },
-    body: JSON.stringify({
+  const aiResponse = await chatCompletion({
       messages: [
         { role: 'system', content: 'Eres el analista principal de AI Pulse. Respondes SOLO con JSON válido, sin markdown.' },
         { role: 'user', content: prompt }
       ],
       max_completion_tokens: 20000
-    })
-  });
+    });
 
   if (!aiResponse.ok) {
     const errBody = await aiResponse.text();

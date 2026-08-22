@@ -10,7 +10,7 @@
  * ya evaluados bajo v5 no se recalculan con este motor.
  */
 
-const { AzureOpenAI } = require("openai");
+const { chatTexto } = require("./llmClient");
 const rubric = require("./aiqRubricV6");
 const prompts = require("./aiqPromptsV6");
 
@@ -58,16 +58,6 @@ function withTimeout(promise, ms, label) {
     timer = setTimeout(() => reject(new Error(`Timeout (${ms}ms) llamando a Azure OpenAI para ${label}`)), ms);
   });
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
-}
-
-function getAzureOpenAIClient() {
-  const apiKey = process.env.AZURE_OPENAI_API_KEY;
-  const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
-  const apiVersion = process.env.AZURE_OPENAI_API_VERSION || "2024-12-01-preview";
-  if (!apiKey || !endpoint) {
-    throw new Error("Variables Azure OpenAI no configuradas (AZURE_OPENAI_API_KEY/ENDPOINT)");
-  }
-  return new AzureOpenAI({ endpoint, apiKey, apiVersion });
 }
 
 /**
@@ -463,32 +453,23 @@ function selectRecommendations({ sectionInts, questionLevels, nivelFinal }) {
  * Punto de entrada principal. `answers` es el objeto ya ensamblado
  * {V1, V2, E2, E3, ..., D5, D6, ...} y `participant` trae {nombre, email, empresa}.
  * `options.callLLM` permite inyectar un cliente mockeado en tests; por defecto
- * llama a Azure OpenAI.
+ * usa el proveedor configurado en AIQ_LLM_PROVIDER (Azure OpenAI o Bedrock).
  */
 async function evaluateAssessment(answers, participant = {}, options = {}) {
   const callLLM =
     options.callLLM ||
-    (async ({ system, user, questionId }) => {
-      const client = getAzureOpenAIClient();
-      const deployment = process.env.AZURE_OPENAI_DEPLOYMENT;
-      const completion = await client.chat.completions.create({
-        model: deployment,
+    (async ({ system, user, questionId }) =>
+      chatTexto({
         messages: [
           { role: "system", content: system },
           { role: "user", content: user },
         ],
-        // El deployment configurado puede ser un modelo de razonamiento
-        // (consume tokens ocultos de "thinking" antes del JSON visible),
-        // por eso el presupuesto es generoso: no es solo para el output.
-        // La llamada consolidada empaqueta hasta 9 preguntas en 1 request,
-        // por lo que necesita más presupuesto de salida que una individual.
-        // Valor inicial conservador: monitorear tokens reales en Application
-        // Insights y ajustar una vez que haya datos de producción del modo
-        // consolidado (no se calibra a ciegas por pregunta sin telemetría real).
+        // El modelo configurado puede ser de razonamiento (consume tokens
+        // ocultos de "thinking" antes del JSON visible), por eso el presupuesto
+        // es generoso: no es solo para el output. La llamada consolidada
+        // empaqueta hasta 9 preguntas en 1 request, así que necesita más.
         max_completion_tokens: questionId === "CONSOLIDATED" ? 9000 : 2000,
-      });
-      return completion.choices[0]?.message?.content || "";
-    });
+      }));
   const deps = { callLLM };
 
   const V1 = extractAnswerValue(answers.V1);
