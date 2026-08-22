@@ -9,6 +9,7 @@
     "start:local": "node scripts/start-local.js"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.1116.0",
     "@azure/data-tables": "^13.3.2",
     "@azure/storage-blob": "^12.24.0",
     "@azure/storage-queue": "^12.24.0"

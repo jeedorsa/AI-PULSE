@@ -2,6 +2,7 @@ const { TableClient } = require("@azure/data-tables");
 const { BlobServiceClient } = require("@azure/storage-blob");
 const { requireAdmin } = require("../shared/adminAuth");
 
+const { chatCompletion } = require("../shared/llmClient");
 function blobNameForEmpresa(empresa) {
   return `company/${empresa.replace(/[^a-zA-Z0-9]/g, '_')}.html`;
 }
@@ -278,18 +279,14 @@ OUTPUT JSON EXACTO:
 }
 
 // ─── Llamada a Azure OpenAI ───────────────────────────────────────────────
-async function callOpenAI(url, key, systemMsg, userMsg, maxTokens = 3000) {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'api-key': key },
-    body: JSON.stringify({
+async function callOpenAI(systemMsg, userMsg, maxTokens = 3000) {
+  const res = await chatCompletion({
       messages: [
         { role: 'system', content: systemMsg },
         { role: 'user',   content: userMsg }
       ],
       max_completion_tokens: maxTokens
-    })
-  });
+    });
   if (!res.ok) {
     const err = await res.text();
     throw new Error(`Azure OpenAI ${res.status}: ${err.slice(0, 200)}`);

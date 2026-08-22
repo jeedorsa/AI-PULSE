@@ -7,6 +7,8 @@
 const { TableClient } = require("@azure/data-tables");
 const { BlobServiceClient } = require("@azure/storage-blob");
 
+const { chatCompletion } = require("../shared/llmClient");
+
 // ── Constantes ────────────────────────────────────────────────────
 const V2_OPT = { 1: 'Colaborador individual', 2: 'Manager o Líder de equipo', 3: 'Director', 4: 'VP o C-Suite' };
 const NIVEL_CODIGO = {
@@ -128,15 +130,11 @@ OUTPUT JSON EXACTO:
 }`;
 }
 
-async function callOpenAI(url, key, systemMsg, userMsg) {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'api-key': key },
-    body: JSON.stringify({
+async function callOpenAI(systemMsg, userMsg) {
+  const res = await chatCompletion({
       messages: [{ role: 'system', content: systemMsg }, { role: 'user', content: userMsg }],
       max_completion_tokens: 20000
-    })
-  });
+    });
   if (!res.ok) {
     const err = await res.text();
     throw new Error(`OpenAI ${res.status}: ${err.slice(0, 300)}`);
@@ -435,7 +433,6 @@ module.exports = async function (context, queueMessage) {
   const apiKey     = process.env.AZURE_OPENAI_API_KEY;
   const deployment = process.env.AZURE_OPENAI_DEPLOYMENT;
   const apiVersion = process.env.AZURE_OPENAI_API_VERSION || "2025-04-01-preview";
-  const openaiUrl  = `${endpoint.replace(/\/$/, '')}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
   const systemMsg  = 'Eres el analizador Enterprise de AI Pulse. Respondes SOLO con JSON válido, sin markdown ni texto extra.';
 
   // 1. Cargar participantes
@@ -467,15 +464,15 @@ module.exports = async function (context, queueMessage) {
   context.log.info(`[company-report-processor] ${participantes.length} participantes — ejecutando 3 prompts`);
 
   // 2. Prompt 1 — Consolidación
-  const jsonEnterprise = await callOpenAI(openaiUrl, apiKey, systemMsg, buildPrompt1(empresa, participantes));
+  const jsonEnterprise = await callOpenAI(systemMsg, buildPrompt1(empresa, participantes));
   context.log.info('[company-report-processor] Prompt 1 completado');
 
   // 3. Prompt 2 — Análisis narrativo
-  const jsonAnalisis = await callOpenAI(openaiUrl, apiKey, systemMsg, buildPrompt2(jsonEnterprise));
+  const jsonAnalisis = await callOpenAI(systemMsg, buildPrompt2(jsonEnterprise));
   context.log.info('[company-report-processor] Prompt 2 completado');
 
   // 4. Prompt 3 — Plan
-  const jsonPlan = await callOpenAI(openaiUrl, apiKey, systemMsg, buildPrompt3(jsonEnterprise, jsonAnalisis));
+  const jsonPlan = await callOpenAI(systemMsg, buildPrompt3(jsonEnterprise, jsonAnalisis));
   context.log.info('[company-report-processor] Prompt 3 completado');
 
   // 5. Generar HTML

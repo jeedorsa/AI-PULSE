@@ -3,6 +3,8 @@ const { createTableClient } = require("../shared/tableClient");
 const { corsHeaders } = require("../shared/cors");
 const { validateSessionToken, requireSessionSecret } = require("../shared/sessionAuth");
 
+const { chatCompletion } = require("../shared/llmClient");
+
 /**
  * POST /api/coach-chat
  * Headers: X-Coach-Token, X-Coach-Email
@@ -116,12 +118,7 @@ module.exports = async function (context, req) {
       { role: "user", content: message }
     ];
 
-    const url = `${openaiEndpoint.replace(/\/$/, "")}/openai/deployments/${openaiDeployment}/chat/completions?api-version=${openaiVersion}`;
-    const aiRes = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "api-key": openaiKey },
-      body: JSON.stringify({ messages, max_completion_tokens: 20000 })
-    });
+    const aiRes = await chatCompletion({ messages, max_completion_tokens: 20000 });
 
     if (!aiRes.ok) throw new Error(`Azure OpenAI error ${aiRes.status}`);
     const aiData = await aiRes.json();
