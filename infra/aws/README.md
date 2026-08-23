@@ -1,8 +1,11 @@
 # AI Pulse en AWS — despliegue en EC2
 
-Segundo despliegue de AI Pulse en la cuenta AWS de Vinka (`715472012963`), **conviviendo**
-con el de Azure: Azure sigue sirviendo producción (`aipulse.vinka.one`), esto es un ambiente
-paralelo para validar la migración.
+Despliegue de AI Pulse en la cuenta AWS de Vinka (`715472012963`).
+
+> **Desde el 22-ago-2026 este ambiente ES producción.** `aipulse.vinka.one` resuelve a un
+> CloudFront de la cuenta AWS (`E28OVC3F1WUQXZ`, origen `pulseapi.vinka.one`) que termina en
+> esta EC2. El despliegue de Azure sigue vivo y recibe los merges a `main`, pero ya no recibe
+> tráfico del dominio: queda como respaldo. Ver §9.
 
 Enfoque: **lift-and-shift**. Las Azure Functions no se reescribieron — corren tal cual bajo un
 host Express (`server/index.js`) que replica el contrato del runtime de Azure.
@@ -251,3 +254,39 @@ reducido a **22 desde una sola IP**, para recuperar SSH sin afectar su montaje.
 Consecuencia: `http://54.243.108.143` ya no responde directo — el acceso HTTP es por
 el ALB. Conviene coordinar con Diego quién es dueño de esta instancia antes de
 seguir tocándola.
+
+
+---
+
+## 9. AWS como producción (desde el 22-ago-2026)
+
+`aipulse.vinka.one` dejó de apuntar a la Static Web App: ahora es un CNAME a
+`d36ks2lgjrbkjl.cloudfront.net` (distribución `E28OVC3F1WUQXZ`, origen `pulseapi.vinka.one`),
+que termina en esta EC2. El cambio de DNS lo hizo Diego junto con el ALB.
+
+El ambiente se pasó de `staging` a `produccion`:
+
+```bash
+AI_PULSE_MODO=produccion bash infra/aws/sync-env.sh
+# y luego, en la instancia: pm2 delete ai-pulse-api && pm2 start index.js --name ai-pulse-api
+```
+
+| | staging | **produccion** |
+|---|---|---|
+| Storage | `aipulsedataws` (aislado) | **`aipulsedata`** (real) |
+| Correos | apagados | **encendidos** |
+| `APP_BASE_URL` | la IP de la EC2 | **`https://aipulse.vinka.one`** |
+
+Verificado end-to-end: el dominio responde 200, `/api/health` da `bedrock` / `ok`, el SPA
+fallback funciona, y la instancia ve los 1820 participantes reales.
+
+### Dos cosas que conviene tener presentes
+
+1. **Azure y AWS comparten la base.** La Function App `ai-pulse-api` sigue `Running` y sus
+   funciones queue-triggered consumen las mismas colas que los pollers de esta EC2. Table
+   Storage entrega cada mensaje a un solo consumidor (visibility timeout), así que no hay
+   doble procesamiento, pero un informe lo puede generar cualquiera de los dos. Si se quiere
+   un dueño único, hay que apagar el worker de Azure.
+2. **El límite de 10 req/min de Bedrock ahora aplica a producción.** La llamada consolidada de
+   v6 lo hace viable (1 request por assessment, ~10 evaluaciones/minuto), pero subir esa cuota
+   dejó de ser opcional si el volumen crece. Ver §7.
