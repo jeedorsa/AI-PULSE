@@ -172,6 +172,8 @@ export default function AdminPage() {
   const [generatingCompanyReport, setGeneratingCompanyReport] = useState(false);
   const [reportProgressMsg, setReportProgressMsg] = useState('');
   const [companyProgressMsg, setCompanyProgressMsg] = useState('');
+  const [generatingPdfZip, setGeneratingPdfZip] = useState(false);
+  const [pdfZipProgressMsg, setPdfZipProgressMsg] = useState('');
 
   // ── Archivos de enriquecimiento ──
   type FileStatus = { exists: boolean; uploadedAt?: string; count?: number; users?: number; filename?: string; size?: number };
@@ -247,6 +249,12 @@ export default function AdminPage() {
     'Elaborando plan de acción 30/60/90 días...',
     'Preparando informe enterprise...',
     'Casi listo, guardando informe...',
+  ];
+
+  const PDF_ZIP_MSGS = [
+    'Generando el PDF de cada participante...',
+    'Empaquetando los PDFs en un .zip...',
+    'Casi listo...',
   ];
   const [filterEmpresa, setFilterEmpresa] = useState('');
   const [filterRubricVersion, setFilterRubricVersion] = useState<'' | 'v6' | 'v5' | 'legacy'>('');
@@ -478,6 +486,36 @@ export default function AdminPage() {
       setGeneratingCompanyReport(false);
       setCompanyProgressMsg('');
       alert(`Error generando el informe de empresa: ${err.message}`);
+    }
+  };
+
+  const generatePdfZip = async (empresa: string) => {
+    setGeneratingPdfZip(true);
+    const intervalId = startProgressMessages(setPdfZipProgressMsg, PDF_ZIP_MSGS, 3000);
+    try {
+      const res = await fetch('/api/report-generate-company-pdf', {
+        method: 'POST',
+        headers: adminHeaders(),
+        body: JSON.stringify({ empresa }),
+      });
+      if (res.status === 401) { handleUnauthorized(); return; }
+      if (!res.ok) {
+        const data = await safeJsonFetch(res);
+        throw new Error(data.error || `Error ${res.status}`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `reportes-pdf-${empresa.replace(/[^a-zA-Z0-9]/g, '_')}-${new Date().toISOString().slice(0, 10)}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(`Error generando los PDFs: ${err.message}`);
+    } finally {
+      clearInterval(intervalId);
+      setGeneratingPdfZip(false);
+      setPdfZipProgressMsg('');
     }
   };
 
@@ -1665,6 +1703,20 @@ export default function AdminPage() {
                           </button>
                           {generatingCompanyReport && companyProgressMsg && (
                             <p className="font-mono text-[8px] text-[#AAAAAA] tracking-wider animate-pulse">{companyProgressMsg}</p>
+                          )}
+                        </div>
+                      )}
+                      {filterEmpresa && filtered.length > 0 && (
+                        <div className="flex flex-col items-end gap-1">
+                          <button
+                            onClick={() => generatePdfZip(filterEmpresa)}
+                            disabled={generatingPdfZip}
+                            className="font-mono text-[9px] uppercase tracking-wider h-7 px-3 border border-[#111111] rounded-[2px] text-[#111111] hover:bg-[#111111] hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {generatingPdfZip ? '⏳ Generando PDFs...' : 'Extraer reportes PDF'}
+                          </button>
+                          {generatingPdfZip && pdfZipProgressMsg && (
+                            <p className="font-mono text-[8px] text-[#AAAAAA] tracking-wider animate-pulse">{pdfZipProgressMsg}</p>
                           )}
                         </div>
                       )}
