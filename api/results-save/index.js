@@ -4,6 +4,7 @@ const { EmailClient } = require("@azure/communication-email");
 const { v4: uuidv4 } = require("uuid");
 const { createTableClient } = require("../shared/tableClient");
 const { evaluateAssessment } = require("../shared/aiqEvaluatorV6");
+const { corsHeaders } = require("../shared/cors");
 
 // Esquema público exacto del resultado (ver plan): nombre/email/empresa/nivel/
 // puntaje/A/B/C/flags/recomendaciones_ids. rubricVersion/perQuestionLevels son
@@ -67,15 +68,11 @@ async function acquireEvalLock(resultsClient, partitionKey, token) {
 }
 
 module.exports = async function (context, req) {
+  const headers = corsHeaders(req, { methods: "POST, OPTIONS" });
+
   // Manejo de CORS
   if (req.method === "OPTIONS") {
-    context.res = {
-      status: 204,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS"
-      }
-    };
+    context.res = { status: 204, headers };
     return;
   }
 
@@ -95,7 +92,7 @@ module.exports = async function (context, req) {
     const rowKey = participant.email?.trim();
 
     if (!rowKey) {
-      return context.res = { status: 400, body: { error: "Falta el email del participante en el request" } };
+      return context.res = { status: 400, headers, body: { error: "Falta el email del participante en el request" } };
     }
 
     let pEntity;
@@ -103,10 +100,28 @@ module.exports = async function (context, req) {
       pEntity = await participantsClient.getEntity(partitionKey, rowKey);
     } catch (err) {
       if (err.statusCode === 404) {
-        return context.res = { status: 401, body: { error: "Participante no encontrado o token inválido" } };
+        return context.res = { status: 401, headers, body: { error: "Participante no encontrado o token inválido" } };
       }
       context.log.error("Error al obtener participante:", err.message);
       throw err;
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // VALIDACIÓN DE TOKEN: empresa+email no son secretos (visibles en
+    // invitaciones, directorios corporativos), así que localizar al
+    // participante por esos campos no basta como autenticación. El token
+    // de invitación (pEntity.token, UUID generado en participants-upload/
+    // domain-register) es la credencial real — sin este chequeo, cualquiera
+    // que conozca empresa+email puede enviar respuestas a nombre de otro
+    // participante y, al marcarlo "completed", bloquearlo de su propio
+    // assessment real (auth-verify rechaza con 409 si status=completed).
+    // ──────────────────────────────────────────────────────────────
+    if (!token || pEntity.token !== token) {
+      return context.res = { status: 401, headers, body: { error: "Participante no encontrado o token inválido" } };
+    }
+
+    if (pEntity.tokenExpiresAt && new Date(pEntity.tokenExpiresAt) < new Date()) {
+      return context.res = { status: 401, headers, body: { error: "Participante no encontrado o token inválido" } };
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -130,6 +145,7 @@ module.exports = async function (context, req) {
       if (existing.rubricVersion === "v6") {
         return context.res = {
           status: 200,
+          headers,
           body: { success: true, assessmentId: token, resultado: resultadoFromEntity(existing) }
         };
       }
@@ -170,6 +186,7 @@ module.exports = async function (context, req) {
           if (existing.rubricVersion === "v6") {
             return context.res = {
               status: 200,
+              headers,
               body: { success: true, assessmentId: token, resultado: resultadoFromEntity(existing) }
             };
           }
@@ -355,10 +372,10 @@ module.exports = async function (context, req) {
       context.log.warn("Queue enqueue failed (non-blocking):", qErr.message);
     }
 
-    context.res = { status: 200, body: { success: true, assessmentId: token, resultado: publicResultado(resultado) } };
+    context.res = { status: 200, headers, body: { success: true, assessmentId: token, resultado: publicResultado(resultado) } };
 
   } catch (err) {
     context.log.error("Error en persistencia vectorial:", err.message);
-    context.res = { status: 500, body: { error: err.message } };
+    context.res = { status: 500, headers, body: { error: err.message } };
   }
 };

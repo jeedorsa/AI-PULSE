@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const { corsHeaders } = require("./cors");
 
 const TOKEN_EXPIRY_HOURS = 24;
 
@@ -59,10 +60,7 @@ function requireAdmin(context, req) {
   if (!adminPassword) {
     context.res = {
       status: 500,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*"
-      },
+      headers: corsHeaders(req),
       body: JSON.stringify({ error: "ADMIN_PASSWORD no configurada en el servidor" }),
     };
     return false;
@@ -75,10 +73,7 @@ function requireAdmin(context, req) {
   if (!validateAdminToken(token, adminPassword)) {
     context.res = {
       status: 401,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-      },
+      headers: corsHeaders(req),
       body: JSON.stringify({ error: "No autorizado. Inicia sesion como administrador." }),
     };
     return false;

@@ -1,5 +1,6 @@
 const { BlobServiceClient } = require("@azure/storage-blob");
 const { requireAdmin } = require("../shared/adminAuth");
+const { corsHeaders } = require("../shared/cors");
 const XLSX = require("xlsx");
 
 const CONTAINER = "company-data";
@@ -80,12 +81,7 @@ function parseCopilot(workbook) {
 // ── Handler ─────────────────────────────────────────────────────────────────
 
 module.exports = async function (context, req) {
-  const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Admin-Token",
-    "Content-Type": "application/json",
-  };
+  const headers = corsHeaders(req, { methods: "POST, OPTIONS", extra: "X-Admin-Token" });
 
   if (req.method === "OPTIONS") {
     context.res = { status: 200, headers, body: "" };

@@ -1,4 +1,5 @@
 const { chatCompletion, proveedorActivo, modeloActivo } = require("../shared/llmClient");
+const { corsHeaders } = require("../shared/cors");
 
 module.exports = async function (context, req) {
   const endpoint   = process.env.AZURE_OPENAI_ENDPOINT   || "";
@@ -35,7 +36,7 @@ module.exports = async function (context, req) {
 
   context.res = {
     status: 200,
-    headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+    headers: corsHeaders(req, { methods: "GET, OPTIONS" }),
     body: JSON.stringify({
       status:           "Function OK",
       node_version:     process.version,

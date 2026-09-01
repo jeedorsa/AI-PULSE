@@ -1,5 +1,6 @@
 const { BlobServiceClient } = require("@azure/storage-blob");
 const { requireAdmin } = require("../shared/adminAuth");
+const { corsHeaders } = require("../shared/cors");
 
 const CONTAINER = "config";
 const BLOB_NAME = "questions.json";
@@ -39,12 +40,7 @@ async function writeConfig(payload) {
 }
 
 module.exports = async function (context, req) {
-  const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Admin-Token",
-    "Content-Type": "application/json",
-  };
+  const headers = corsHeaders(req, { methods: "GET, POST, OPTIONS", extra: "X-Admin-Token" });
 
   if (req.method === "OPTIONS") {
     context.res = { status: 200, headers, body: "" };

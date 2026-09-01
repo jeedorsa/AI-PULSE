@@ -1,12 +1,8 @@
 const { createTableClient } = require("../shared/tableClient");
+const { corsHeaders } = require("../shared/cors");
 
 module.exports = async function (context, req) {
-  const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Content-Type": "application/json"
-  };
+  const headers = corsHeaders(req, { methods: "GET, OPTIONS" });
   if (req.method === "OPTIONS") { context.res = { status: 200, headers, body: "" }; return; }
 
   const token = req.query.token;
