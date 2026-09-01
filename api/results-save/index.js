@@ -107,6 +107,24 @@ module.exports = async function (context, req) {
     }
 
     // ──────────────────────────────────────────────────────────────
+    // VALIDACIÓN DE TOKEN: empresa+email no son secretos (visibles en
+    // invitaciones, directorios corporativos), así que localizar al
+    // participante por esos campos no basta como autenticación. El token
+    // de invitación (pEntity.token, UUID generado en participants-upload/
+    // domain-register) es la credencial real — sin este chequeo, cualquiera
+    // que conozca empresa+email puede enviar respuestas a nombre de otro
+    // participante y, al marcarlo "completed", bloquearlo de su propio
+    // assessment real (auth-verify rechaza con 409 si status=completed).
+    // ──────────────────────────────────────────────────────────────
+    if (!token || pEntity.token !== token) {
+      return context.res = { status: 401, headers, body: { error: "Participante no encontrado o token inválido" } };
+    }
+
+    if (pEntity.tokenExpiresAt && new Date(pEntity.tokenExpiresAt) < new Date()) {
+      return context.res = { status: 401, headers, body: { error: "Participante no encontrado o token inválido" } };
+    }
+
+    // ──────────────────────────────────────────────────────────────
     // IDEMPOTENCIA + LOCK: si este token ya fue evaluado bajo la rúbrica v6,
     // no se vuelve a evaluar (el LLM no es determinista entre corridas) —
     // se devuelve el resultado ya persistido, sin repetir efectos
