@@ -18,3 +18,8 @@ package-lock.json
 
 # Respaldos de migración de datos (contienen datos personales)
 backup-*.json
+
+# PIDs y logs del entorno local (scripts/dev-up.sh / dev-down.sh)
+.dev-pids/
+.dev-logs/
+scripts/

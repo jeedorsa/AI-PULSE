@@ -1,6 +1,7 @@
 const { createTableClient } = require("../shared/tableClient");
 const { BlobServiceClient } = require("@azure/storage-blob");
 const { requireAdmin } = require("../shared/adminAuth");
+const { corsHeaders } = require("../shared/cors");
 const fs = require("fs");
 const path = require("path");
 
@@ -175,11 +176,7 @@ function injectData(html, tipo, data) {
 // ── Handler principal ───────────────────────────────────────────────────────
 
 module.exports = async function (context, req) {
-  const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Admin-Token",
-  };
+  const headers = corsHeaders(req, { methods: "GET, OPTIONS", extra: "X-Admin-Token" });
 
   if (req.method === "OPTIONS") {
     context.res = { status: 200, headers: { ...headers, "Content-Type": "text/plain" }, body: "" };

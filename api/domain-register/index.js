@@ -1,6 +1,7 @@
 const { createTableClient } = require("../shared/tableClient");
 const { isCompanyEnabled } = require("../shared/companyAccess");
 const { v4: uuidv4 } = require("uuid");
+const { corsHeaders } = require("../shared/cors");
 
 /**
  * POST /api/domain-register
@@ -13,12 +14,7 @@ const { v4: uuidv4 } = require("uuid");
  *   4. Nunca permite repetir: status=completed bloquea permanentemente
  */
 module.exports = async function (context, req) {
-  const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Content-Type": "application/json"
-  };
+  const headers = corsHeaders(req, { methods: "POST, OPTIONS" });
 
   if (req.method === "OPTIONS") {
     context.res = { status: 204, headers, body: "" };

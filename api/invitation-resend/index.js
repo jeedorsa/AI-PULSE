@@ -1,14 +1,10 @@
 const { createTableClient } = require("../shared/tableClient");
 const { EmailClient } = require("@azure/communication-email");
 const { requireAdmin } = require("../shared/adminAuth");
+const { corsHeaders } = require("../shared/cors");
 
 module.exports = async function (context, req) {
-  const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Admin-Token",
-    "Content-Type": "application/json"
-  };
+  const headers = corsHeaders(req, { methods: "POST, OPTIONS", extra: "X-Admin-Token" });
   if (req.method === "OPTIONS") { context.res = { status: 200, headers, body: "" }; return; }
   if (!requireAdmin(context, req)) return;
 
