@@ -11,6 +11,7 @@ worker/local.settings.json
 api/local.settings.json.*
 worker/local.settings.json.*
 api/.azurite/
+azurite_emulator/
 worker/.azurite/
 old_backup/
 CLAUDE.md
